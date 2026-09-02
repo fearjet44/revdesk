@@ -9,6 +9,18 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import {
+  GitAdapterError,
+  fullTagName,
+  gitStatus,
+  loadGitConfig,
+  preflightLaunch,
+  snapshotLaunch,
+  startChangeBranch,
+  tagOk,
+  trTagName,
+} from './git.ts'
+import type { GitStatusInfo } from './git.ts'
 import type {
   ChangeAction,
   ChangePreview,
@@ -335,6 +347,11 @@ export class Repo {
       ],
     }
     this.writeChange(change)
+    try {
+      startChangeBranch(this.root, id, this.lastIssuedGitRef(manual))
+    } catch (error) {
+      throwGit(error)
+    }
     return this.readChange(id)
   }
 
@@ -496,6 +513,7 @@ export class Repo {
 
     const src = path.resolve(input.file)
     if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
+    assertInstrumentFile(src)
 
     const bytes = readFileSync(src)
     const sha256 = sha256Hex(bytes)
@@ -612,6 +630,13 @@ export class Repo {
     const issueId = `${manual.abbrev}-R${revNum}`
     const revLabel = `R${revNum}`
     const supersedes = change.supersedes ?? manual.current_issued
+    const cfg = loadGitConfig(this.root)
+    const gitTag = fullTagName(cfg, { abbrev: manual.abbrev, revision: String(revNum) })
+    try {
+      preflightLaunch(this.root, gitTag)
+    } catch (error) {
+      throwGit(error)
+    }
 
     const issuedSections = this.applyTouchedSections(change, revLabel)
 
@@ -652,14 +677,15 @@ export class Repo {
         file: artifactRel,
         sha256: PLACEHOLDER_ARTIFACT_SHA,
       },
-      git_tag: issueId,
+      git_tag: gitTag,
+      source_commit: null,
+      git_skipped: false,
       incorporated_trs: toIncorporate.map((tr) => tr.id),
       launched_at: nowIso(),
       summary: change.title,
       sections: issuedSections,
     }
-    mkdirSync(this.abs('control', 'issues'), { recursive: true })
-    writeFileSync(this.abs('control', 'issues', `${issueId}.yaml`), dumpYaml(issueOnDisk(issue)))
+    this.writeIssue(issue)
 
     this.writeManual({
       ...manual,
@@ -678,6 +704,20 @@ export class Repo {
       note: `Full launch ${issueId} effective ${effectiveDate}`,
     })
     this.writeChange(change)
+
+    try {
+      snapshotLaunch(this.root, {
+        tag: gitTag,
+        message: `Launch ${issueId}`,
+        persistSourceCommit: (sha, skipped) => {
+          issue.source_commit = sha
+          issue.git_skipped = skipped
+          this.writeIssue(issue)
+        },
+      })
+    } catch (error) {
+      throwGit(error)
+    }
 
     return this.readIssue(issueId)
   }
@@ -738,10 +778,32 @@ export class Repo {
 
     const src = path.resolve(input.file)
     if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
+    assertInstrumentFile(src)
+
+    let expires: string | null = null
+    if (input.expires?.trim()) {
+      expires = input.expires.trim()
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) {
+        throw new RepoError(2, `Expires must be YYYY-MM-DD (got ${expires}).`)
+      }
+    }
+
     const bytes = readFileSync(src)
     const sha256 = sha256Hex(bytes)
     const seq = this.nextTrSeq(parent.id)
     const trId = `${parent.id}-TR${seq}`
+    const cfg = loadGitConfig(this.root)
+    const gitTag = trTagName(cfg, {
+      abbrev: manual.abbrev,
+      parent_revision: String(parent.revision),
+      seq: String(seq),
+    })
+    try {
+      preflightLaunch(this.root, gitTag)
+    } catch (error) {
+      throwGit(error)
+    }
+
     const ext = path.extname(src) || '.bin'
     const destRel = `control/instruments/${trId}-${authority}${ext}`
     mkdirSync(this.abs('control', 'instruments'), { recursive: true })
@@ -759,14 +821,6 @@ export class Repo {
     const parentRevLabel = `R${parent.revision}`
     const sections = this.applyTouchedSections(change, parentRevLabel)
 
-    let expires: string | null = null
-    if (input.expires?.trim()) {
-      expires = input.expires.trim()
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) {
-        throw new RepoError(2, `Expires must be YYYY-MM-DD (got ${expires}).`)
-      }
-    }
-
     const tr: TrRecord = {
       id: trId,
       kind: 'temporary-revision',
@@ -779,11 +833,13 @@ export class Repo {
       instrument,
       expires,
       incorporated_by: null,
+      git_tag: gitTag ?? '',
+      source_commit: null,
+      git_skipped: false,
       launched_at: nowIso(),
       summary: change.title,
       sections,
     }
-    mkdirSync(this.abs('control', 'trs'), { recursive: true })
     this.writeTr(tr)
 
     change.status = 'launched'
@@ -796,6 +852,21 @@ export class Repo {
       note: `Temporary revision ${trId} against ${parent.id}`,
     })
     this.writeChange(change)
+
+    try {
+      snapshotLaunch(this.root, {
+        tag: gitTag,
+        message: `Launch ${trId}`,
+        persistSourceCommit: (sha, skipped) => {
+          tr.source_commit = sha
+          tr.git_skipped = skipped
+          this.writeTr(tr)
+        },
+      })
+    } catch (error) {
+      throwGit(error)
+    }
+
     return this.readTr(trId)
   }
 
@@ -817,6 +888,9 @@ export class Repo {
       ...raw,
       expires: raw.expires ?? null,
       incorporated_by: raw.incorporated_by ?? null,
+      git_tag: raw.git_tag ?? '',
+      source_commit: raw.source_commit ?? null,
+      git_skipped: raw.git_skipped,
       sections: raw.sections ?? [],
     }
   }
@@ -833,6 +907,15 @@ export class Repo {
           .filter((tr) => tr.state === 'launched' && tr.parent === manual.current_issued)
           .map((tr) => tr.id)
       : []
+    let tag: string | null = null
+    let source_commit: string | null = null
+    let tag_ok_flag = false
+    if (manual.current_issued) {
+      const issue = this.readIssue(manual.current_issued)
+      tag = issue.git_tag || null
+      source_commit = issue.source_commit ?? null
+      tag_ok_flag = tagOk(this.root, tag, source_commit)
+    }
     return {
       manual: manual.id,
       abbrev: manual.abbrev,
@@ -842,6 +925,9 @@ export class Repo {
       next_full: manual.next_revision,
       next_full_launched: false,
       control_class: manual.control_class,
+      tag,
+      source_commit,
+      tag_ok: tag_ok_flag,
     }
   }
 
@@ -908,7 +994,9 @@ export class Repo {
           file: String(raw.sha256 ? `artifacts/${raw.id}.pdf` : `artifacts/${raw.id}.pdf`),
           sha256: String(raw.sha256 ?? PLACEHOLDER_ARTIFACT_SHA),
         },
-        git_tag: String(raw.id),
+        git_tag: String(raw.git_tag ?? issuedTagGuess(manual.abbrev, revision)),
+        source_commit: raw.source_commit == null ? null : String(raw.source_commit),
+        git_skipped: Boolean(raw.git_skipped),
         incorporated_trs: [],
         launched_at: String(raw.issued ?? raw.effective),
         summary: String(raw.summary ?? ''),
@@ -916,24 +1004,54 @@ export class Repo {
       }
     }
 
+    const revision = Number(raw.revision)
+    const abbrev = this.readManual(String(raw.manual)).abbrev
+    const storedTag = raw.git_tag == null ? '' : String(raw.git_tag)
+    const git_tag =
+      storedTag && storedTag !== String(raw.id)
+        ? storedTag
+        : issuedTagGuess(abbrev, revision)
     return {
       id: String(raw.id),
       kind: 'full',
       state: 'launched',
       manual: String(raw.manual),
-      revision: Number(raw.revision),
+      revision,
       control_class: raw.control_class as ControlClass,
       supersedes: raw.supersedes == null ? null : String(raw.supersedes),
       change: String(raw.change),
       effective: String(raw.effective),
       instrument: raw.instrument as InstrumentRecord,
       manual_artifact: raw.manual_artifact as IssueRecord['manual_artifact'],
-      git_tag: String(raw.git_tag),
+      git_tag,
+      source_commit: raw.source_commit == null ? null : String(raw.source_commit),
+      git_skipped: raw.git_skipped == null ? undefined : Boolean(raw.git_skipped),
       incorporated_trs: (raw.incorporated_trs as string[]) ?? [],
       launched_at: String(raw.launched_at),
       summary: String(raw.summary ?? ''),
       sections: (raw.sections as IssueSection[]) ?? [],
     }
+  }
+
+  writeIssue(issue: IssueRecord): void {
+    mkdirSync(this.abs('control', 'issues'), { recursive: true })
+    writeFileSync(this.abs('control', 'issues', `${issue.id}.yaml`), dumpYaml(issueOnDisk(issue)))
+  }
+
+  gitStatus(): GitStatusInfo {
+    return gitStatus(this.root)
+  }
+
+  private lastIssuedGitRef(manual: ManualRecord): string | null {
+    if (!manual.current_issued) return null
+    const trs = this.listTrs({ manual: manual.id })
+      .filter(
+        (tr) => tr.state === 'launched' && tr.parent === manual.current_issued && tr.git_tag,
+      )
+      .sort((a, b) => b.seq - a.seq)
+    if (trs[0]?.git_tag) return trs[0].git_tag
+    const issue = this.readIssue(manual.current_issued)
+    return issue.git_tag || null
   }
 
   private applyTouchedSections(change: ChangeRecord, revLabel: string): IssueSection[] {
@@ -1041,10 +1159,33 @@ function issueOnDisk(issue: IssueRecord): Record<string, unknown> {
     instrument: issue.instrument,
     manual_artifact: issue.manual_artifact,
     git_tag: issue.git_tag,
+    source_commit: issue.source_commit ?? null,
+    git_skipped: issue.git_skipped ?? false,
     incorporated_trs: issue.incorporated_trs,
     launched_at: issue.launched_at,
     summary: issue.summary,
     sections: issue.sections,
+  }
+}
+
+function throwGit(error: unknown): never {
+  if (error instanceof GitAdapterError) throw new RepoError(error.status, error.message)
+  throw error
+}
+
+function issuedTagGuess(abbrev: string, revision: number): string {
+  return `issued/${abbrev}/${revision}`
+}
+
+const INSTRUMENT_EXTS = new Set(['.eml', '.txt', '.pdf'])
+
+function assertInstrumentFile(src: string): void {
+  const ext = path.extname(src).toLowerCase()
+  if (!INSTRUMENT_EXTS.has(ext)) {
+    throw new RepoError(
+      2,
+      `Instrument file must be .eml, .txt, or .pdf (got ${ext || 'no extension'}).`,
+    )
   }
 }
 

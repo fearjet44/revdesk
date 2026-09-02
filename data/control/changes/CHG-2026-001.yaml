@@ -1,0 +1,25 @@
+id: CHG-2026-001
+manual: gom
+status: draft
+title: Foo
+reason: Bar
+created: 2026-09-02
+author: Chief Pilot
+target_revision: null
+supersedes: null
+instrument: null
+launch_kind: null
+launch_id: null
+touched:
+  - id: gom-ident
+    source: manuals/gom/sections/000-identification.md
+    working: control/working/CHG-2026-001/000-identification.md
+    action: amend
+  - id: gom-a
+    source: manuals/gom/sections/100-section-a-management.md
+    working: control/working/CHG-2026-001/100-section-a-management.md
+    action: amend
+history:
+  - at: 2026-09-02T22:07:40.620Z
+    action: created
+    note: Opened against Identification, Section A — Management and Key Personnel

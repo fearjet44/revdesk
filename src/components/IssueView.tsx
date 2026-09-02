@@ -55,7 +55,6 @@ export function IssueView() {
         <div style={{ padding: 14 }}>
           <div className="meta">{issue.manual_artifact.file}</div>
           <div className="hash">{issue.manual_artifact.sha256}</div>
-          <p className="meta">git_tag {issue.git_tag} (stub this slice)</p>
           {issue.incorporated_trs.length ? (
             <p className="meta">Incorporated TRs: {issue.incorporated_trs.join(', ')}</p>
           ) : null}

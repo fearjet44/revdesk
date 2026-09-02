@@ -17,7 +17,7 @@ export function DeskHome({ desk }: { desk: DeskPayload | null }) {
           <h1>Launched books on the board</h1>
           <p className="lede">
             Open a change, review, attach an instrument, then launch. Without a letter, issue a
-            temporary revision against the last launched full rev. A Git tag is not a launch.
+            temporary revision against the last launched full rev.
           </p>
         </div>
         {issued ? (

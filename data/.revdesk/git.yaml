@@ -1,0 +1,21 @@
+enabled: true
+
+change_branch: "change/{change_id}"
+
+# Git tag for a full launch. Tokens: abbrev, revision
+full_tag: "issued/{abbrev}/{revision}"
+
+# Git tag for a TR. Empty string = do not tag TRs (YAML only).
+# Git cannot store both issued/GOM/13 and issued/GOM/13/TR/1 (a tag
+# cannot be a file and a directory). The hyphen form is the same path
+# with a legal ref: issued/GOM/13-TR/1. Paste another grammar here if needed.
+tr_tag: "issued/{abbrev}/{parent_revision}-TR/{seq}"
+
+annotated: true
+update_ref_on_full_issue: ""    # tags only; do not move main
+push_on_launch: false           # no GitHub API; optional git push later
+author_name: "Revdesk"
+author_email: "revdesk@local"
+
+# Display / YAML issue id (not the git ref)
+issue_id: "{abbrev}-{revision}"

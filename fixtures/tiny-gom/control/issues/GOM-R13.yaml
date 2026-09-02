@@ -17,7 +17,9 @@ instrument:
 manual_artifact:
   file: artifacts/GOM-R13.pdf
   sha256: 0000000000000000000000000000000000000000000000000000000000000000
-git_tag: GOM-R13
+git_tag: issued/GOM/13
+source_commit: null
+git_skipped: true
 incorporated_trs: []
 launched_at: 2025-12-31T00:00:00.000Z
 summary: Baseline launched revision for tiny-gom fixture.

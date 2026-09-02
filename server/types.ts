@@ -129,7 +129,10 @@ export type IssueRecord = {
   effective: string
   instrument: InstrumentRecord
   manual_artifact: ManualArtifact
+  /** Actual git ref, e.g. issued/GOM/14 — not the YAML issue id. */
   git_tag: string
+  source_commit: string | null
+  git_skipped?: boolean
   incorporated_trs: string[]
   launched_at: string
   summary: string
@@ -156,6 +159,10 @@ export type TrRecord = {
   instrument: InstrumentRecord
   expires: string | null
   incorporated_by: string | null
+  /** Actual git ref, e.g. issued/GOM/13-TR/1; empty if tr_tag is disabled. */
+  git_tag: string
+  source_commit: string | null
+  git_skipped?: boolean
   launched_at: string
   summary: string
   sections: IssueSection[]
@@ -199,4 +206,8 @@ export type LaunchedStatus = {
   next_full: number
   next_full_launched: false
   control_class: ControlClass
+  tag: string | null
+  source_commit: string | null
+  /** False if the record names a tag that is missing or points at a different commit. */
+  tag_ok: boolean
 }

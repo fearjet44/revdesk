@@ -116,6 +116,8 @@ export type IssueRecord = {
   instrument: InstrumentRecord
   manual_artifact: { file: string; sha256: string }
   git_tag: string
+  source_commit: string | null
+  git_skipped?: boolean
   incorporated_trs: string[]
   launched_at: string
   summary: string
@@ -134,6 +136,9 @@ export type TrRecord = {
   instrument: InstrumentRecord
   expires: string | null
   incorporated_by: string | null
+  git_tag: string
+  source_commit: string | null
+  git_skipped?: boolean
   launched_at: string
   summary: string
   sections: IssueSection[]
@@ -148,6 +153,9 @@ export type LaunchedStatus = {
   next_full: number
   next_full_launched: false
   control_class: ControlClass
+  tag: string | null
+  source_commit: string | null
+  tag_ok: boolean
 }
 
 export type DeskPayload = {

@@ -39,6 +39,17 @@ async function main(argv: string[]): Promise<number> {
       return emit(json, repo.launched(id), formatLaunched)
     }
 
+    if (cmd === 'git' && sub === 'status') {
+      return emit(json, repo.gitStatus(), formatGitStatus)
+    }
+
+    if (cmd === 'git') {
+      throw new RepoError(
+        2,
+        'The only git command is `revdesk git status`. Tags are cut by `issue` / `tr issue` only.',
+      )
+    }
+
     if (cmd === 'manual' && sub === 'list') {
       return emit(json, repo.listManuals(), (rows) =>
         table(
@@ -394,7 +405,8 @@ function formatIssue(issue: IssueRecord): string {
     `instrument ${issue.instrument.type}  ${issue.instrument.authority}  ${issue.instrument.file}`,
     `  sha256 ${issue.instrument.sha256}`,
     `artifact ${issue.manual_artifact.file}  sha256 ${issue.manual_artifact.sha256}`,
-    `git_tag ${issue.git_tag}  launched_at ${issue.launched_at}`,
+    `git_tag ${issue.git_tag}  source_commit ${issue.source_commit ?? 'null'}${issue.git_skipped ? '  git_skipped' : ''}`,
+    `launched_at ${issue.launched_at}`,
   ]
   if (issue.incorporated_trs.length) {
     lines.push(`incorporated_trs ${issue.incorporated_trs.join(', ')}`)
@@ -415,8 +427,26 @@ function formatTr(tr: TrRecord): string {
     `incorporated_by ${tr.incorporated_by ?? 'null'}`,
     `instrument ${tr.instrument.type}  ${tr.instrument.file}`,
     `  sha256 ${tr.instrument.sha256}`,
+    `git_tag ${tr.git_tag || '(none)'}  source_commit ${tr.source_commit ?? 'null'}${tr.git_skipped ? '  git_skipped' : ''}`,
     `launched_at ${tr.launched_at}`,
   ].join('\n')
+}
+
+function formatGitStatus(data: ReturnType<Repo['gitStatus']>): string {
+  const lines = [
+    `enabled:    ${data.enabled}`,
+    `root:       ${data.root ?? '(none)'}`,
+    `data:       ${data.data_root}`,
+    `config:     ${data.config_path ?? '(none)'}`,
+  ]
+  lines.push('', 'DIRTY')
+  if (!data.dirty.length) lines.push('  (clean)')
+  for (const p of data.dirty) lines.push(`  ${p}`)
+  if (data.disallowed.length) {
+    lines.push('', 'DISALLOWED')
+    for (const p of data.disallowed) lines.push(`  ${p}`)
+  }
+  return lines.join('\n')
 }
 
 function emit<T>(json: boolean, data: T, format: (data: T) => string): number {
@@ -492,6 +522,8 @@ Usage:
   revdesk tr issue <CHG> --parent <GOM-Rn> --authority <who> --file <letter> [--expires YYYY-MM-DD]
   revdesk tr list [--manual gom]
   revdesk tr show <GOM-Rn-TRk>
+
+  revdesk git status
 
 Exit: 0 ok · 2 validation · 3 not found · 4 not allowed · 5 pipeline
 Data root: ${DATA}  (override with REVDESK_DATA)

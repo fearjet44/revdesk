@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "revdesk": "node --experimental-strip-types cli/revdesk.ts",
     "test:md": "node --experimental-strip-types scripts/roundtrip.ts",
-    "test:slice2": "bash scripts/slice2-acceptance.sh"
+    "test:slice2": "bash scripts/slice2-acceptance.sh",
+    "test:slice3": "bash scripts/slice3-acceptance.sh"
   },
   "dependencies": {
     "@tiptap/core": "^3.31.0",
