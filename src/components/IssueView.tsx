@@ -24,25 +24,41 @@ export function IssueView() {
     <>
       <div className="page-head">
         <div>
-          <p className="kicker">ISSUED REVISION</p>
+          <p className="kicker">LAUNCHED FULL REVISION</p>
           <h1>{issue.id}</h1>
           <p className="lede">{issue.summary}</p>
         </div>
         <div className="stamp-block">
-          <strong>{issue.revision}</strong>
-          Issued {formatDate(issue.issued)}
+          <strong>{issue.state.toUpperCase()}</strong>
+          R{issue.revision} · {issue.control_class}
           <br />
           Effective {formatDate(issue.effective)}
           <br />
-          {issue.change ? `From ${issue.change}` : 'Baseline'}
+          From {issue.change}
         </div>
       </div>
 
       <section className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-hd">SHA-256</div>
+        <div className="panel-hd">INSTRUMENT</div>
         <div style={{ padding: 14 }}>
-          <div className="hash">{issue.sha256}</div>
-          <p className="meta">Placeholder until the issued PDF is produced and hashed.</p>
+          <div className="meta">
+            {issue.instrument.type} · {issue.instrument.authority} · dated{' '}
+            {formatDate(issue.instrument.dated)}
+          </div>
+          <div className="hash">{issue.instrument.sha256}</div>
+          <p className="meta">{issue.instrument.file}</p>
+        </div>
+      </section>
+
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel-hd">MANUAL ARTIFACT</div>
+        <div style={{ padding: 14 }}>
+          <div className="meta">{issue.manual_artifact.file}</div>
+          <div className="hash">{issue.manual_artifact.sha256}</div>
+          <p className="meta">git_tag {issue.git_tag} (stub this slice)</p>
+          {issue.incorporated_trs.length ? (
+            <p className="meta">Incorporated TRs: {issue.incorporated_trs.join(', ')}</p>
+          ) : null}
         </div>
       </section>
 

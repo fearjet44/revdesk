@@ -1,0 +1,29 @@
+id: CHG-014
+manual: gom
+status: approved
+title: Clarify operational-control wording
+reason:
+  type: opspec
+  ref: A012
+created: 2026-08-01
+author: Chief Pilot
+target_revision: null
+supersedes: null
+instrument: null
+launch_kind: null
+launch_id: null
+touched:
+  - id: gom.2.4.3
+    source: manuals/gom/sections/243-operational-control.md
+    working: control/working/CHG-014/243-operational-control.md
+    action: amend
+history:
+  - at: 2026-08-01T12:00:00.000Z
+    action: created
+    note: Opened against 2.4.3 Operational Control
+  - at: 2026-08-02T12:00:00.000Z
+    action: review
+    note: submitted for review by Chief Pilot
+  - at: 2026-08-03T12:00:00.000Z
+    action: approved
+    note: approved by Chief Pilot

@@ -27,7 +27,9 @@ export default function App() {
     void refresh()
   }, [location.pathname])
 
-  const openChanges = (desk?.changes ?? []).filter((change) => change.status !== 'issued')
+  const openChanges = (desk?.changes ?? []).filter(
+    (change) => change.status !== 'launched' && change.status !== 'withdrawn',
+  )
 
   return (
     <div className="desk">
@@ -48,7 +50,7 @@ export default function App() {
             <NavLink key={manual.id} to={`/manuals/${manual.id}`} className={({ isActive }) => `rail-item ${isActive ? 'active' : ''}`}>
               <span className="id">{manual.abbrev}</span>
               <span className="name">{manual.title}</span>
-              <span className="rev">{manual.current_issued}</span>
+              <span className="rev">{manual.current_issued ?? `R${manual.next_revision}?`}</span>
             </NavLink>
           ))}
         </nav>

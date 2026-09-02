@@ -1,40 +1,69 @@
 # REVDESK — Controlled Manual Desk
 
-Local editor for controlled manuals. The UI never mentions Git. Persistence is Markdown with YAML frontmatter plus a change YAML in `data/`.
+Local editor for controlled manuals. The UI never mentions Git. Persistence is Markdown with YAML frontmatter plus control YAML under `data/`.
 
-## Run
+## Run (UI)
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+## CLI
 
-## v0
+Same binary for Slice 1 + Slice 2. No server required. Override the library with `REVDESK_DATA`.
 
-- List manuals and the current issued revision from `manual.yaml`
-- Open a change → `control/changes/CHG-YYYY-NNN.yaml` and a working copy of each touched section
-- Edit a section in TipTap (heading, paragraph, note, caution, warning, steps, table)
-- Write Markdown with frontmatter `id`, `title`, `rev_last_changed`
-- Submit for review → approve → issue
-- On issue: bump touched sections, write `control/issues/GOM-Rxx.yaml` with a placeholder SHA-256
+```sh
+./bin/revdesk status
+./bin/revdesk launched gom
+npm run test:slice2   # Slice 2 acceptance path
+```
 
-No auth, no multiplayer, no AI.
+### Launch model
 
-## Sample library
+- A **full revision** exists only after `issue` with a **stored instrument** (letter + sha256).
+- Operating sooner → `tr issue` against the last launched full rev (`GOM-R13-TR1`).
+- After full or TR launch, `change withdraw` exits 2.
+- Revision numbers are assigned only at full launch (`manual.next_revision`).
 
-The `data/` tree is the repo:
+```text
+draft → review → approved → ready-to-launch → launched
+                              ↘ edit
+```
+
+### Commands
+
+```text
+revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
+revdesk instrument show   <CHG>
+
+revdesk issue <CHG> --effective YYYY-MM-DD
+revdesk issue show <GOM-R14>
+
+revdesk tr issue <CHG> --parent <GOM-R13> --authority <who> --file <letter> [--expires YYYY-MM-DD]
+revdesk tr list [--manual gom]
+revdesk tr show <GOM-R13-TR1>
+
+revdesk launched <manual>
+revdesk change withdraw <CHG>
+revdesk change start --manual gom --supersedes GOM-R14 --reason-type regulator
+revdesk change return-to-edit <CHG>
+```
+
+Exit codes: `0` ok · `2` validation · `3` not found · `4` not allowed · `5` pipeline.
+
+## Layout
 
 ```
 data/
-  manuals/gom/
-    manual.yaml                 # current issued revision
-    sections/*.md               # issued text
-  control/
-    changes/CHG-YYYY-NNN.yaml   # change packet
-    working/CHG-YYYY-NNN/*.md   # editable copies
-    issues/GOM-Rxx.yaml         # issued revision record
+  manuals/<id>/manual.yaml
+  manuals/<id>/sections/*.md
+  control/changes/CHG-*.yaml
+  control/working/CHG-*/…
+  control/instruments/…
+  control/issues/<MANUAL>-R<n>.yaml
+  control/trs/<MANUAL>-R<n>-TR<k>.yaml
+  artifacts/…                  # placeholder PDF this slice
 ```
 
-Shipped sample: GOM with four sections, issued **R13**, and draft change **CHG-2026-001** against Section A.
+Fixture for acceptance: `fixtures/tiny-gom`.

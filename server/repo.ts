@@ -1,29 +1,60 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import type {
   ChangeAction,
+  ChangePreview,
+  ChangeReasonMeta,
   ChangeRecord,
   ChangeStatus,
+  ControlClass,
   DeskPayload,
   Frontmatter,
+  InstrumentAuthority,
+  InstrumentRecord,
+  InstrumentType,
   IssueRecord,
+  IssueSection,
+  LaunchedStatus,
   ManualDetail,
   ManualRecord,
   SectionFile,
   SectionSummary,
+  TouchAction,
   TouchedSection,
+  TrRecord,
 } from './types.ts'
 
-const PLACEHOLDER_SHA256 = '0000000000000000000000000000000000000000000000000000000000000000'
 const AUTHOR = 'Chief Pilot'
+const PLACEHOLDER_ARTIFACT_SHA =
+  '0000000000000000000000000000000000000000000000000000000000000000'
 
-const TRANSITIONS: Record<ChangeAction, { from: ChangeStatus; to: ChangeStatus; verb: string }> = {
-  submit: { from: 'draft', to: 'in_review', verb: 'submitted for review' },
-  approve: { from: 'in_review', to: 'approved', verb: 'approved' },
-  issue: { from: 'approved', to: 'issued', verb: 'issued' },
-}
+const TOUCH_ACTIONS = new Set<TouchAction>(['amend', 'add', 'delete'])
+const CONTROL_CLASSES = new Set<ControlClass>([
+  'faa-approved',
+  'faa-accepted',
+  'third-party',
+  'internal',
+])
+const TR_AUTHORITIES = new Set(['chief-pilot', 'ae', 'ceo', 'do'])
 
+const OPEN_STATUSES = new Set<ChangeStatus>([
+  'draft',
+  'review',
+  'approved',
+  'ready-to-launch',
+  'edit',
+])
+
+/** Exit codes per Slice 2: 2 validation, 3 not found, 4 not allowed, 5 pipeline */
 export class RepoError extends Error {
   status: number
   constructor(status: number, message: string) {
@@ -42,15 +73,12 @@ export class Repo {
     return path.join(this.root, ...parts)
   }
 
-  rel(absPath: string): string {
-    return path.relative(this.root, absPath).split(path.sep).join('/')
-  }
-
   desk(): DeskPayload {
     return {
       manuals: this.listManuals(),
       changes: this.listChanges(),
       issues: this.listIssues(),
+      trs: this.listTrs(),
     }
   }
 
@@ -65,21 +93,48 @@ export class Repo {
 
   readManual(id: string): ManualRecord {
     const file = this.abs('manuals', id, 'manual.yaml')
-    if (!existsSync(file)) throw new RepoError(404, `Manual ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as ManualRecord
+    if (!existsSync(file)) throw new RepoError(3, `Manual ${id} not found.`)
+    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const control_class = normalizeControlClass(raw)
+    const abbrev = String(raw.abbrev ?? id.toUpperCase())
+    const current = normalizeCurrentIssued(raw.current_issued, abbrev)
+    const next =
+      typeof raw.next_revision === 'number'
+        ? raw.next_revision
+        : current
+          ? parseIssueRevision(current) + 1
+          : 1
     return {
-      id: raw.id,
-      title: raw.title,
-      abbrev: raw.abbrev,
-      control: raw.control,
-      owner: raw.owner,
-      current_issued: raw.current_issued,
-      effective: String(raw.effective),
+      id: String(raw.id ?? id),
+      title: String(raw.title ?? id),
+      abbrev,
+      control_class,
+      control: controlClassLabel(control_class),
+      owner: String(raw.owner ?? 'Chief Pilot'),
+      authority: String(raw.authority ?? defaultAuthority(control_class)),
+      instrument_required: raw.instrument_required !== false,
+      current_issued: current,
+      next_revision: next,
+      effective: raw.effective == null ? null : String(raw.effective),
     }
   }
 
   writeManual(manual: ManualRecord): void {
-    writeFileSync(this.abs('manuals', manual.id, 'manual.yaml'), dumpYaml(manual))
+    writeFileSync(
+      this.abs('manuals', manual.id, 'manual.yaml'),
+      dumpYaml({
+        id: manual.id,
+        title: manual.title,
+        abbrev: manual.abbrev,
+        control_class: manual.control_class,
+        owner: manual.owner,
+        authority: manual.authority,
+        instrument_required: manual.instrument_required,
+        current_issued: manual.current_issued,
+        next_revision: manual.next_revision,
+        effective: manual.effective,
+      }),
+    )
   }
 
   getManual(id: string): ManualDetail {
@@ -108,9 +163,15 @@ export class Repo {
       })
   }
 
+  findSection(manualId: string, sectionId: string): SectionSummary {
+    const section = this.listSections(manualId).find((item) => item.id === sectionId)
+    if (!section) throw new RepoError(3, `Section ${sectionId} is not in ${manualId}.`)
+    return section
+  }
+
   readSection(relPath: string): SectionFile {
     const abs = this.abs(relPath)
-    if (!existsSync(abs)) throw new RepoError(404, `Section ${relPath} not found.`)
+    if (!existsSync(abs)) throw new RepoError(3, `Section ${relPath} not found.`)
     const markdown = readFileSync(abs, 'utf8')
     const { meta, body } = splitFrontmatter(markdown)
     return { path: relPath, meta, markdown, body }
@@ -129,70 +190,110 @@ export class Repo {
     const dir = this.abs('control', 'changes')
     if (!existsSync(dir)) return []
     return readdirSync(dir)
-      .filter((name) => /^CHG-\d{4}-\d{3}\.yaml$/.test(name))
+      .filter((name) => /^CHG-.+\.yaml$/.test(name) && !name.startsWith('.'))
       .map((name) => this.readChange(name.replace(/\.yaml$/, '')))
       .sort((a, b) => b.id.localeCompare(a.id))
   }
 
   readChange(id: string): ChangeRecord {
     const file = this.abs('control', 'changes', `${id}.yaml`)
-    if (!existsSync(file)) throw new RepoError(404, `Change ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as ChangeRecord
-    const touched = (raw.touched ?? []).map((item) => {
-      const working = this.readFrontmatter(this.abs(item.working))
+    if (!existsSync(file)) throw new RepoError(3, `Change ${id} not found.`)
+    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const { reason, reason_meta } = normalizeReason(raw.reason as string | ChangeReasonMeta)
+    const touched = ((raw.touched as Array<Record<string, string>>) ?? []).map((item) => {
+      const workingMeta = existsSync(this.abs(item.working))
+        ? this.readFrontmatter(this.abs(item.working))
+        : { id: item.id, title: item.id, rev_last_changed: '' }
       return {
         id: item.id,
-        title: working.title,
+        title: workingMeta.title,
         source: item.source,
         working: item.working,
+        action: (item.action as TouchAction) || 'amend',
       }
     })
     return {
-      id: raw.id,
-      manual: raw.manual,
-      status: raw.status,
-      title: raw.title,
-      reason: raw.reason,
+      id: String(raw.id),
+      manual: String(raw.manual),
+      status: normalizeChangeStatus(String(raw.status)),
+      title: String(raw.title),
+      reason,
+      reason_meta,
       created: String(raw.created),
-      author: raw.author,
-      target_revision: raw.target_revision,
+      author: String(raw.author ?? AUTHOR),
+      target_revision: raw.target_revision == null ? null : String(raw.target_revision),
+      supersedes: raw.supersedes == null ? null : String(raw.supersedes),
+      instrument: (raw.instrument as InstrumentRecord | null | undefined) ?? null,
+      launch_kind: (raw.launch_kind as ChangeRecord['launch_kind']) ?? null,
+      launch_id: raw.launch_id == null ? null : String(raw.launch_id),
       touched,
-      history: raw.history ?? [],
+      history: (raw.history as ChangeRecord['history']) ?? [],
     }
   }
 
   writeChange(change: ChangeRecord): void {
-    const onDisk = {
+    const onDisk: Record<string, unknown> = {
       id: change.id,
       manual: change.manual,
       status: change.status,
       title: change.title,
-      reason: change.reason,
+      reason: change.reason_meta ?? change.reason,
       created: change.created,
       author: change.author,
       target_revision: change.target_revision,
-      touched: change.touched.map(({ id, source, working }) => ({ id, source, working })),
+      supersedes: change.supersedes ?? null,
+      instrument: change.instrument ?? null,
+      launch_kind: change.launch_kind ?? null,
+      launch_id: change.launch_id ?? null,
+      touched: change.touched.map(({ id, source, working, action }) => ({
+        id,
+        source,
+        working,
+        action,
+      })),
       history: change.history,
     }
     mkdirSync(this.abs('control', 'changes'), { recursive: true })
     writeFileSync(this.abs('control', 'changes', `${change.id}.yaml`), dumpYaml(onDisk))
   }
 
-  startChange(input: { manual: string; title: string; reason: string; sectionIds: string[] }): ChangeRecord {
+  startChange(input: {
+    manual: string
+    title: string
+    reason?: string
+    reasonType?: string
+    reasonRef?: string
+    sectionIds?: string[]
+    supersedes?: string
+  }): ChangeRecord {
     const title = input.title.trim()
-    const reason = input.reason.trim()
-    if (!title) throw new RepoError(400, 'A change title is required.')
-    if (!reason) throw new RepoError(400, 'A reason for issue is required.')
-    if (!input.sectionIds.length) throw new RepoError(400, 'Select at least one section to touch.')
+    if (!title) throw new RepoError(2, 'A change title is required.')
 
+    const reasonInput = resolveReasonInput(input)
+    if (!reasonInput) {
+      throw new RepoError(2, 'A reason for issue is required (--reason-type/--ref or reason text).')
+    }
+    const { reason, reason_meta } = normalizeReason(reasonInput)
     const manual = this.getManual(input.manual)
+
+    if (input.supersedes) {
+      const parent = this.readIssue(input.supersedes)
+      if (parent.state !== 'launched') {
+        throw new RepoError(2, `${input.supersedes} is not a launched full revision.`)
+      }
+      if (parent.manual !== manual.id) {
+        throw new RepoError(2, `${input.supersedes} is not a revision of ${manual.id}.`)
+      }
+    }
+
+    const sectionIds = input.sectionIds ?? []
     const locks = this.openLocks(manual.id)
     const selected: SectionSummary[] = []
-    for (const sectionId of input.sectionIds) {
+    for (const sectionId of sectionIds) {
       const section = manual.sections.find((item) => item.id === sectionId)
-      if (!section) throw new RepoError(400, `Section ${sectionId} is not in ${manual.abbrev}.`)
+      if (!section) throw new RepoError(2, `Section ${sectionId} is not in ${manual.abbrev}.`)
       const holder = locks.get(section.id)
-      if (holder) throw new RepoError(409, `${section.title} is already on ${holder}.`)
+      if (holder) throw new RepoError(2, `${section.title} is already on ${holder}.`)
       selected.push(section)
     }
 
@@ -203,7 +304,7 @@ export class Repo {
     const touched: TouchedSection[] = selected.map((section) => {
       const working = `${workingDir}/${section.filename}`
       copyFileSync(this.abs(section.path), this.abs(working))
-      return { id: section.id, title: section.title, source: section.path, working }
+      return { id: section.id, title: section.title, source: section.path, working, action: 'amend' }
     })
 
     const change: ChangeRecord = {
@@ -212,15 +313,24 @@ export class Repo {
       status: 'draft',
       title,
       reason,
+      reason_meta,
       created: todayDate(),
       author: AUTHOR,
-      target_revision: nextRevision(manual.current_issued),
+      target_revision: null,
+      supersedes: input.supersedes ?? null,
+      instrument: null,
+      launch_kind: null,
+      launch_id: null,
       touched,
       history: [
         {
           at: nowIso(),
           action: 'created',
-          note: `Opened against ${touched.map((item) => item.title).join(', ')}`,
+          note: input.supersedes
+            ? `Opened to supersede ${input.supersedes}`
+            : touched.length
+              ? `Opened against ${touched.map((item) => item.title).join(', ')}`
+              : 'Opened with no sections yet',
         },
       ],
     }
@@ -228,14 +338,67 @@ export class Repo {
     return this.readChange(id)
   }
 
+  touchChange(changeId: string, sectionId: string, action: TouchAction = 'amend'): ChangeRecord {
+    if (!TOUCH_ACTIONS.has(action)) throw new RepoError(2, `Unknown touch action ${action}.`)
+    if (action !== 'amend') {
+      throw new RepoError(2, `Touch action ${action} is not implemented yet; use amend.`)
+    }
+
+    const change = this.readChange(changeId)
+    if (!OPEN_STATUSES.has(change.status) || change.status === 'ready-to-launch') {
+      if (change.status === 'launched' || change.status === 'withdrawn') {
+        throw new RepoError(2, `${changeId} is ${change.status}; touch requires an open draft/edit/review.`)
+      }
+    }
+    if (change.status === 'ready-to-launch') {
+      throw new RepoError(2, `${changeId} is ready-to-launch; return-to-edit before touching sections.`)
+    }
+    if (!['draft', 'edit', 'review', 'approved'].includes(change.status)) {
+      throw new RepoError(2, `${changeId} is ${change.status}; cannot touch.`)
+    }
+    if (change.touched.some((item) => item.id === sectionId)) {
+      throw new RepoError(2, `Section ${sectionId} is already on ${changeId}.`)
+    }
+
+    const locks = this.openLocks(change.manual)
+    const holder = locks.get(sectionId)
+    if (holder) throw new RepoError(2, `Section ${sectionId} is already on ${holder}.`)
+
+    const section = this.findSection(change.manual, sectionId)
+    const workingDir = `control/working/${change.id}`
+    mkdirSync(this.abs(workingDir), { recursive: true })
+    const working = `${workingDir}/${section.filename}`
+    copyFileSync(this.abs(section.path), this.abs(working))
+
+    change.touched.push({
+      id: section.id,
+      title: section.title,
+      source: section.path,
+      working,
+      action,
+    })
+    change.history.push({
+      at: nowIso(),
+      action: 'touched',
+      note: `${action} ${section.id} (${section.title})`,
+    })
+    this.writeChange(change)
+    return this.readChange(changeId)
+  }
+
   saveWorkingSection(changeId: string, sectionId: string, markdown: string): SectionFile {
     const change = this.readChange(changeId)
-    if (change.status === 'issued') throw new RepoError(409, 'An issued change cannot be edited.')
+    if (change.status === 'launched' || change.status === 'withdrawn') {
+      throw new RepoError(2, `A ${change.status} change cannot be edited.`)
+    }
+    if (change.status === 'ready-to-launch') {
+      throw new RepoError(2, `${changeId} is ready-to-launch; return-to-edit before editing.`)
+    }
     const touched = change.touched.find((item) => item.id === sectionId)
-    if (!touched) throw new RepoError(404, `Section ${sectionId} is not on ${changeId}.`)
+    if (!touched) throw new RepoError(3, `Section ${sectionId} is not on ${changeId}.`)
     const incoming = splitFrontmatter(markdown)
     if (incoming.meta.id !== sectionId) {
-      throw new RepoError(400, 'Section id in frontmatter must not change.')
+      throw new RepoError(2, 'Section id in frontmatter must not change.')
     }
     const existing = this.readSection(touched.working)
     const next = withFrontmatter(
@@ -245,19 +408,461 @@ export class Repo {
     return this.writeSection(touched.working, next)
   }
 
-  transition(changeId: string, action: ChangeAction): ChangeRecord {
-    const spec = TRANSITIONS[action]
-    if (!spec) throw new RepoError(400, `Unknown action ${action}.`)
+  getSectionForChange(sectionId: string, changeId: string): SectionFile {
     const change = this.readChange(changeId)
-    if (change.status !== spec.from) {
-      throw new RepoError(409, `${changeId} is ${change.status}; ${action} requires ${spec.from}.`)
-    }
-    if (action === 'issue') return this.issue(change)
+    const touched = change.touched.find((item) => item.id === sectionId)
+    if (!touched) throw new RepoError(3, `Section ${sectionId} is not on ${changeId}.`)
+    return this.readSection(touched.working)
+  }
 
-    change.status = spec.to
-    change.history.push({ at: nowIso(), action: spec.to, note: `${spec.verb} by ${AUTHOR}` })
+  putSectionForChange(sectionId: string, changeId: string, markdown: string): SectionFile {
+    return this.saveWorkingSection(changeId, sectionId, markdown)
+  }
+
+  transition(changeId: string, action: ChangeAction, opts: { role?: string } = {}): ChangeRecord {
+    const change = this.readChange(changeId)
+    if (action === 'submit') {
+      if (change.status !== 'draft' && change.status !== 'edit') {
+        throw new RepoError(2, `${changeId} is ${change.status}; submit requires draft or edit.`)
+      }
+      if (!change.touched.length) {
+        throw new RepoError(2, `${changeId} has no touched sections; touch a section first.`)
+      }
+      change.status = 'review'
+      change.history.push({
+        at: nowIso(),
+        action: 'review',
+        note: `submitted for review by ${opts.role ? formatRole(opts.role) : AUTHOR}`,
+      })
+      this.writeChange(change)
+      return this.readChange(changeId)
+    }
+
+    if (action === 'approve') {
+      if (change.status !== 'review') {
+        throw new RepoError(2, `${changeId} is ${change.status}; approve requires review.`)
+      }
+      if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+      change.status = change.instrument ? 'ready-to-launch' : 'approved'
+      const actor = opts.role ? formatRole(opts.role) : AUTHOR
+      change.history.push({
+        at: nowIso(),
+        action: change.status,
+        note: `approved by ${actor}`,
+      })
+      this.writeChange(change)
+      return this.readChange(changeId)
+    }
+
+    throw new RepoError(2, `Unknown action ${action}.`)
+  }
+
+  attachInstrument(
+    changeId: string,
+    input: {
+      file: string
+      type: string
+      authority: string
+      dated: string
+      reference?: string
+    },
+  ): ChangeRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is already launched; cannot attach an instrument.`)
+    }
+    if (change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is withdrawn; cannot attach an instrument.`)
+    }
+    if (!['approved', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
+      throw new RepoError(2, `${changeId} is ${change.status}; cannot attach an instrument.`)
+    }
+
+    const dated = input.dated.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dated)) {
+      throw new RepoError(2, `Instrument date must be YYYY-MM-DD (got ${dated}).`)
+    }
+
+    const type = input.type.trim() as InstrumentType
+    const allowedTypes: InstrumentType[] = [
+      'approval-letter',
+      'acceptance-letter',
+      'third-party-letter',
+      'internal-letter',
+    ]
+    if (!allowedTypes.includes(type)) {
+      throw new RepoError(2, `Unknown instrument type ${type}.`)
+    }
+
+    const src = path.resolve(input.file)
+    if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
+
+    const bytes = readFileSync(src)
+    const sha256 = sha256Hex(bytes)
+    const ext = path.extname(src) || '.bin'
+    const authority = input.authority.trim()
+    const destName = `${change.id}-${authority.replace(/\s+/g, '-').toLowerCase()}${ext}`
+    const destRel = `control/instruments/${destName}`
+    mkdirSync(this.abs('control', 'instruments'), { recursive: true })
+    writeFileSync(this.abs(destRel), bytes)
+
+    const instrument: InstrumentRecord = {
+      type,
+      authority,
+      file: destRel,
+      sha256,
+      dated,
+      reference: input.reference?.trim() || undefined,
+    }
+    change.instrument = instrument
+    if (change.status === 'approved' || change.status === 'ready-to-launch') {
+      change.status = 'ready-to-launch'
+    }
+    change.history.push({
+      at: nowIso(),
+      action: 'instrument',
+      note: `Attached ${type} (${authority}) ${destRel}`,
+    })
     this.writeChange(change)
     return this.readChange(changeId)
+  }
+
+  showInstrument(changeId: string): InstrumentRecord {
+    const change = this.readChange(changeId)
+    if (!change.instrument) {
+      throw new RepoError(3, `${changeId} has no attached instrument.`)
+    }
+    return change.instrument
+  }
+
+  returnToEdit(changeId: string): ChangeRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is launched; return-to-edit is only for pre-launch kickback.`)
+    }
+    if (change.status !== 'ready-to-launch') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; return-to-edit requires ready-to-launch (pre-launch kickback).`,
+      )
+    }
+    change.status = 'edit'
+    change.history.push({
+      at: nowIso(),
+      action: 'edit',
+      note: 'Returned to edit (pre-launch kickback); next full revision number unchanged',
+    })
+    this.writeChange(change)
+    return this.readChange(changeId)
+  }
+
+  withdraw(changeId: string, why: string): ChangeRecord {
+    const reason = why.trim()
+    if (!reason) throw new RepoError(2, 'A withdraw reason is required (--why).')
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is launched; withdraw is dead after full or TR launch.`)
+    }
+    if (change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is already withdrawn.`)
+    }
+    change.status = 'withdrawn'
+    change.history.push({ at: nowIso(), action: 'withdrawn', note: reason })
+    this.writeChange(change)
+    return this.readChange(changeId)
+  }
+
+  /**
+   * Full launch. Requires attached instrument. Assigns next_revision.
+   */
+  issueFull(changeId: string, effective: string): IssueRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is already launched.`)
+    }
+    if (!change.instrument) {
+      throw new RepoError(
+        2,
+        `${changeId} has no attached instrument. Attach a letter with \`instrument attach\`, or issue a temporary revision with \`tr issue\`.`,
+      )
+    }
+    if (change.status !== 'ready-to-launch' && change.status !== 'approved') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; full issue requires approved reviews and an instrument (ready-to-launch).`,
+      )
+    }
+    // approved + instrument should already be ready-to-launch; tolerate approved if instrument present
+    if (change.status === 'approved' && change.instrument) {
+      change.status = 'ready-to-launch'
+    }
+    if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+
+    const effectiveDate = effective.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+      throw new RepoError(2, `Effective date must be YYYY-MM-DD (got ${effectiveDate}).`)
+    }
+
+    const manual = this.readManual(change.manual)
+    if (!CONTROL_CLASSES.has(manual.control_class)) {
+      throw new RepoError(2, `Manual ${manual.id} has invalid control_class.`)
+    }
+
+    const revNum = manual.next_revision
+    const issueId = `${manual.abbrev}-R${revNum}`
+    const revLabel = `R${revNum}`
+    const supersedes = change.supersedes ?? manual.current_issued
+
+    const issuedSections = this.applyTouchedSections(change, revLabel)
+
+    const parentId = manual.current_issued
+    const toIncorporate = parentId
+      ? this.listTrs({ manual: manual.id }).filter(
+          (tr) => tr.state === 'launched' && tr.parent === parentId,
+        )
+      : []
+
+    for (const tr of toIncorporate) {
+      tr.state = 'incorporated'
+      tr.incorporated_by = issueId
+      this.writeTr(tr)
+    }
+
+    const artifactRel = `artifacts/${issueId}.pdf`
+    mkdirSync(this.abs('artifacts'), { recursive: true })
+    if (!existsSync(this.abs(artifactRel))) {
+      writeFileSync(
+        this.abs(artifactRel),
+        `Placeholder artifact for ${issueId} — PDF pipeline is Slice 3+.\n`,
+      )
+    }
+
+    const issue: IssueRecord = {
+      id: issueId,
+      kind: 'full',
+      state: 'launched',
+      manual: manual.id,
+      revision: revNum,
+      control_class: manual.control_class,
+      supersedes,
+      change: change.id,
+      effective: effectiveDate,
+      instrument: change.instrument,
+      manual_artifact: {
+        file: artifactRel,
+        sha256: PLACEHOLDER_ARTIFACT_SHA,
+      },
+      git_tag: issueId,
+      incorporated_trs: toIncorporate.map((tr) => tr.id),
+      launched_at: nowIso(),
+      summary: change.title,
+      sections: issuedSections,
+    }
+    mkdirSync(this.abs('control', 'issues'), { recursive: true })
+    writeFileSync(this.abs('control', 'issues', `${issueId}.yaml`), dumpYaml(issueOnDisk(issue)))
+
+    this.writeManual({
+      ...manual,
+      current_issued: issueId,
+      next_revision: revNum + 1,
+      effective: effectiveDate,
+    })
+
+    change.status = 'launched'
+    change.target_revision = issueId
+    change.launch_kind = 'full'
+    change.launch_id = issueId
+    change.history.push({
+      at: nowIso(),
+      action: 'launched',
+      note: `Full launch ${issueId} effective ${effectiveDate}`,
+    })
+    this.writeChange(change)
+
+    return this.readIssue(issueId)
+  }
+
+  issueTr(
+    changeId: string,
+    input: {
+      parent: string
+      authority: string
+      file: string
+      expires?: string
+    },
+  ): TrRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is already launched.`)
+    }
+    if (change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is withdrawn.`)
+    }
+    if (change.status !== 'approved' && change.status !== 'ready-to-launch') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; tr issue requires approved (internal reviews done).`,
+      )
+    }
+    if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+
+    const manual = this.readManual(change.manual)
+    if (!manual.current_issued) {
+      throw new RepoError(
+        2,
+        `${manual.abbrev} has never been full-launched. Full-launch R1 with an internal-letter first; temporary revisions require a launched parent.`,
+      )
+    }
+
+    const parent = this.readIssue(input.parent)
+    if (parent.state !== 'launched') {
+      throw new RepoError(2, `Parent ${input.parent} is not launched.`)
+    }
+    if (parent.manual !== manual.id) {
+      throw new RepoError(2, `Parent ${input.parent} is not a revision of ${manual.id}.`)
+    }
+    if (parent.id !== manual.current_issued) {
+      throw new RepoError(
+        2,
+        `Parent ${input.parent} is not the current launched revision (${manual.current_issued}).`,
+      )
+    }
+
+    const authority = input.authority.trim().toLowerCase()
+    if (!TR_AUTHORITIES.has(authority)) {
+      throw new RepoError(
+        2,
+        `TR authority must be one of chief-pilot | ae | ceo | do (got ${input.authority}).`,
+      )
+    }
+
+    const src = path.resolve(input.file)
+    if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
+    const bytes = readFileSync(src)
+    const sha256 = sha256Hex(bytes)
+    const seq = this.nextTrSeq(parent.id)
+    const trId = `${parent.id}-TR${seq}`
+    const ext = path.extname(src) || '.bin'
+    const destRel = `control/instruments/${trId}-${authority}${ext}`
+    mkdirSync(this.abs('control', 'instruments'), { recursive: true })
+    writeFileSync(this.abs(destRel), bytes)
+
+    const instrument: InstrumentRecord = {
+      type: 'internal-letter',
+      authority,
+      file: destRel,
+      sha256,
+      dated: todayDate(),
+    }
+
+    // Operating content: apply working copies; keep section rev_last_changed at parent label
+    const parentRevLabel = `R${parent.revision}`
+    const sections = this.applyTouchedSections(change, parentRevLabel)
+
+    let expires: string | null = null
+    if (input.expires?.trim()) {
+      expires = input.expires.trim()
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) {
+        throw new RepoError(2, `Expires must be YYYY-MM-DD (got ${expires}).`)
+      }
+    }
+
+    const tr: TrRecord = {
+      id: trId,
+      kind: 'temporary-revision',
+      state: 'launched',
+      manual: manual.id,
+      parent: parent.id,
+      seq,
+      change: change.id,
+      authority,
+      instrument,
+      expires,
+      incorporated_by: null,
+      launched_at: nowIso(),
+      summary: change.title,
+      sections,
+    }
+    mkdirSync(this.abs('control', 'trs'), { recursive: true })
+    this.writeTr(tr)
+
+    change.status = 'launched'
+    change.launch_kind = 'temporary'
+    change.launch_id = trId
+    change.instrument = instrument
+    change.history.push({
+      at: nowIso(),
+      action: 'launched',
+      note: `Temporary revision ${trId} against ${parent.id}`,
+    })
+    this.writeChange(change)
+    return this.readTr(trId)
+  }
+
+  listTrs(filter: { manual?: string } = {}): TrRecord[] {
+    const dir = this.abs('control', 'trs')
+    if (!existsSync(dir)) return []
+    return readdirSync(dir)
+      .filter((name) => name.endsWith('.yaml') && !name.startsWith('.'))
+      .map((name) => this.readTr(name.replace(/\.yaml$/, '')))
+      .filter((tr) => (filter.manual ? tr.manual === filter.manual : true))
+      .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))
+  }
+
+  readTr(id: string): TrRecord {
+    const file = this.abs('control', 'trs', `${id}.yaml`)
+    if (!existsSync(file)) throw new RepoError(3, `TR ${id} not found.`)
+    const raw = parseYaml(readFileSync(file, 'utf8')) as TrRecord
+    return {
+      ...raw,
+      expires: raw.expires ?? null,
+      incorporated_by: raw.incorporated_by ?? null,
+      sections: raw.sections ?? [],
+    }
+  }
+
+  writeTr(tr: TrRecord): void {
+    mkdirSync(this.abs('control', 'trs'), { recursive: true })
+    writeFileSync(this.abs('control', 'trs', `${tr.id}.yaml`), dumpYaml(tr))
+  }
+
+  launched(manualId: string): LaunchedStatus {
+    const manual = this.readManual(manualId)
+    const active_trs = manual.current_issued
+      ? this.listTrs({ manual: manualId })
+          .filter((tr) => tr.state === 'launched' && tr.parent === manual.current_issued)
+          .map((tr) => tr.id)
+      : []
+    return {
+      manual: manual.id,
+      abbrev: manual.abbrev,
+      full: manual.current_issued,
+      full_state: manual.current_issued ? 'launched' : 'none',
+      active_trs,
+      next_full: manual.next_revision,
+      next_full_launched: false,
+      control_class: manual.control_class,
+    }
+  }
+
+  preview(changeId: string): ChangePreview {
+    const change = this.readChange(changeId)
+    const manual = this.readManual(change.manual)
+    const sections = change.touched.map((item) => {
+      const source = this.readSection(item.source)
+      const working = this.readSection(item.working)
+      return {
+        id: item.id,
+        title: item.title,
+        action: item.action,
+        source: item.source,
+        working: item.working,
+        unchanged: source.markdown === working.markdown,
+        source_rev: source.meta.rev_last_changed,
+        working_rev: working.meta.rev_last_changed,
+      }
+    })
+    return { change, manual, sections }
   }
 
   listIssues(): IssueRecord[] {
@@ -266,105 +871,87 @@ export class Repo {
     return readdirSync(dir)
       .filter((name) => name.endsWith('.yaml') && !name.startsWith('.'))
       .map((name) => this.readIssue(name.replace(/\.yaml$/, '')))
-      .sort((a, b) => b.revision.localeCompare(a.revision, undefined, { numeric: true }))
+      .sort((a, b) => b.revision - a.revision)
   }
 
   readIssue(id: string): IssueRecord {
     const file = this.abs('control', 'issues', `${id}.yaml`)
-    if (!existsSync(file)) throw new RepoError(404, `Issue ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as Omit<IssueRecord, 'sections'> & {
-      sections: Array<string | { id: string; title?: string; rev_last_changed?: string }>
-    }
-    const manual = this.getManual(raw.manual)
-    const sections = (raw.sections ?? []).map((entry) => {
-      const sectionId = typeof entry === 'string' ? entry : entry.id
-      const live = manual.sections.find((item) => item.id === sectionId)
-      if (typeof entry === 'object') {
-        return {
-          id: entry.id,
-          title: entry.title ?? live?.title ?? entry.id,
-          rev_last_changed: entry.rev_last_changed ?? live?.rev_last_changed ?? raw.revision,
-        }
-      }
+    if (!existsSync(file)) throw new RepoError(3, `Issue ${id} not found.`)
+    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+
+    // Legacy Slice 1 shape → normalize
+    if (!raw.kind) {
+      const revisionRaw = raw.revision
+      const revision =
+        typeof revisionRaw === 'number'
+          ? revisionRaw
+          : parseIssueRevision(String(revisionRaw).startsWith('R') ? `${raw.id}` : String(id))
+      const manual = this.readManual(String(raw.manual))
       return {
-        id: sectionId,
-        title: live?.title ?? sectionId,
-        rev_last_changed: live?.rev_last_changed ?? raw.revision,
+        id: String(raw.id),
+        kind: 'full',
+        state: 'launched',
+        manual: String(raw.manual),
+        revision: Number.isFinite(revision) ? revision : parseIssueRevision(id),
+        control_class: manual.control_class,
+        supersedes: null,
+        change: String(raw.change ?? ''),
+        effective: String(raw.effective),
+        instrument: {
+          type: instrumentTypeFor(manual.control_class),
+          authority: manual.authority,
+          file: 'control/instruments/legacy-placeholder.txt',
+          sha256: String(raw.sha256 ?? PLACEHOLDER_ARTIFACT_SHA),
+          dated: String(raw.issued ?? raw.effective),
+        },
+        manual_artifact: {
+          file: String(raw.sha256 ? `artifacts/${raw.id}.pdf` : `artifacts/${raw.id}.pdf`),
+          sha256: String(raw.sha256 ?? PLACEHOLDER_ARTIFACT_SHA),
+        },
+        git_tag: String(raw.id),
+        incorporated_trs: [],
+        launched_at: String(raw.issued ?? raw.effective),
+        summary: String(raw.summary ?? ''),
+        sections: normalizeIssueSections(raw.sections, String(raw.revision ?? '')),
       }
-    })
+    }
+
     return {
-      id: raw.id,
-      manual: raw.manual,
-      revision: raw.revision,
-      issued: String(raw.issued),
+      id: String(raw.id),
+      kind: 'full',
+      state: 'launched',
+      manual: String(raw.manual),
+      revision: Number(raw.revision),
+      control_class: raw.control_class as ControlClass,
+      supersedes: raw.supersedes == null ? null : String(raw.supersedes),
+      change: String(raw.change),
       effective: String(raw.effective),
-      sha256: raw.sha256,
-      summary: raw.summary,
-      change: raw.change,
-      sections,
+      instrument: raw.instrument as InstrumentRecord,
+      manual_artifact: raw.manual_artifact as IssueRecord['manual_artifact'],
+      git_tag: String(raw.git_tag),
+      incorporated_trs: (raw.incorporated_trs as string[]) ?? [],
+      launched_at: String(raw.launched_at),
+      summary: String(raw.summary ?? ''),
+      sections: (raw.sections as IssueSection[]) ?? [],
     }
   }
 
-  private issue(change: ChangeRecord): ChangeRecord {
-    const manual = this.readManual(change.manual)
-    const revision = nextRevision(manual.current_issued)
-    const issuedOn = todayDate()
-    const issueId = `${manual.abbrev}-${revision}`
-
-    const issuedSections = change.touched.map((item) => {
+  private applyTouchedSections(change: ChangeRecord, revLabel: string): IssueSection[] {
+    return change.touched.map((item) => {
       const working = this.readSection(item.working)
-      const meta: Frontmatter = { ...working.meta, rev_last_changed: revision }
+      const meta: Frontmatter = { ...working.meta, rev_last_changed: revLabel }
       const markdown = withFrontmatter(meta, working.body)
       this.writeSection(item.working, markdown)
       this.writeSection(item.source, markdown)
-      return { id: meta.id, title: meta.title, rev_last_changed: revision }
+      return { id: meta.id, title: meta.title, rev_last_changed: revLabel }
     })
-
-    const issue: IssueRecord = {
-      id: issueId,
-      manual: manual.id,
-      revision,
-      issued: issuedOn,
-      effective: issuedOn,
-      sha256: PLACEHOLDER_SHA256,
-      summary: change.title,
-      change: change.id,
-      sections: issuedSections,
-    }
-    mkdirSync(this.abs('control', 'issues'), { recursive: true })
-    writeFileSync(
-      this.abs('control', 'issues', `${issueId}.yaml`),
-      dumpYaml({
-        id: issue.id,
-        manual: issue.manual,
-        revision: issue.revision,
-        issued: issue.issued,
-        effective: issue.effective,
-        sha256: issue.sha256,
-        summary: issue.summary,
-        change: issue.change,
-        sections: issue.sections,
-      }),
-    )
-
-    this.writeManual({ ...manual, current_issued: revision, effective: issuedOn })
-
-    change.status = 'issued'
-    change.target_revision = revision
-    change.history.push({
-      at: nowIso(),
-      action: 'issued',
-      note: `Issued ${issueId} by ${AUTHOR}`,
-    })
-    this.writeChange(change)
-    return this.readChange(change.id)
   }
 
   private openLocks(manualId: string): Map<string, string> {
     const locks = new Map<string, string>()
     for (const change of this.listChanges()) {
       if (change.manual !== manualId) continue
-      if (change.status === 'issued') continue
+      if (change.status === 'launched' || change.status === 'withdrawn') continue
       for (const section of change.touched) locks.set(section.id, change.id)
     }
     return locks
@@ -382,6 +969,15 @@ export class Repo {
     return `${prefix}${String(max + 1).padStart(3, '0')}`
   }
 
+  private nextTrSeq(parentId: string): number {
+    let max = 0
+    for (const tr of this.listTrs()) {
+      if (tr.parent !== parentId) continue
+      max = Math.max(max, tr.seq)
+    }
+    return max + 1
+  }
+
   private readFrontmatter(absPath: string): Frontmatter {
     return splitFrontmatter(readFileSync(absPath, 'utf8')).meta
   }
@@ -389,10 +985,10 @@ export class Repo {
 
 export function splitFrontmatter(markdown: string): { meta: Frontmatter; body: string } {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
-  if (!match) throw new RepoError(400, 'Section is missing YAML frontmatter.')
+  if (!match) throw new RepoError(2, 'Section is missing YAML frontmatter.')
   const raw = parseYaml(match[1]) as Partial<Frontmatter>
   if (!raw.id || !raw.title || !raw.rev_last_changed) {
-    throw new RepoError(400, 'Frontmatter must include id, title, and rev_last_changed.')
+    throw new RepoError(2, 'Frontmatter must include id, title, and rev_last_changed.')
   }
   return {
     meta: {
@@ -416,14 +1012,160 @@ export function withFrontmatter(meta: Frontmatter, body: string): string {
   return `---\n${yaml}\n---\n\n${body.replace(/^\n+/, '')}`.replace(/\s*$/, '\n')
 }
 
-export function nextRevision(current: string): string {
-  const match = current.match(/^R(\d+)$/i)
-  if (!match) throw new RepoError(400, `Cannot increment revision ${current}.`)
-  return `R${Number(match[1]) + 1}`
-}
-
 export function dumpYaml(value: unknown): string {
   return stringifyYaml(value, { lineWidth: 88 }).replace(/\s*$/, '\n')
+}
+
+export function formatReasonMeta(meta: ChangeReasonMeta): string {
+  const type = meta.type.trim().toLowerCase()
+  const ref = (meta.ref ?? '').trim()
+  if (!ref) return meta.type
+  if (type === 'opspec') return `OpSpec ${ref}`
+  if (type === 'regulation' || type === 'cfr') return `14 CFR ${ref}`
+  if (type === 'isbao') return `IS-BAO ${ref}`
+  if (type === 'regulator') return `Regulator ${ref || 'kickback'}`.trim()
+  return `${meta.type} ${ref}`.trim()
+}
+
+function issueOnDisk(issue: IssueRecord): Record<string, unknown> {
+  return {
+    id: issue.id,
+    kind: issue.kind,
+    state: issue.state,
+    manual: issue.manual,
+    revision: issue.revision,
+    control_class: issue.control_class,
+    supersedes: issue.supersedes,
+    change: issue.change,
+    effective: issue.effective,
+    instrument: issue.instrument,
+    manual_artifact: issue.manual_artifact,
+    git_tag: issue.git_tag,
+    incorporated_trs: issue.incorporated_trs,
+    launched_at: issue.launched_at,
+    summary: issue.summary,
+    sections: issue.sections,
+  }
+}
+
+function normalizeChangeStatus(raw: string): ChangeStatus {
+  if (raw === 'in_review') return 'review'
+  if (raw === 'issued') return 'launched'
+  return raw as ChangeStatus
+}
+
+function normalizeControlClass(raw: Record<string, unknown>): ControlClass {
+  if (typeof raw.control_class === 'string' && CONTROL_CLASSES.has(raw.control_class as ControlClass)) {
+    return raw.control_class as ControlClass
+  }
+  const legacy = String(raw.control ?? '').toLowerCase()
+  if (legacy.includes('approved')) return 'faa-approved'
+  if (legacy.includes('accepted')) return 'faa-accepted'
+  if (legacy.includes('third')) return 'third-party'
+  if (legacy.includes('internal')) return 'internal'
+  return 'faa-accepted'
+}
+
+function controlClassLabel(cc: ControlClass): string {
+  switch (cc) {
+    case 'faa-approved':
+      return 'FAA-approved'
+    case 'faa-accepted':
+      return 'FAA-accepted'
+    case 'third-party':
+      return 'Third-party'
+    case 'internal':
+      return 'Internal'
+  }
+}
+
+function defaultAuthority(cc: ControlClass): string {
+  if (cc === 'faa-approved' || cc === 'faa-accepted') return 'poi'
+  if (cc === 'third-party') return 'third-party'
+  return 'chief-pilot'
+}
+
+function instrumentTypeFor(cc: ControlClass): InstrumentType {
+  switch (cc) {
+    case 'faa-approved':
+      return 'approval-letter'
+    case 'faa-accepted':
+      return 'acceptance-letter'
+    case 'third-party':
+      return 'third-party-letter'
+    case 'internal':
+      return 'internal-letter'
+  }
+}
+
+function normalizeCurrentIssued(
+  value: unknown,
+  abbrev: string,
+): string | null {
+  if (value == null || value === '' || value === 'null') return null
+  const s = String(value)
+  const full = s.match(/^([A-Za-z]+)-R(\d+)$/i)
+  if (full) return `${full[1].toUpperCase()}-R${full[2]}`
+  const m = s.match(/^R(\d+)$/i)
+  if (m) return `${abbrev}-R${m[1]}`
+  return s
+}
+
+function parseIssueRevision(idOrRev: string): number {
+  const m = String(idOrRev).match(/R(\d+)$/i) || String(idOrRev).match(/^(\d+)$/)
+  if (!m) return 0
+  return Number(m[1])
+}
+
+function normalizeIssueSections(raw: unknown, fallbackRev: string): IssueSection[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((entry) => {
+    if (typeof entry === 'string') {
+      return { id: entry, title: entry, rev_last_changed: String(fallbackRev) }
+    }
+    const obj = entry as { id: string; title?: string; rev_last_changed?: string }
+    return {
+      id: obj.id,
+      title: obj.title ?? obj.id,
+      rev_last_changed: obj.rev_last_changed ?? String(fallbackRev),
+    }
+  })
+}
+
+function normalizeReason(raw: string | ChangeReasonMeta | undefined): {
+  reason: string
+  reason_meta?: ChangeReasonMeta
+} {
+  if (!raw) return { reason: '' }
+  if (typeof raw === 'string') return { reason: raw.trim() }
+  const meta = { type: String(raw.type ?? '').trim(), ref: raw.ref ? String(raw.ref).trim() : undefined }
+  if (!meta.type) throw new RepoError(2, 'Reason must include type.')
+  return { reason: formatReasonMeta(meta), reason_meta: meta }
+}
+
+function resolveReasonInput(input: {
+  reason?: string
+  reasonType?: string
+  reasonRef?: string
+}): string | ChangeReasonMeta | null {
+  if (input.reasonType) {
+    return { type: input.reasonType.trim(), ref: input.reasonRef?.trim() }
+  }
+  if (input.reason?.trim()) return input.reason.trim()
+  return null
+}
+
+function formatRole(role: string): string {
+  return role
+    .trim()
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function sha256Hex(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex')
 }
 
 function todayDate(): string {
@@ -437,3 +1179,6 @@ function nowIso(): string {
 function ensureTrailingNewline(text: string): string {
   return text.endsWith('\n') ? text : `${text}\n`
 }
+
+export { instrumentTypeFor }
+export type { InstrumentAuthority }

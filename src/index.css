@@ -281,9 +281,14 @@ h1 {
 }
 
 .lamp.draft { color: var(--amber); }
+.lamp.review { color: var(--steel); }
 .lamp.in_review { color: var(--steel); }
 .lamp.approved { color: var(--ok); }
+.lamp.ready-to-launch { color: var(--ok); }
+.lamp.edit { color: var(--amber); }
+.lamp.launched { color: #cfc6b4; }
 .lamp.issued { color: #cfc6b4; }
+.lamp.withdrawn { color: var(--muted); }
 
 .banner {
   padding: 10px 12px;

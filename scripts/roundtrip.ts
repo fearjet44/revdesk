@@ -9,7 +9,7 @@ const files = [
   'data/manuals/gom/sections/010-administration.md',
   'data/manuals/gom/sections/100-section-a-management.md',
   'data/manuals/gom/sections/110-section-b-weight-and-balance.md',
-  'data/control/working/CHG-2026-001/100-section-a-management.md',
+  'fixtures/tiny-gom/manuals/gom/sections/243-operational-control.md',
 ]
 
 let failed = 0

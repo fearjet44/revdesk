@@ -35,11 +35,12 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
     <>
       <div className="page-head">
         <div>
-          <p className="kicker">{manual.abbrev} · {manual.control}</p>
+          <p className="kicker">{manual.abbrev} · {manual.control_class}</p>
           <h1>{manual.title}</h1>
           <p className="lede">
-            Current issued revision {manual.current_issued}, effective {formatDate(manual.effective)}.
-            Owner: {manual.owner}. Open a change to copy a section into a working folder.
+            Current {manual.current_issued ?? '(never launched)'}, next full {manual.next_revision}
+            {manual.effective ? `, effective ${formatDate(manual.effective)}` : ''}. Owner:{' '}
+            {manual.owner}. Open a change to amend a section; launch requires a stored instrument.
           </p>
         </div>
         <div className="actions">

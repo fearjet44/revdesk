@@ -13,24 +13,18 @@ instrument:
   file: control/instruments/GOM-R13-poi-acceptance.txt
   sha256: 1111111111111111111111111111111111111111111111111111111111111111
   dated: 2025-12-20
-  reference: "POI sample baseline"
+  reference: "POI fixture baseline"
 manual_artifact:
   file: artifacts/GOM-R13.pdf
-  sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256: 0000000000000000000000000000000000000000000000000000000000000000
 git_tag: GOM-R13
 incorporated_trs: []
 launched_at: 2025-12-31T00:00:00.000Z
-summary: Baseline launched revision for the sample GOM.
+summary: Baseline launched revision for tiny-gom fixture.
 sections:
-  - id: gom-ident
+  - id: gom.ident
     title: Identification
     rev_last_changed: R13
-  - id: gom-admin
-    title: Administration
+  - id: gom.2.4.3
+    title: 2.4.3 Operational Control
     rev_last_changed: R13
-  - id: gom-a
-    title: Section A — Management and Key Personnel
-    rev_last_changed: R13
-  - id: gom-b
-    title: Section B — Weight and Balance
-    rev_last_changed: R12

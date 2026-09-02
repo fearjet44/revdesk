@@ -2,15 +2,18 @@ import type { ChangeAction, ChangeStatus } from './types.ts'
 
 export const STATUS_LABEL: Record<ChangeStatus, string> = {
   draft: 'DRAFT',
-  in_review: 'IN REVIEW',
+  review: 'REVIEW',
   approved: 'APPROVED',
-  issued: 'ISSUED',
+  'ready-to-launch': 'READY',
+  edit: 'EDIT',
+  launched: 'LAUNCHED',
+  withdrawn: 'WITHDRAWN',
 }
 
 export const NEXT_ACTION: Partial<Record<ChangeStatus, { action: ChangeAction; label: string }>> = {
   draft: { action: 'submit', label: 'Submit for review' },
-  in_review: { action: 'approve', label: 'Approve' },
-  approved: { action: 'issue', label: 'Issue revision' },
+  edit: { action: 'submit', label: 'Resubmit for review' },
+  review: { action: 'approve', label: 'Approve' },
 }
 
 export function formatDate(value: string): string {
