@@ -1,0 +1,12 @@
+id: GOM-R14
+manual: gom
+revision: R14
+issued: 2026-09-02
+effective: 2026-09-02
+sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+summary: Clarify operational-control delegation
+change: CHG-2026-001
+sections:
+  - id: gom-a
+    title: Section A — Management and Key Personnel
+    rev_last_changed: R14

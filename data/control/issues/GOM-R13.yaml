@@ -1,0 +1,13 @@
+id: GOM-R13
+manual: gom
+revision: R13
+issued: 2025-12-31
+effective: 2025-12-31
+# Placeholder until the issued PDF is hashed.
+sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+summary: Baseline issued revision for the sample GOM.
+sections:
+  - gom-ident
+  - gom-admin
+  - gom-a
+  - gom-b
