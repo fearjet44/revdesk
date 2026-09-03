@@ -6,21 +6,21 @@ rev_last_changed: R13
 
 # Identification
 
-This General Operations Manual is the Company's accepted operations manual under 14 CFR Part 135. It states the policies and procedures that govern flight operations conducted under the Company's air carrier certificate.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
 
 ## Certificate data
 
 | Field | Value |
 | --- | --- |
-| Manual | General Operations Manual |
+| Manual | Lorem ipsum |
 | Abbreviation | GOM |
-| Control status | FAA-accepted |
+| Control status | Dolor sit amet |
 | Current issued revision | R13 |
 | Effective | 31 December 2025 |
-| Owner | Chief Pilot |
+| Owner | Consectetur |
 
-The issued revision on the cover and in `manual.yaml` is the revision crews operate under. A section's `rev_last_changed` is the last issued revision that amended that section.
+Nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
 
 :::note
-Personnel assigned a duty in this manual shall use the current issued revision. Working copies opened under a change are not for operational use.
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 :::

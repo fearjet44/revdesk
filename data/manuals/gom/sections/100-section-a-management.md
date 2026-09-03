@@ -6,25 +6,25 @@ rev_last_changed: R13
 
 # Section A: Management and Key Personnel
 
-This section names the management personnel required by 14 CFR 119.65 and assigns the duties that remain with each post holder.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.
 
-## A.1 Director of Operations
+## A.1 Primus
 
-The Director of Operations is accountable to the Company President for the conduct of operations under the air carrier certificate. The Director of Operations may assign operational-control duties to qualified personnel as required to support daily operations.
+Sed nisi. Nulla quis sem at nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce nec tellus sed augue semper porta.
 
 :::warning
-No flight shall be initiated unless the person exercising operational control has determined that the crew, the aircraft, and the proposed flight are legal for the operation.
+Mauris massa. Vestibulum lacinia arcu eget nulla. Class aptent taciti sociosqu ad litora torquent per conubia nostra.
 :::
 
 ### A.1.1 Duties
 
-1. Exercise operational control over Company aircraft and flight crew.
-2. Ensure that only a legal crew and a legal aircraft are assigned to each flight.
-3. Coordinate aircraft scheduling with the Director of Maintenance.
-4. Maintain this manual and submit accepted revisions to the Principal Operations Inspector.
+1. Curabitur sodales ligula in libero. Sed dignissim lacinia nunc.
+2. Curabitur tortor. Pellentesque nibh. Aenean quam.
+3. In scelerisque sem at dolor. Maecenas mattis.
+4. Sed convallis tristique sem. Proin ut ligula vel nunc egestas porttitor.
 
-| Position | Reports to | Primary regulation |
+| Position | Reports to | Primary |
 | --- | --- | --- |
-| Director of Operations | Company President | 14 CFR 119.65 / 119.69 |
-| Chief Pilot | Director of Operations | 14 CFR 119.65 / 119.71 |
-| Director of Maintenance | Company President | 14 CFR 119.65 / 119.67 |
+| Lorem | Ipsum | Dolor |
+| Sit | Amet | Consectetur |
+| Adipiscing | Elit | Tempor |

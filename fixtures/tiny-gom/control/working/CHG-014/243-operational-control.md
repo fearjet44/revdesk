@@ -6,4 +6,4 @@ rev_last_changed: R13
 
 # 2.4.3 Operational Control
 
-The Director of Operations retains operational-control responsibility under 14 CFR 119.65. Duties may be assigned to qualified personnel. Responsibility remains with the Director of Operations and cannot be reassigned.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.

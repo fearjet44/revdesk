@@ -6,27 +6,27 @@ rev_last_changed: R12
 
 # Section B: Weight and Balance
 
-This program keeps every Company flight inside the approved weight and center-of-gravity limits. It uses actual weights for passengers, baggage, cargo, and fuel.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque volutpat condimentum velit. Class aptent taciti sociosqu ad litora.
 
-## B.1 Weight determination
+## B.1 Determination
 
-1. Use the aircraft's current basic empty weight from the last weighing.
-2. Add survey-derived crew weights and actual crew baggage.
-3. Solicit each passenger's body weight and add the clothing allowance in the table below.
-4. Weigh baggage and cargo on a calibrated scale.
-5. Record fuel from the aircraft gauges or a measured uplift.
+1. Aliquam erat volutpat. Nunc eleifend leo vitae magna.
+2. In pulvinar lectus quis condimentum cursus. Ut convallis tristique sem.
+3. Suspendisse in justo eu magna luctus suscipit.
+4. Sed lectus. Integer euismod lacus luctus magna.
+5. Quisque cursus, metus vitae pharetra auctor, sem massa mattis sem.
 
 | Item | Method | Allowance |
 | --- | --- | --- |
-| Crew | Survey-derived average | Per current crew-weight survey |
-| Passenger | Solicited actual | +10 lb clothing; +15 lb winter |
-| Baggage / cargo | Actual on calibrated scale | None |
-| Fuel | Gauge or measured uplift | None |
+| Alpha | Lorem ipsum | Nulla |
+| Beta | Dolor sit | Magna |
+| Gamma | Amet elit | Nisi |
+| Delta | Tempor | None |
 
 :::note
-OpSpec A096 authorizes this actual-weight program. Standard average passenger weights shall not be used.
+Nam quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. Maecenas nec odio et ante tincidunt tempus.
 :::
 
 :::caution
-Do not dispatch if the computed takeoff weight, landing weight, or center of gravity is outside the aircraft flight manual envelope.
+Donec vitae sapien ut libero venenatis faucibus. Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt.
 :::

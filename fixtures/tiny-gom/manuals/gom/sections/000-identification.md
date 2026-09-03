@@ -6,4 +6,4 @@ rev_last_changed: R13
 
 # Identification
 
-Tiny fixture GOM for Slice 2 acceptance.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.

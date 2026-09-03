@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Operator / third-party manuals for local parser training. Never commit.
+/corpus/*
+!/corpus/README.md
+
 # macOS AppleDouble files on external volumes
 ._*
 

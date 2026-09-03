@@ -6,4 +6,4 @@ rev_last_changed: R13
 
 # 2.4.3 Operational Control
 
-The Director of Operations retains operational-control responsibility. Duties may be assigned to qualified personnel; responsibility may not be reassigned.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.

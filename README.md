@@ -68,6 +68,8 @@ data/
 
 Fixture for acceptance: `fixtures/tiny-gom`.
 
+Sample section bodies in `data/` and `fixtures/` are **lorem ipsum**. Put real operator manuals for parser training in `corpus/` (gitignored). Do not commit them.
+
 ## License
 
 Copyright 2026 fearjet44
