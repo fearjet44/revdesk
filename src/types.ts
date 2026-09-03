@@ -84,7 +84,8 @@ export type ChangeRecord = {
   id: string
   manual: string
   status: ChangeStatus
-  kind: PackageKind
+  /** Null until the reviewer classifies TR vs rev (Slice 5). */
+  kind: PackageKind | null
   title: string
   reason: string
   reason_meta?: ChangeReasonMeta

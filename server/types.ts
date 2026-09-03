@@ -99,8 +99,11 @@ export type ChangeRecord = {
   id: string
   manual: string
   status: ChangeStatus
-  /** TR = one section; rev = one or more. Missing on disk → rev. */
-  kind: PackageKind
+  /**
+   * Set by the reviewer after submit (Slice 5).
+   * Null until classified. Legacy packets with no kind on disk stay null while open.
+   */
+  kind: PackageKind | null
   title: string
   reason: string
   reason_meta?: ChangeReasonMeta

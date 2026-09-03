@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { NEXT_ACTION, formatDate } from '../status.ts'
-import type { ChangeRecord, ControlClass, InstrumentType, LaunchedStatus } from '../types.ts'
+import type {
+  ChangeRecord,
+  ControlClass,
+  InstrumentType,
+  LaunchedStatus,
+  PackageKind,
+} from '../types.ts'
 import { StatusLamp } from './StatusLamp.tsx'
 
 const INSTRUMENT_TYPES: InstrumentType[] = [
@@ -11,6 +17,8 @@ const INSTRUMENT_TYPES: InstrumentType[] = [
   'third-party-letter',
   'internal-letter',
 ]
+
+const TR_ONE_SECTION = 'A temporary revision touches one section.'
 
 function defaultInstrumentType(controlClass: ControlClass | undefined): InstrumentType {
   switch (controlClass) {
@@ -23,6 +31,12 @@ function defaultInstrumentType(controlClass: ControlClass | undefined): Instrume
     default:
       return 'acceptance-letter'
   }
+}
+
+function stampKind(kind: PackageKind | null): string {
+  if (kind === 'tr') return 'TR'
+  if (kind === 'rev') return 'REV'
+  return '—'
 }
 
 export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
@@ -38,6 +52,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const [instrumentDated, setInstrumentDated] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrumentType, setInstrumentType] = useState<InstrumentType>('acceptance-letter')
   const [instrumentAuthority, setInstrumentAuthority] = useState('poi')
+  const [draftKind, setDraftKind] = useState<PackageKind>('rev')
 
   async function load() {
     if (!changeId) return
@@ -46,6 +61,8 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
     const board = await api.launched(next.manual)
     setLaunched(board)
     setInstrumentType(defaultInstrumentType(board.control_class))
+    if (next.kind) setDraftKind(next.kind)
+    else if (next.touched.length >= 2) setDraftKind('rev')
   }
 
   useEffect(() => {
@@ -82,9 +99,14 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
     change.status === 'review' || change.status === 'approved' || change.status === 'ready-to-launch'
   const isClosed = change.status === 'launched' || change.status === 'withdrawn'
   const isTr = change.kind === 'tr'
+  const isRev = change.kind === 'rev'
+  const classified = Boolean(change.kind)
+  const manySections = change.touched.length >= 2
+  const trLocked = manySections
   const hasInstrument = Boolean(change.instrument)
   const launchDocEmpty = isTr ? !trFile.trim() : !hasInstrument && !instrumentPath.trim()
   const canIssue =
+    classified &&
     (change.status === 'approved' || change.status === 'ready-to-launch') &&
     (isTr ? Boolean(trFile.trim() && launched?.full) : hasInstrument)
 
@@ -98,7 +120,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
         </div>
         <div className="stamp-block">
           <strong>CHANGE PACKET</strong>
-          <span className="stamp-kind">{isTr ? 'TR' : 'REV'}</span>
+          <span className="stamp-kind">{stampKind(change.kind)}</span>
           <StatusLamp status={change.status} />
           <br />
           {launched?.full ? (
@@ -173,9 +195,65 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
 
       {isReviewerDesk ? (
         <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-hd">PACKAGE KIND</div>
+          <div className="form-grid" style={{ padding: 14 }}>
+            <p className="meta">
+              Name this packet before launch. One touched section may be a temporary revision; two or
+              more must be a full revision.
+            </p>
+            <div className="field">
+              <div className="kind-picks">
+                <label className={`check ${trLocked ? 'disabled' : ''}`}>
+                  <input
+                    type="radio"
+                    name="package-kind"
+                    checked={draftKind === 'tr'}
+                    disabled={trLocked || busy}
+                    onChange={() => setDraftKind('tr')}
+                  />
+                  <span>Temporary revision</span>
+                </label>
+                <label className="check">
+                  <input
+                    type="radio"
+                    name="package-kind"
+                    checked={draftKind === 'rev'}
+                    disabled={busy}
+                    onChange={() => setDraftKind('rev')}
+                  />
+                  <span>Full revision</span>
+                </label>
+              </div>
+              {manySections ? <p className="kind-warn">{TR_ONE_SECTION}</p> : null}
+              {classified ? (
+                <p className="meta">Current: {stampKind(change.kind)}</p>
+              ) : (
+                <p className="field-error">Classify this packet before launch.</p>
+              )}
+            </div>
+            <div className="actions">
+              <button
+                className="btn"
+                type="button"
+                disabled={busy || (draftKind === 'tr' && manySections)}
+                onClick={() =>
+                  void run(async () => {
+                    setChange(await api.classify(change.id, draftKind))
+                  })
+                }
+              >
+                {classified ? 'Update classification' : 'Classify packet'}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {isReviewerDesk && classified ? (
+        <section className="panel" style={{ marginBottom: 16 }}>
           <div className="panel-hd">LAUNCH CONTROLS</div>
           <div className="form-grid" style={{ padding: 14 }}>
-            {!isTr ? (
+            {isRev ? (
               <label className="field">
                 Effective date
                 <input value={effective} onChange={(e) => setEffective(e.target.value)} />

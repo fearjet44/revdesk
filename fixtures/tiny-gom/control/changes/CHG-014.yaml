@@ -1,6 +1,7 @@
 id: CHG-014
 manual: gom
 status: approved
+kind: tr
 title: Clarify operational-control wording
 reason:
   type: opspec

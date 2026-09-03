@@ -95,10 +95,20 @@ contains "$launch" "GOM-R13-TR1" "active TR1"
 contains "$launch" "14 (not launched)" "next full 14"
 
 echo "=== 4 full issue with POI letter → GOM-R14, TR incorporated ==="
-expect_ok change start --manual gom --title "Incorporate and advance" --reason-type opspec --ref A099 --kind rev --section gom.ident
+expect_ok change start --manual gom --title "Incorporate and advance" --reason-type opspec --ref A099 --section gom.ident
 NEW="$("${REVDESK[@]}" change list --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const a=JSON.parse(s);console.log(a.find(c=>c.status==='draft').id)})")"
+kind="$("${REVDESK[@]}" change show "$NEW" --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>console.log(JSON.stringify(JSON.parse(s).kind)))")"
+if [[ "$kind" == "null" ]]; then
+  pass=$((pass + 1))
+  echo "OK  start leaves kind unclassified"
+else
+  fail=$((fail + 1))
+  echo "FAIL kind=$kind want null"
+fi
 expect_ok change submit "$NEW"
 expect_ok change approve "$NEW" --role chief-pilot
+expect_exit 2 issue "$NEW" --effective 2026-09-15
+expect_ok change classify "$NEW" --kind rev
 expect_ok instrument attach "$NEW" --file "$LETTERS/poi-acceptance.txt" --type acceptance-letter --authority poi --dated 2026-09-12 --reference "POI 2026-0912"
 expect_ok issue "$NEW" --effective 2026-09-15
 contains "$("${REVDESK[@]}" issue show GOM-R14 2>&1)" "GOM-R14" "issue show R14"
@@ -110,7 +120,7 @@ expect_exit 2 change withdraw "$NEW" --why "nope"
 
 echo "=== 6 supersedes — new CHG, no R15 issue ==="
 before_next="$("${REVDESK[@]}" launched gom --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>console.log(JSON.parse(s).next_full))")"
-expect_ok change start --manual gom --supersedes GOM-R14 --reason-type regulator --title "Regulator kickback fix" --kind rev --section gom.ident
+expect_ok change start --manual gom --supersedes GOM-R14 --reason-type regulator --title "Regulator kickback fix" --section gom.ident
 file_absent "$WORK/control/issues/GOM-R15.yaml"
 after_next="$("${REVDESK[@]}" launched gom --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>console.log(JSON.parse(s).next_full))")"
 if [[ "$before_next" == "$after_next" ]]; then
@@ -125,6 +135,7 @@ SUP="$("${REVDESK[@]}" change list --json | node -e "let s='';process.stdin.on('
 echo "=== 7 issue supersedes CHG without letter → exit 2 ==="
 expect_ok change submit "$SUP"
 expect_ok change approve "$SUP" --role chief-pilot
+expect_ok change classify "$SUP" --kind rev
 expect_exit 2 issue "$SUP" --effective 2026-10-01
 file_absent "$WORK/control/issues/GOM-R15.yaml"
 
@@ -178,11 +189,12 @@ rev_last_changed: R0
 Greenfield content.
 MD
 export REVDESK_DATA="$GF_WORK"
-expect_ok change start --manual gom --title "Initial issue" --reason-type company --ref START --kind rev --section gom.intro
+expect_ok change start --manual gom --title "Initial issue" --reason-type company --ref START --section gom.intro
 GF="$("${REVDESK[@]}" change list --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const a=JSON.parse(s);console.log(a[0].id)})")"
 expect_ok change submit "$GF"
 expect_ok change approve "$GF" --role chief-pilot
 expect_exit 2 tr issue "$GF" --parent GOM-R1 --authority chief-pilot --file "$GF_WORK/letters/internal-r1.txt"
+expect_ok change classify "$GF" --kind rev
 expect_ok instrument attach "$GF" --file "$GF_WORK/letters/internal-r1.txt" --type internal-letter --authority chief-pilot --dated 2026-09-02
 expect_ok issue "$GF" --effective 2026-09-02
 contains "$("${REVDESK[@]}" issue show GOM-R1 2>&1)" "GOM-R1" "greenfield R1"

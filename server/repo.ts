@@ -230,7 +230,7 @@ export class Repo {
       id: String(raw.id),
       manual: String(raw.manual),
       status: normalizeChangeStatus(String(raw.status)),
-      kind: inferPackageKind(raw.kind),
+      kind: readPackageKind(raw.kind),
       title: String(raw.title),
       reason,
       reason_meta,
@@ -303,9 +303,13 @@ export class Repo {
       }
     }
 
-    const kind = parsePackageKind(input.kind)
+    // Kind is optional at start (Slice 5). Reviewer classifies after submit.
+    const kind = input.kind == null || input.kind === '' ? null : parsePackageKind(input.kind)
     const sectionIds = input.sectionIds ?? []
-    assertKindTouches(kind, sectionIds.length)
+    if (kind) assertKindTouches(kind, sectionIds.length)
+    else if (sectionIds.length === 0) {
+      // Allowed: open a WIP packet and touch sections later.
+    }
     const locks = this.openLocks(manual.id)
     const selected: SectionSummary[] = []
     for (const sectionId of sectionIds) {
@@ -445,6 +449,40 @@ export class Repo {
 
   putSectionForChange(sectionId: string, changeId: string, markdown: string): SectionFile {
     return this.saveWorkingSection(changeId, sectionId, markdown)
+  }
+
+  /**
+   * Reviewer names the package TR or rev after submit (Slice 5).
+   * Allowed in review / approved / ready-to-launch.
+   */
+  classify(changeId: string, kindRaw: string): ChangeRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched' || change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is ${change.status}; cannot classify.`)
+    }
+    if (change.status === 'draft' || change.status === 'edit') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; submit for review before classifying TR vs rev.`,
+      )
+    }
+    if (!['review', 'approved', 'ready-to-launch'].includes(change.status)) {
+      throw new RepoError(2, `${changeId} is ${change.status}; cannot classify.`)
+    }
+    const kind = parsePackageKind(kindRaw)
+    assertKindTouches(kind, change.touched.length)
+    const prev = change.kind
+    change.kind = kind
+    change.history.push({
+      at: nowIso(),
+      action: 'classified',
+      note:
+        prev && prev !== kind
+          ? `classified as ${kindLabel(kind)} (was ${kindLabel(prev)})`
+          : `classified as ${kindLabel(kind)}`,
+    })
+    this.writeChange(change)
+    return this.readChange(changeId)
   }
 
   transition(changeId: string, action: ChangeAction, opts: { role?: string } = {}): ChangeRecord {
@@ -625,6 +663,12 @@ export class Repo {
     if (change.status === 'approved' && change.instrument) {
       change.status = 'ready-to-launch'
     }
+    if (!change.kind) {
+      throw new RepoError(
+        2,
+        `${changeId} has no package kind. Classify as rev with \`change classify\` before full issue.`,
+      )
+    }
     if (change.kind === 'tr') {
       throw new RepoError(
         2,
@@ -762,6 +806,18 @@ export class Repo {
       )
     }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+    if (!change.kind) {
+      throw new RepoError(
+        2,
+        `${changeId} has no package kind. Classify as tr with \`change classify\` before tr issue.`,
+      )
+    }
+    if (change.kind !== 'tr') {
+      throw new RepoError(
+        2,
+        `${changeId} is a full revision package; issue it with \`issue\` (not tr issue).`,
+      )
+    }
     if (change.touched.length !== 1) {
       throw new RepoError(2, TR_ONE_SECTION)
     }
@@ -1210,15 +1266,24 @@ function assertInstrumentFile(src: string): void {
 }
 
 function parsePackageKind(raw: unknown): PackageKind {
-  if (raw == null || raw === '') return 'rev'
+  if (raw == null || raw === '') {
+    throw new RepoError(2, 'kind must be tr or rev.')
+  }
   const value = String(raw).trim().toLowerCase()
   if (value === 'tr' || value === 'rev') return value
   throw new RepoError(2, 'kind must be tr or rev.')
 }
 
-function inferPackageKind(raw: unknown): PackageKind {
-  if (raw === 'tr' || raw === 'rev') return raw
-  return 'rev'
+/** Missing / null on disk → unclassified (Slice 5). Explicit tr|rev kept. */
+function readPackageKind(raw: unknown): PackageKind | null {
+  if (raw == null || raw === '') return null
+  const value = String(raw).trim().toLowerCase()
+  if (value === 'tr' || value === 'rev') return value
+  return null
+}
+
+function kindLabel(kind: PackageKind): string {
+  return kind === 'tr' ? 'TR' : 'REV'
 }
 
 function assertKindTouches(kind: PackageKind, count: number): void {

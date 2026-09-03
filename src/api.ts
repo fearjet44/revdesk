@@ -37,7 +37,7 @@ export const api = {
     manual: string
     title: string
     reason: string
-    kind: 'tr' | 'rev'
+    kind?: 'tr' | 'rev'
     sectionIds: string[]
     supersedes?: string
   }) => request<ChangeRecord>('/api/changes', { method: 'POST', body: JSON.stringify(body) }),
@@ -47,6 +47,11 @@ export const api = {
     request<SectionFile>(`/api/changes/${changeId}/sections/${sectionId}`, {
       method: 'PUT',
       body: JSON.stringify({ markdown }),
+    }),
+  classify: (changeId: string, kind: 'tr' | 'rev') =>
+    request<ChangeRecord>(`/api/changes/${changeId}/classify`, {
+      method: 'POST',
+      body: JSON.stringify({ kind }),
     }),
   transition: (changeId: string, action: ChangeAction) =>
     request<ChangeRecord>(`/api/changes/${changeId}/transition`, {

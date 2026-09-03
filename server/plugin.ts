@@ -148,6 +148,12 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'classify') {
+    const body = await readJson<{ kind?: string }>(req)
+    sendJson(res, 200, repo.classify(parts[1], body.kind ?? ''))
+    return
+  }
+
   if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'withdraw') {
     const body = await readJson<{ why?: string }>(req)
     sendJson(res, 200, repo.withdraw(parts[1], body.why ?? ''))

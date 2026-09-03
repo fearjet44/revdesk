@@ -358,6 +358,12 @@ label.field.invalid select {
   color: #f0c2be;
 }
 
+.start-kind-note {
+  margin: 0;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .stamp-kind {
   display: inline-block;
   margin-right: 8px;

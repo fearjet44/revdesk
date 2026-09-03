@@ -84,7 +84,7 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
             Back to packet
           </Link>
           <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
-            {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
+            {busy ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>

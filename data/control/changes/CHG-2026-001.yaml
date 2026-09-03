@@ -1,7 +1,7 @@
 id: CHG-2026-001
 manual: gom
 status: draft
-kind: rev
+kind: null
 title: Foo
 reason: Bar
 created: 2026-09-02

@@ -77,7 +77,7 @@ async function main(argv: string[]): Promise<number> {
           ['ID', 'KIND', 'STATUS', 'MANUAL', 'LAUNCH', 'TOUCHED', 'TITLE'],
           rows.map((c) => [
             c.id,
-            c.kind === 'tr' ? 'TR' : 'REV',
+            c.kind === 'tr' ? 'TR' : c.kind === 'rev' ? 'REV' : '—',
             c.status,
             c.manual,
             c.launch_id ?? '—',
@@ -117,6 +117,12 @@ async function main(argv: string[]): Promise<number> {
         (opts.action as TouchAction) || 'amend',
       )
       return emit(json, change, formatChange)
+    }
+
+    if (cmd === 'change' && sub === 'classify') {
+      const id = requirePositional(rest, 0, 'change id')
+      const opts = parseOpts(rest.slice(1))
+      return emit(json, repo.classify(id, requireOpt(opts, 'kind')), formatChange)
     }
 
     if (cmd === 'change' && sub === 'submit') {
@@ -334,8 +340,9 @@ function formatManual(manual: ReturnType<Repo['getManual']>): string {
 }
 
 function formatChange(change: ChangeRecord): string {
+  const kindStamp = change.kind === 'tr' ? 'TR' : change.kind === 'rev' ? 'REV' : '—'
   const lines = [
-    `${change.id}  ${change.status}  ${change.kind === 'tr' ? 'TR' : 'REV'}`,
+    `${change.id}  ${change.status}  ${kindStamp}`,
     change.title,
     `manual ${change.manual}  author ${change.author}  created ${change.created}`,
     `reason ${change.reason}`,
@@ -520,10 +527,12 @@ Usage:
   revdesk manual list | show <id>
 
   revdesk change list
-  revdesk change start  --manual <id> --title "..." --kind tr|rev --section <id>
-                        [--section <id> ...] [--reason "..."] [--reason-type <type>] [--ref <ref>]
+  revdesk change start  --manual <id> --title "..." --section <id> [--section <id> ...]
+                        [--kind tr|rev]   # optional; reviewer usually classifies after submit
+                        [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
-  revdesk change show | touch | submit | approve | withdraw | return-to-edit
+  revdesk change show | touch | classify | submit | approve | withdraw | return-to-edit
+  revdesk change classify <CHG> --kind tr|rev
 
   revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
   revdesk instrument show   <CHG>

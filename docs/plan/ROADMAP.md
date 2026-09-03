@@ -22,9 +22,9 @@ The desk people sit at. Git never appears.
 
 **Done enough when:** an author opens a TR or rev, edits one or many sections, submits; a reviewer attaches a letter and launches; `revdesk launched` tells the truth.
 
-**Where we are:** Slice 0 UI + Slice 1 CLI + Slice 2 launch/TR YAML are on main. Slice 4 (author/reviewer split + package kind) is the next cut — `docs/plan/slice-4-author-reviewer-desks.md`. Package rules live in `docs/plan/change-package-model.md`.
+**Where we are:** Slice 0–2 UI/CLI + Slice 4 (author/reviewer split + package kind field) are on main. Slice 5 (deferred kind — edit/Save first, reviewer classifies) is the next cut — `docs/plan/slice-5-deferred-kind.md` and `docs/plan/deferred-kind-and-wip.md`. Package rules live in `docs/plan/change-package-model.md` (superseded on *when* kind is chosen).
 
-**Still inside this pillar, after Slice 4:** tighter TipTap schema, reviewer TR incorporate/withdraw before a rev launches, roles if we ever need more than status-as-desk.
+**Still inside this pillar, after Slice 5:** tighter TipTap schema, reviewer TR incorporate/withdraw before a rev launches, roles if we ever need more than status-as-desk.
 
 ---
 
@@ -38,7 +38,7 @@ Storage and review plumbing. Hidden.
 
 **Where we are:** `git_tag` is still a YAML string. Spec is Slice 3b (feed that, not the first Slice 3 draft). Work-repo `issued/` spelling is the tag template. Company-post-without-letter is **not** a Revdesk verb.
 
-Do this after Slice 4 unless two agents will collide on `server/repo.ts`.
+Do this after Slice 5 unless two agents will collide on `server/repo.ts`.
 
 ---
 
@@ -66,8 +66,8 @@ How a living GOM / FOTM / MEL becomes Revdesk sections instead of a toy fixture.
 
 ## Build order
 
-1. Finish pillar 1 through Slice 4 (desk matches the paper TR/rev rule).
+1. Finish pillar 1 through Slice 5 (desk matches deferred classify + paper TR/rev rule).
 2. Pillar 2 Git adapter (3b) so launch leaves a tag.
 3. Pillar 3 ingest so the desk is the GOM, not Foo/Bar.
 
-Ingest can start as a spike in parallel if it does not rewrite `server/repo.ts` while Slice 4 is open.
+Ingest can start as a spike in parallel if it does not rewrite `server/repo.ts` while Slice 5 is open.
