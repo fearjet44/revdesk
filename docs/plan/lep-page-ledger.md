@@ -1,106 +1,137 @@
-# Revdesk — LEP / page ledger (lock before ingest)
+# Revdesk — Page / section control ledger (lock before ingest)
 
-Captured 2026-09-03 from the dock-pipeline mistake: LEP was treated as something you assemble on the way out of the PDF. It is not. Every page is versionable. Ingest has to know that on the way in.
+Captured 2026-09-03. Updated the same day with pagination schemes and LEP vs LES vs no-list.
 
-Do not start pillar 3 ingest until this is in the contract.
-
----
-
-## The mistake
-
-A section is not a page. A GOM leaf can become 1 page or 7. The **List of Effective Pages** is the control surface the FAA and the crew actually use: each printed page has a revision identity.
-
-If you only version sections, then:
-
-- LEP is a second or third pass after render
-- Overflow (text that no longer fits the last page) is discovered too late
-- Reflow looks like a content change, or gets hand-patched in Word
-
-That is what the old pipeline forced. Do not repeat it.
+Do not start pillar 3 ingest until the agent has this file.
 
 ---
 
-## Unit of control
+## The dock-pipeline mistake
 
-| Object | What it is |
+LEP was assembled on the way *out* of the PDF. Every **page** (or every **section**, if that is the book’s system) is versionable. Ingest has to classify the book on the way *in*.
+
+---
+
+## What the regs actually say
+
+14 CFR **§ 121.135(a)** does not invent “LEP” or “LES” by name. It requires:
+
+- Paper manual: **date of last revision on each page**.
+- Electronic manual: date of last revision displayed so a person can **immediately ascertain it**.
+
+Same idea appears for part 135 (§ 135.23) and 91K (§ 91.1025).
+
+Industry + FAA guidance fill in the *how*:
+
+- **AC 120-78B** § 4.1.4: a typical manual includes revision-control pages and a **list of effective pages**.
+- **AC 120-78B** § 4.3.7.2.2: electronic manuals in **continuous-flow** format (not page-by-page) should show revision status on each **section or block of information**. That is the List of Effective **Sections** pattern — replace the whole leaf, do not version faces.
+
+Part 135 operators copy the same habits for FAA-accepted/approved books even when 121 is not the certificate. Company-controlled books often have **neither** list.
+
+Revdesk stores the *system the book already uses*. It does not upgrade a handbook into an LEP book on ingest.
+
+---
+
+## Control style (inspect on ingest; persist on `manual.yaml`)
+
+| `control_surface` | What is versioned | Typical books |
+|---|---|---|
+| `lep` | Each printed page (slot) | Most FAA ops manuals still paginated |
+| `les` | Whole section / leaf | Continuous-flow / electronic; “replace section A” |
+| `rev-only` | The manual revision only | Many internal / company books, no LEP |
+
+A book can be `lep` in front matter + body and still have a cover that is not in the LEP. Record that; do not force one grid on the cover.
+
+`les` means a TR still targets one section, and launch replaces that section as one effective unit. No per-page overflow ledger unless they also paginate for print.
+
+`rev-only` means ingest creates sections, stamps the book rev on render, and does **not** invent LEP rows.
+
+---
+
+## Pagination schemes (also inspect; persist)
+
+Page numbers are not “1, 2, 3” from the engine.
+
+| `page_scheme` | Examples |
 |---|---|
-| Section | Editable leaf (`gom-a`, one TR target) |
-| Page | One printed face in the of-record PDF, owned by a section |
-| LEP row | Page identity + revision + whether this rev *changed content* or only *reflowed* |
+| `roman-front` | i, ii, iii — front matter |
+| `letter-cover` | Cover / title as `C` or unnumbered |
+| `section-page` | A-1, A-2, P-1, P-2 (section letter + face) |
+| `chapter-page` | 2-1, 2-2 |
+| `running` | 1 … N through the book |
+| `none` | `rev-only` books; screen flow |
 
-A TR still touches **one section**. That section may occupy several LEP rows. A rev package may touch many sections and therefore many pages.
+One manual usually **mixes** these (Roman front + A-1 body). Store a list of regions:
+
+```yaml
+pagination:
+  control_surface: lep          # lep | les | rev-only
+  regions:
+    - name: cover
+      scheme: letter-cover
+      slots: [C]
+    - name: front-matter
+      scheme: roman-front
+      slots: [i, ii, iii, iv]
+    - name: body
+      scheme: section-page      # slot = {section_letter}-{seq}
+```
+
+`slot` is the LEP name crews already know. Engine ordinals are derived at render and **stamped back** into YAML (`printed_as`, overflow notes). Identity is the slot, not the PDF page index.
 
 ---
 
-## Ledger (ingest writes this; render updates it)
+## Ledger when `control_surface: lep`
 
-Per section, persist a page list in YAML (shape can move; the facts cannot):
+Per section:
 
 ```yaml
 id: gom-a
-title: Section A — Management
+letter: A
 pages:
-  - slot: A-1          # stable LEP key, not "whatever the PDF engine numbered today"
+  - slot: A-1
     seq: 1
-    rev_content: 13    # last rev that changed words on this page
-    rev_page: 13       # last rev this slot existed in the book
-    reflow_of: null    # if this slot was born because A-1 overflowed, point at A-1
-    dagger: false      # true = this rev is layout only, not new policy
+    rev_content: 13
+    rev_page: 13
+    reflow_of: null
+    dagger: false
     overflow: false
 ```
 
-`slot` is the LEP name crews see (`2-5`, `A-1`, `A-1a`). It must survive a re-render. Engine page numbers are derived, not stored as identity.
+Render loop (same as before): paginate → if overflow, append slot (`A-2` or `A-1a` per house style), `reflow_of` + `dagger: true`, `rev_content` unchanged → write YAML → emit PDF and LEP from the ledger in **one** pass.
 
-Ingest of an existing book: create one slot per effective page already on that book's LEP. Do not invent a single slot per section.
-
----
-
-## Render loop (before the PDF is of-record)
-
-1. Paginate the section against the current stylesheet.
-2. If output page count **equals** the ledger, stamp and emit.
-3. If output **overflows** (needs more pages than slots):
-   - write `overflow: true` on the last existing slot
-   - append a new slot (`A-2`, or `A-1a` if that is house style)
-   - set `reflow_of` to the slot that spilled
-   - set `dagger: true` and `rev_content` **unchanged** (same words)
-   - set `rev_page` to the rev being built
-4. If output **underflows** (fits in fewer pages): do not delete history. Mark vacated slots `withdrawn` / omitted on the next LEP; keep the id so an audit can see they existed.
-5. Then emit PDF. LEP is generated from this ledger in the **same** pass, not a later grep of the PDF.
-
-Reflow is cheap because it is an append to the list plus a dagger, not a rewrite of the section identity.
+Underflow: do not delete slot history; omit on the next LEP.
 
 ---
 
-## Dagger means
+## Ledger when `control_surface: les`
 
-Crew-facing LEP mark: this page is in the new rev **only because layout moved**. No policy change. Content rev on that slot stays the parent rev.
-
-Do not use a dagger for a TR or for edited prose. Those bump `rev_content`.
+No page slots required. Section record carries `rev_content`. Continuous-flow stamp is the section rev/date (§ 121.135 electronic + AC 120-78B 4.3.7.2.2). If they also print, they may add an LEP region later; do not invent one at ingest.
 
 ---
 
-## What ingest must capture from the source book
+## Ledger when `control_surface: rev-only`
 
-For each page already on the current LEP / footer:
-
-- printed page id (slot)
-- revision showing on that page
-- date if present
-- whether the source marked it changed this rev (asterisk/dagger/bar)
-
-If the source PDF has no LEP, still create slots from the rendered page count of that ingest and flag `lep_inferred: true` so we do not pretend it was of-record control.
+Manual-level rev/date only. Render may still number pages for a PDF, but those numbers are **not** control objects. Stamp them as `printed_as` if useful for debug; they do not enter an LEP.
 
 ---
 
-## Out of scope here
+## Ingest checklist (first job of pillar 3)
 
-- Choosing A-1 vs 2-1 house style (per-manual config)
-- The actual typesetter
-- ForeFlight filenames
+For each source book:
+
+1. Control class (already locked: approved / accepted / third-party / internal).
+2. `control_surface`: LEP, LES, or rev-only. Look for an LEP page, an LES / revision-control section list, or neither.
+3. Pagination regions (Roman, cover letters, A-1, running).
+4. Copy existing LEP/LES rows into the ledger. If none and surface is `lep`, infer slots from the source PDF and set `lep_inferred: true`.
+5. Do not retitle slots to a house style on ingest. Keep what the book already prints.
+
+Render later **stamps** chosen page numbers into YAML and into the footer. That is allowed. Changing the control surface of a live FAA book is not an ingest surprise; it is a rev package.
 
 ---
 
-## Done when ingest exists
+## Out of scope
 
-Opening a real GOM in Revdesk shows sections **and** a page ledger. Building a PDF updates that ledger in place. LEP in the artifact is a print of the ledger, not a separate reconstruction.
+- Typesetter choice
+- Exact dagger glyph vs asterisk (per-manual)
+- Publish filenames
