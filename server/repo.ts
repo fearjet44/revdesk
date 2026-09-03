@@ -647,6 +647,18 @@ export class Repo {
     if (change.status === 'launched') {
       throw new RepoError(2, `${changeId} is already launched.`)
     }
+    if (!change.kind) {
+      throw new RepoError(
+        2,
+        `${changeId} has no package kind. Classify as rev with \`change classify\` before full issue.`,
+      )
+    }
+    if (change.kind === 'tr') {
+      throw new RepoError(
+        2,
+        `${changeId} is a temporary revision package; issue it with \`tr issue\`.`,
+      )
+    }
     if (!change.instrument) {
       throw new RepoError(
         2,
@@ -662,18 +674,6 @@ export class Repo {
     // approved + instrument should already be ready-to-launch; tolerate approved if instrument present
     if (change.status === 'approved' && change.instrument) {
       change.status = 'ready-to-launch'
-    }
-    if (!change.kind) {
-      throw new RepoError(
-        2,
-        `${changeId} has no package kind. Classify as rev with \`change classify\` before full issue.`,
-      )
-    }
-    if (change.kind === 'tr') {
-      throw new RepoError(
-        2,
-        `${changeId} is a temporary revision package; issue it with \`tr issue\`.`,
-      )
     }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
 
