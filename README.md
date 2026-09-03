@@ -67,3 +67,9 @@ data/
 ```
 
 Fixture for acceptance: `fixtures/tiny-gom`.
+
+## License
+
+Copyright 2026 fearjet44
+
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
