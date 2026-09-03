@@ -326,6 +326,7 @@ issue_id: "{abbrev}-{revision}"
 YAML
 export REVDESK_DATA="$WORK7"
 LETTERS="$WORK7/letters"
+expect_ok change classify CHG-014 --kind rev
 expect_ok instrument attach CHG-014 --file "$LETTERS/poi-acceptance.txt" --type acceptance-letter --authority poi --dated 2026-09-12
 expect_ok issue CHG-014 --effective 2026-09-15
 file_present "$WORK7/control/issues/GOM-R14.yaml"
@@ -353,6 +354,7 @@ WORK8="$(mktemp -d "${TMPDIR:-/tmp}/revdesk-slice3-dirty.XXXXXX")"
 setup_git_lib "$WORK8"
 export REVDESK_DATA="$WORK8"
 LETTERS="$WORK8/letters"
+expect_ok change classify CHG-014 --kind rev
 expect_ok instrument attach CHG-014 --file "$LETTERS/poi-acceptance.txt" --type acceptance-letter --authority poi --dated 2026-09-12
 echo "scratch" > "$WORK8/scratch.tmp"
 set +e
@@ -385,6 +387,7 @@ Date: 2 Sep 2026
 
 Please place revision 14 of this third-party manual in crew libraries.
 EML
+expect_ok change classify CHG-014 --kind rev
 expect_ok instrument attach CHG-014 --file "$EML" --type third-party-letter --authority third-party --dated 2026-09-02
 expect_ok issue CHG-014 --effective 2026-09-02
 file_present "$WORK9/control/issues/GOM-R14.yaml"
