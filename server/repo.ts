@@ -38,6 +38,7 @@ import type {
   LaunchedStatus,
   ManualDetail,
   ManualRecord,
+  PackageKind,
   SectionFile,
   SectionSummary,
   TouchAction,
@@ -46,6 +47,7 @@ import type {
 } from './types.ts'
 
 const AUTHOR = 'Chief Pilot'
+const TR_ONE_SECTION = 'A temporary revision touches one section.'
 const PLACEHOLDER_ARTIFACT_SHA =
   '0000000000000000000000000000000000000000000000000000000000000000'
 
@@ -228,6 +230,7 @@ export class Repo {
       id: String(raw.id),
       manual: String(raw.manual),
       status: normalizeChangeStatus(String(raw.status)),
+      kind: inferPackageKind(raw.kind),
       title: String(raw.title),
       reason,
       reason_meta,
@@ -248,6 +251,7 @@ export class Repo {
       id: change.id,
       manual: change.manual,
       status: change.status,
+      kind: change.kind,
       title: change.title,
       reason: change.reason_meta ?? change.reason,
       created: change.created,
@@ -275,6 +279,7 @@ export class Repo {
     reason?: string
     reasonType?: string
     reasonRef?: string
+    kind?: string
     sectionIds?: string[]
     supersedes?: string
   }): ChangeRecord {
@@ -298,7 +303,9 @@ export class Repo {
       }
     }
 
+    const kind = parsePackageKind(input.kind)
     const sectionIds = input.sectionIds ?? []
+    assertKindTouches(kind, sectionIds.length)
     const locks = this.openLocks(manual.id)
     const selected: SectionSummary[] = []
     for (const sectionId of sectionIds) {
@@ -323,6 +330,7 @@ export class Repo {
       id,
       manual: manual.id,
       status: 'draft',
+      kind,
       title,
       reason,
       reason_meta,
@@ -372,6 +380,9 @@ export class Repo {
     }
     if (!['draft', 'edit', 'review', 'approved'].includes(change.status)) {
       throw new RepoError(2, `${changeId} is ${change.status}; cannot touch.`)
+    }
+    if (change.kind === 'tr' && change.touched.length >= 1) {
+      throw new RepoError(2, TR_ONE_SECTION)
     }
     if (change.touched.some((item) => item.id === sectionId)) {
       throw new RepoError(2, `Section ${sectionId} is already on ${changeId}.`)
@@ -614,6 +625,12 @@ export class Repo {
     if (change.status === 'approved' && change.instrument) {
       change.status = 'ready-to-launch'
     }
+    if (change.kind === 'tr') {
+      throw new RepoError(
+        2,
+        `${changeId} is a temporary revision package; issue it with \`tr issue\`.`,
+      )
+    }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
 
     const effectiveDate = effective.trim()
@@ -745,6 +762,9 @@ export class Repo {
       )
     }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+    if (change.touched.length !== 1) {
+      throw new RepoError(2, TR_ONE_SECTION)
+    }
 
     const manual = this.readManual(change.manual)
     if (!manual.current_issued) {
@@ -1186,6 +1206,27 @@ function assertInstrumentFile(src: string): void {
       2,
       `Instrument file must be .eml, .txt, or .pdf (got ${ext || 'no extension'}).`,
     )
+  }
+}
+
+function parsePackageKind(raw: unknown): PackageKind {
+  if (raw == null || raw === '') return 'rev'
+  const value = String(raw).trim().toLowerCase()
+  if (value === 'tr' || value === 'rev') return value
+  throw new RepoError(2, 'kind must be tr or rev.')
+}
+
+function inferPackageKind(raw: unknown): PackageKind {
+  if (raw === 'tr' || raw === 'rev') return raw
+  return 'rev'
+}
+
+function assertKindTouches(kind: PackageKind, count: number): void {
+  if (count === 0) {
+    throw new RepoError(2, 'A change must touch at least one section.')
+  }
+  if (kind === 'tr' && count !== 1) {
+    throw new RepoError(2, TR_ONE_SECTION)
   }
 }
 

@@ -11,6 +11,7 @@ export type ChangeStatus =
 
 export type ChangeAction = 'submit' | 'approve'
 export type TouchAction = 'amend' | 'add' | 'delete'
+export type PackageKind = 'tr' | 'rev'
 
 export type InstrumentType =
   | 'approval-letter'
@@ -83,6 +84,7 @@ export type ChangeRecord = {
   id: string
   manual: string
   status: ChangeStatus
+  kind: PackageKind
   title: string
   reason: string
   reason_meta?: ChangeReasonMeta

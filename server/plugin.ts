@@ -85,6 +85,7 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
       reason?: string
       reasonType?: string
       reasonRef?: string
+      kind?: string
       sectionIds?: string[]
       supersedes?: string
     }>(req)
@@ -97,6 +98,7 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
         reason: body.reason,
         reasonType: body.reasonType,
         reasonRef: body.reasonRef,
+        kind: body.kind,
         sectionIds: body.sectionIds ?? [],
         supersedes: body.supersedes,
       }),

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { api } from '../api.ts'
-import type { ManualDetail } from '../types.ts'
+import type { ManualDetail, PackageKind } from '../types.ts'
+
+const TR_ONE_SECTION = 'A temporary revision touches one section.'
 
 export function StartChangeDialog({
   manual,
@@ -13,18 +15,38 @@ export function StartChangeDialog({
 }) {
   const [title, setTitle] = useState('')
   const [reason, setReason] = useState('')
+  const [kind, setKind] = useState<PackageKind>('rev')
   const [sectionIds, setSectionIds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  const manySections = sectionIds.length >= 2
+  const trLocked = manySections
+  const canCreate = !busy && title.trim() && reason.trim() && sectionIds.length > 0
+
   function toggle(id: string, held: boolean) {
     if (held) return
-    setSectionIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    )
+    setSectionIds((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+      if (next.length >= 2) setKind('rev')
+      return next
+    })
+  }
+
+  function pickKind(next: PackageKind) {
+    if (next === 'tr' && sectionIds.length >= 2) return
+    setKind(next)
   }
 
   async function submit() {
+    if (!sectionIds.length) {
+      setError('A change must touch at least one section.')
+      return
+    }
+    if (kind === 'tr' && sectionIds.length !== 1) {
+      setError(TR_ONE_SECTION)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -32,6 +54,7 @@ export function StartChangeDialog({
         manual: manual.id,
         title,
         reason,
+        kind,
         sectionIds,
       })
       await onCreated(change.id)
@@ -65,6 +88,31 @@ export function StartChangeDialog({
             />
           </label>
           <div className="field">
+            Package kind
+            <div className="kind-picks">
+              <label className={`check ${trLocked ? 'disabled' : ''}`}>
+                <input
+                  type="radio"
+                  name="package-kind"
+                  checked={kind === 'tr'}
+                  disabled={trLocked}
+                  onChange={() => pickKind('tr')}
+                />
+                <span>Temporary revision</span>
+              </label>
+              <label className="check">
+                <input
+                  type="radio"
+                  name="package-kind"
+                  checked={kind === 'rev'}
+                  onChange={() => pickKind('rev')}
+                />
+                <span>Full revision</span>
+              </label>
+            </div>
+            {manySections ? <p className="kind-warn">{TR_ONE_SECTION}</p> : null}
+          </div>
+          <div className="field">
             Sections to copy into the working folder
             <div className="checks">
               {manual.sections.map((section) => {
@@ -88,7 +136,7 @@ export function StartChangeDialog({
             </div>
           </div>
           <div className="actions">
-            <button className="btn primary" type="button" disabled={busy} onClick={() => void submit()}>
+            <button className="btn primary" type="button" disabled={!canCreate} onClick={() => void submit()}>
               Create change packet
             </button>
           </div>

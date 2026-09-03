@@ -320,12 +320,50 @@ label.field {
   text-transform: uppercase;
 }
 
-input[type="text"], textarea {
+input[type="text"], textarea, select {
   width: 100%;
   background: #0f1319;
   border: 1px solid var(--line);
   padding: 8px 10px;
   color: var(--ink);
+}
+
+label.field.invalid input,
+label.field.invalid select {
+  border-color: #6a2a28;
+  background: #2a1414;
+}
+
+.field-error {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #f0c2be;
+}
+
+.kind-picks {
+  display: grid;
+  gap: 8px;
+}
+
+.kind-picks .check.disabled {
+  opacity: 0.45;
+}
+
+.kind-warn {
+  margin: 8px 0 0;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #f0c2be;
+}
+
+.stamp-kind {
+  display: inline-block;
+  margin-right: 8px;
+  letter-spacing: 0.14em;
+  color: var(--amber);
+  font-weight: 700;
 }
 
 textarea { min-height: 88px; resize: vertical; }

@@ -14,6 +14,8 @@ export type ChangeAction = 'submit' | 'approve'
 
 export type TouchAction = 'amend' | 'add' | 'delete'
 
+export type PackageKind = 'tr' | 'rev'
+
 export type InstrumentType =
   | 'approval-letter'
   | 'acceptance-letter'
@@ -97,6 +99,8 @@ export type ChangeRecord = {
   id: string
   manual: string
   status: ChangeStatus
+  /** TR = one section; rev = one or more. Missing on disk → rev. */
+  kind: PackageKind
   title: string
   reason: string
   reason_meta?: ChangeReasonMeta

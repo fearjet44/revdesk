@@ -143,9 +143,8 @@ setup_git_lib() {
 
 advance_to_ready() {
   local title="$1"
-  expect_ok change start --manual gom --title "$title" --reason-type opspec --ref A099
+  expect_ok change start --manual gom --title "$title" --reason-type opspec --ref A099 --kind rev --section gom.ident
   NEW="$("${REVDESK[@]}" change list --json | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{const a=JSON.parse(s);console.log(a.find(c=>c.status==='draft').id)})")"
-  expect_ok change touch "$NEW" --section gom.ident --action amend
   expect_ok change submit "$NEW"
   expect_ok change approve "$NEW" --role chief-pilot
   expect_ok instrument attach "$NEW" --file "$LETTERS/poi-acceptance.txt" --type acceptance-letter --authority poi --dated 2026-09-12

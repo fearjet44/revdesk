@@ -37,6 +37,7 @@ export const api = {
     manual: string
     title: string
     reason: string
+    kind: 'tr' | 'rev'
     sectionIds: string[]
     supersedes?: string
   }) => request<ChangeRecord>('/api/changes', { method: 'POST', body: JSON.stringify(body) }),

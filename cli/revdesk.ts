@@ -74,9 +74,10 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === 'change' && sub === 'list') {
       return emit(json, repo.listChanges(), (rows) =>
         table(
-          ['ID', 'STATUS', 'MANUAL', 'LAUNCH', 'TOUCHED', 'TITLE'],
+          ['ID', 'KIND', 'STATUS', 'MANUAL', 'LAUNCH', 'TOUCHED', 'TITLE'],
           rows.map((c) => [
             c.id,
+            c.kind === 'tr' ? 'TR' : 'REV',
             c.status,
             c.manual,
             c.launch_id ?? '—',
@@ -95,7 +96,8 @@ async function main(argv: string[]): Promise<number> {
         reasonType: opts['reason-type'],
         reasonRef: opts.ref,
         reason: opts.reason,
-        sectionIds: [],
+        kind: opts.kind,
+        sectionIds: collectOpt(rest, 'section'),
         supersedes: opts.supersedes,
       })
       return emit(json, change, formatChange)
@@ -333,7 +335,7 @@ function formatManual(manual: ReturnType<Repo['getManual']>): string {
 
 function formatChange(change: ChangeRecord): string {
   const lines = [
-    `${change.id}  ${change.status}`,
+    `${change.id}  ${change.status}  ${change.kind === 'tr' ? 'TR' : 'REV'}`,
     change.title,
     `manual ${change.manual}  author ${change.author}  created ${change.created}`,
     `reason ${change.reason}`,
@@ -485,6 +487,18 @@ function parseOpts(tokens: string[]): Record<string, string> {
   return opts
 }
 
+function collectOpt(tokens: string[], key: string): string[] {
+  const values: string[] = []
+  for (let i = 0; i < tokens.length; i += 1) {
+    if (tokens[i] !== `--${key}`) continue
+    const next = tokens[i + 1]
+    if (!next || next.startsWith('--')) continue
+    values.push(next)
+    i += 1
+  }
+  return values
+}
+
 function requireOpt(opts: Record<string, string>, key: string): string {
   const value = opts[key]?.trim()
   if (!value) throw new RepoError(2, `Missing --${key}`)
@@ -506,7 +520,8 @@ Usage:
   revdesk manual list | show <id>
 
   revdesk change list
-  revdesk change start  --manual <id> --title "..." --reason-type <type> [--ref <ref>]
+  revdesk change start  --manual <id> --title "..." --kind tr|rev --section <id>
+                        [--section <id> ...] [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
   revdesk change show | touch | submit | approve | withdraw | return-to-edit
 
