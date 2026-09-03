@@ -1,5 +1,9 @@
 enabled: true
 
+# Sample library lives inside the Revdesk application checkout. Do not walk
+# up into ../.git — that repo is the product, not the operator manuals tree.
+discover_parent: false
+
 change_branch: "change/{change_id}"
 
 # Git tag for a full launch. Tokens: abbrev, revision

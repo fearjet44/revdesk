@@ -11,6 +11,11 @@
 #   Git cannot nest issued/GOM/13/TR/1 under issued/GOM/13, so TR tags
 #   use the hyphen form from git.yaml. GOM-R14 / GOM-R13-TR1 are never
 #   used as git tag names.
+#
+# Isolation: this script `git init`s a throwaway repo in $TMPDIR and copies
+# the fixture into it. That is a private object store — not a worktree of
+# fearjet44/revdesk (a worktree would still share issued/ tags and change/
+# branches with the application checkout).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REVDESK=(node --experimental-strip-types "$ROOT/cli/revdesk.ts")

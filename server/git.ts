@@ -16,6 +16,8 @@ export class GitAdapterError extends Error {
 
 export type GitConfig = {
   enabled: boolean
+  /** Walk up from REVDESK_DATA to find .git. False = only data root (sample library). */
+  discover_parent: boolean
   change_branch: string
   full_tag: string
   tr_tag: string
@@ -43,6 +45,7 @@ export type GitSnapshotResult = {
 
 const DEFAULTS: GitConfig = {
   enabled: true,
+  discover_parent: true,
   change_branch: 'change/{change_id}',
   full_tag: 'issued/{abbrev}/{revision}',
   tr_tag: 'issued/{abbrev}/{parent_revision}-TR/{seq}',
@@ -65,6 +68,7 @@ export function loadGitConfig(dataRoot: string): GitConfig {
   if (!raw || typeof raw !== 'object') return { ...DEFAULTS }
   return {
     enabled: raw.enabled !== false,
+    discover_parent: raw.discover_parent !== false,
     change_branch: str(raw.change_branch, DEFAULTS.change_branch),
     full_tag: str(raw.full_tag, DEFAULTS.full_tag),
     tr_tag: raw.tr_tag == null ? DEFAULTS.tr_tag : String(raw.tr_tag),
@@ -79,13 +83,49 @@ export function loadGitConfig(dataRoot: string): GitConfig {
   }
 }
 
-export function findGitRoot(start: string): string | null {
+export function findGitRoot(start: string, walkParents = true): string | null {
   let dir = path.resolve(start)
   for (;;) {
     if (existsSync(path.join(dir, '.git'))) return dir
+    if (!walkParents) return null
     const parent = path.dirname(dir)
     if (parent === dir) return null
     dir = parent
+  }
+}
+
+/**
+ * Git root we are willing to tag/branch. Walking up from `data/` in this
+ * development checkout finds revdesk's own .git — that is the application,
+ * not the operator manuals library, so we skip it.
+ */
+function resolveManualsGitRoot(dataRoot: string): string | null {
+  const cfg = loadGitConfig(dataRoot)
+  const root = findGitRoot(dataRoot, cfg.discover_parent)
+  if (!root) return null
+  if (isRevdeskApplicationRepo(root, dataRoot)) return null
+  return root
+}
+
+function isRevdeskApplicationRepo(gitRoot: string, dataRoot: string): boolean {
+  const dataAbs = path.resolve(dataRoot)
+  const prefix = dataAbs.endsWith(path.sep) ? dataAbs : `${dataAbs}${path.sep}`
+  const markers = ['src/App.tsx', 'cli/revdesk.ts', 'server/repo.ts']
+  for (const rel of markers) {
+    const abs = path.resolve(gitRoot, rel)
+    if (!existsSync(abs)) continue
+    if (abs === dataAbs || abs.startsWith(prefix)) continue
+    return true
+  }
+  return false
+}
+
+function warnIfSkippedApplicationRepo(dataRoot: string): void {
+  const root = findGitRoot(dataRoot)
+  if (root && isRevdeskApplicationRepo(root, dataRoot)) {
+    console.error(
+      `warning: git is enabled but ${root} is the Revdesk application checkout, not a manuals library; skipping git`,
+    )
   }
 }
 
@@ -112,7 +152,7 @@ export function changeBranchName(cfg: GitConfig, changeId: string): string {
 export function gitStatus(dataRoot: string): GitStatusInfo {
   const cfg = loadGitConfig(dataRoot)
   const configFile = gitConfigPath(dataRoot)
-  const root = findGitRoot(dataRoot)
+  const root = resolveManualsGitRoot(dataRoot)
   if (!root) {
     return {
       enabled: cfg.enabled,
@@ -142,7 +182,7 @@ export function gitStatus(dataRoot: string): GitStatusInfo {
 export function preflightLaunch(dataRoot: string, tag: string | null): void {
   const cfg = loadGitConfig(dataRoot)
   if (!cfg.enabled) return
-  const root = findGitRoot(dataRoot)
+  const root = resolveManualsGitRoot(dataRoot)
   if (!root) return
 
   const dirty = porcelainPaths(root, cfg)
@@ -170,31 +210,25 @@ export function startChangeBranch(
 ): void {
   const cfg = loadGitConfig(dataRoot)
   if (!cfg.enabled) return
-  const root = findGitRoot(dataRoot)
-  if (!root) return
+  const root = resolveManualsGitRoot(dataRoot)
+  if (!root) {
+    warnIfSkippedApplicationRepo(dataRoot)
+    return
+  }
 
   const branch = changeBranchName(cfg, changeId)
   let start =
     startRef && refExists(root, cfg, startRef) ? startRef : 'HEAD'
-  // If HEAD already contains the last issued commit (e.g. a follow-up
-  // source_commit record), branch from HEAD so we do not rewind.
   if (start !== 'HEAD') {
     const ancestor = spawnGit(root, cfg, ['merge-base', '--is-ancestor', start, 'HEAD'])
     if (ancestor.status === 0) start = 'HEAD'
   }
 
-  if (refExists(root, cfg, `refs/heads/${branch}`)) {
-    runGit(root, cfg, ['switch', '--', branch])
-    return
-  }
-
-  const head = revParse(root, cfg, 'HEAD')
-  const startSha = revParse(root, cfg, start)
-  if (head && startSha && head === startSha) {
-    runGit(root, cfg, ['switch', '-c', branch])
-    return
-  }
-  runGit(root, cfg, ['switch', '-c', branch, start])
+  // Point a change/* ref at the start commit. Never `git switch` — Revdesk
+  // uses a single working tree (REVDESK_DATA), so moving HEAD would hijack
+  // the operator's checkout (and this application's, if mis-detected).
+  if (refExists(root, cfg, `refs/heads/${branch}`)) return
+  runGit(root, cfg, ['branch', '--', branch, start])
 }
 
 /**
@@ -214,11 +248,14 @@ export function snapshotLaunch(
     opts.persistSourceCommit(null, true)
     return { source_commit: null, git_skipped: true }
   }
-  const root = findGitRoot(dataRoot)
+  const root = resolveManualsGitRoot(dataRoot)
   if (!root) {
-    console.error(
-      'warning: git is enabled but no repository was found; launch recorded without a tag',
-    )
+    warnIfSkippedApplicationRepo(dataRoot)
+    if (!findGitRoot(dataRoot)) {
+      console.error(
+        'warning: git is enabled but no repository was found; launch recorded without a tag',
+      )
+    }
     opts.persistSourceCommit(null, true)
     return { source_commit: null, git_skipped: true }
   }
@@ -279,7 +316,7 @@ export function tagOk(
 ): boolean {
   if (!gitTag || !sourceCommit) return false
   const cfg = loadGitConfig(dataRoot)
-  const root = findGitRoot(dataRoot)
+  const root = resolveManualsGitRoot(dataRoot)
   if (!root) return false
   if (!refExists(root, cfg, `refs/tags/${gitTag}`)) return false
   const pointed = revParse(root, cfg, `${gitTag}^{commit}`)
@@ -288,7 +325,7 @@ export function tagOk(
 
 export function resolveTagCommit(dataRoot: string, gitTag: string): string | null {
   const cfg = loadGitConfig(dataRoot)
-  const root = findGitRoot(dataRoot)
+  const root = resolveManualsGitRoot(dataRoot)
   if (!root) return null
   if (!refExists(root, cfg, `refs/tags/${gitTag}`)) return null
   return revParse(root, cfg, `${gitTag}^{commit}`)
