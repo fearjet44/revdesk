@@ -85,7 +85,7 @@ revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --
 revdesk instrument show   <CHG>
 
 revdesk section get <section-id> --change <CHG> [--out <path>]
-revdesk section put <section-id> --change <CHG> --file <path> --mark RF|GS|… [--note "…"]
+revdesk section put <section-id> --change <CHG> --file <path> --mark RF|GS|SE|… [--note "…"]
 revdesk preview <CHG>
 
 revdesk issue <CHG> --effective YYYY-MM-DD

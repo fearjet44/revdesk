@@ -246,7 +246,26 @@ h1 {
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.page-head .actions { align-items: flex-end; }
+.has-write-dock {
+  padding-bottom: 104px;
+}
+
+.write-dock {
+  position: fixed;
+  z-index: 15;
+  left: 308px;
+  right: 28px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  background: rgba(16, 22, 30, 0.96);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
 
 .write-mark {
   display: flex;
@@ -261,11 +280,16 @@ h1 {
   min-width: 220px;
 }
 
-.page-head .actions input[type="text"] {
+.write-dock input[type="text"] {
   min-width: 160px;
+  flex: 1;
   background: #0f1319;
   border: 1px solid var(--line);
   padding: 8px 10px;
+}
+
+.write-dock .btn.primary {
+  min-width: 140px;
 }
 
 .packet-actions {
@@ -907,4 +931,5 @@ textarea { min-height: 88px; resize: vertical; }
   .modal { max-height: 100%; width: 100%; }
   .diff-row { grid-template-columns: 40px 40px 14px 1fr; }
   .diff-thread, .diff-composer { margin-left: 12px; }
+  .write-dock { left: 16px; right: 16px; }
 }

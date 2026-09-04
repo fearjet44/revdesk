@@ -463,7 +463,7 @@ export class Repo {
     }
     let mark: { mark: string; note: string | undefined }
     try {
-      mark = parseWriteMark(opts.mark ?? '', opts.note)
+      mark = parseWriteMark(opts.mark ?? '', opts.note, touched.mark)
     } catch (error) {
       throw new RepoError(2, error instanceof Error ? error.message : 'Write mark is required.')
     }

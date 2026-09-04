@@ -668,7 +668,7 @@ Usage:
   revdesk instrument show   <CHG>
 
   revdesk section get <id> --change <CHG> [--out file]
-  revdesk section put <id> --change <CHG> --file <path> --mark RF|GS|… [--note "…"]
+  revdesk section put <id> --change <CHG> --file <path> --mark RF|GS|SE|… [--note "…"]
   revdesk preview <CHG>
 
   revdesk issue <CHG> --effective YYYY-MM-DD

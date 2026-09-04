@@ -134,7 +134,10 @@ PUT_SRC="$(mktemp)"
 cp "$FILE" "$PUT_SRC"
 printf '\nmark test line\n' >> "$PUT_SRC"
 expect_exit 2 section put gom.ident --change "$NEW" --file "$PUT_SRC"
+expect_exit 2 section put gom.ident --change "$NEW" --file "$PUT_SRC" --mark SE
 expect_ok section put gom.ident --change "$NEW" --file "$PUT_SRC" --mark GS
+printf '\nsame-edit save\n' >> "$PUT_SRC"
+expect_ok section put gom.ident --change "$NEW" --file "$PUT_SRC" --mark SE
 expect_ok change answer "$NEW" --comment "$RC_ID" --status stand --reason "Keep the smoke line as written."
 expect_ok change submit "$NEW"
 expect_ok change approve "$NEW"

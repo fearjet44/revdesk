@@ -13,18 +13,31 @@ export const WRITE_MARKS = [
   { code: 'XR', label: 'Cross-reference', needsNote: false },
   { code: 'CF', label: 'Crew or user feedback', needsNote: false },
   { code: 'SB', label: 'Manufacturer / service bulletin', needsNote: false },
+  { code: 'SE', label: 'Same edit', needsNote: false, afterFirst: true },
 ] as const
 
 export type WriteMarkCode = (typeof WRITE_MARKS)[number]['code']
+export type WriteMark = (typeof WRITE_MARKS)[number]
 
 const BY_CODE = new Map(WRITE_MARKS.map((row) => [row.code, row]))
 
-export function parseWriteMark(code: string, note?: string): { mark: WriteMarkCode; note: string | undefined } {
+export function writeMarkAfterFirst(row: WriteMark): boolean {
+  return 'afterFirst' in row && row.afterFirst === true
+}
+
+export function parseWriteMark(
+  code: string,
+  note?: string,
+  priorMark?: string | null,
+): { mark: WriteMarkCode; note: string | undefined } {
   const row = BY_CODE.get(code.trim().toUpperCase() as WriteMarkCode)
   if (!row) {
     throw new Error(
       `Unknown write mark ${code}. Use ${WRITE_MARKS.map((item) => item.code).join('|')}.`,
     )
+  }
+  if (writeMarkAfterFirst(row) && !priorMark) {
+    throw new Error(`${row.code} is only allowed after the first write on this leaf.`)
   }
   const trimmed = (note ?? '').trim()
   if (row.needsNote && !trimmed) {

@@ -11,7 +11,7 @@ import {
   serializeSection,
 } from '../schema/markdown.ts'
 import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
-import { WRITE_MARKS } from '../../server/marks.ts'
+import { WRITE_MARKS, writeMarkAfterFirst } from '../../server/marks.ts'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type GutterMark = { line: number; top: number }
@@ -56,6 +56,7 @@ export function SectionEditor({
   const [reasons, setReasons] = useState<Record<string, string>>({})
   const [writeMark, setWriteMark] = useState('')
   const [writeNote, setWriteNote] = useState('')
+  const [hasPriorMark, setHasPriorMark] = useState(false)
   const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -96,6 +97,9 @@ export function SectionEditor({
             if (touch?.mark) {
               setWriteMark(touch.mark)
               setWriteNote(touch.mark_note ?? '')
+              setHasPriorMark(true)
+            } else {
+              setHasPriorMark(false)
             }
           }
         } catch {
@@ -115,7 +119,12 @@ export function SectionEditor({
   }, [changeId, sectionId, editor])
 
   const markRow = WRITE_MARKS.find((row) => row.code === writeMark)
-  const markReady = Boolean(writeMark && (!markRow?.needsNote || writeNote.trim()))
+  const markVisible = WRITE_MARKS.filter((row) => !writeMarkAfterFirst(row) || hasPriorMark)
+  const markReady = Boolean(
+    writeMark &&
+      markVisible.some((row) => row.code === writeMark) &&
+      (!markRow?.needsNote || writeNote.trim()),
+  )
   const canSave = useMemo(
     () => Boolean(editor && meta && changeId && sectionId && !saved && !readOnly && markReady),
     [editor, meta, changeId, sectionId, saved, readOnly, markReady],
@@ -242,6 +251,7 @@ export function SectionEditor({
       })
       setMeta(file.meta)
       setSaved(true)
+      setHasPriorMark(true)
       await onChanged()
       return true
     } catch (err) {
@@ -259,7 +269,7 @@ export function SectionEditor({
   if (!changeId || !sectionId) return null
 
   return (
-    <>
+    <div className={readOnly ? undefined : 'has-write-dock'}>
       <div className="page-head">
         <div>
           <p className="kicker">{readOnly ? 'PRINT' : 'WORKING COPY'} · {changeId}</p>
@@ -275,35 +285,6 @@ export function SectionEditor({
           <Link className="btn ghost" to={`/changes/${changeId}`}>
             Back to packet
           </Link>
-          {readOnly ? null : (
-            <>
-              <label className="write-mark">
-                <span className="meta">Mark</span>
-                <select
-                  value={writeMark}
-                  onChange={(event) => setWriteMark(event.target.value)}
-                  aria-label="Write mark"
-                >
-                  <option value="">Why this write…</option>
-                  {WRITE_MARKS.map((row) => (
-                    <option key={row.code} value={row.code}>
-                      {row.code} — {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <input
-                type="text"
-                value={writeNote}
-                onChange={(event) => setWriteNote(event.target.value)}
-                placeholder={markRow?.needsNote ? 'Finding / letter id' : 'Note (optional)'}
-                aria-label="Write mark note"
-              />
-              <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
-                {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -450,6 +431,36 @@ export function SectionEditor({
         ) : null}
         <EditorContent editor={editor} />
       </div>
-    </>
+
+      {readOnly ? null : (
+        <div className="write-dock" role="region" aria-label="Write section">
+          <label className="write-mark">
+            <span className="meta">Mark</span>
+            <select
+              value={writeMark}
+              onChange={(event) => setWriteMark(event.target.value)}
+              aria-label="Write mark"
+            >
+              <option value="">Why this write…</option>
+              {markVisible.map((row) => (
+                <option key={row.code} value={row.code}>
+                  {row.code} — {row.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <input
+            type="text"
+            value={writeNote}
+            onChange={(event) => setWriteNote(event.target.value)}
+            placeholder={markRow?.needsNote ? 'Finding / letter id' : 'Note (optional)'}
+            aria-label="Write mark note"
+          />
+          <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
+            {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

@@ -22,6 +22,7 @@ S1000D analog: reason-for-update on the data module, used to build the revision 
 | XR | Cross-reference | optional |
 | CF | Crew or user feedback | optional |
 | SB | Manufacturer / service bulletin / vendor | optional |
+| SE | Same edit | none. Checkpoint only; not a why. |
 
 No Other. If it does not fit: PC or CL plus a note. Do not grow the list without a packet that needed a new code.
 
@@ -29,6 +30,7 @@ No Other. If it does not fit: PC or CL plus a note. Do not grow the list without
 
 - Dirty Write requires a code. Unchanged Write is a no-op.
 - Later Writes on the same leaf default to the last code on that touch.
+- **SE** is “I wasn’t done, I just needed to save.” It is hidden until this leaf has been Written once with a real code. First dirty Write cannot be SE.
 - Not stored in issued section Markdown.
 - Packet log: `wrote <section> RF — POI 2026-0912`
 - Snapshot message: one line per marked leaf, `CHG-… <section> RF POI 2026-0912`
