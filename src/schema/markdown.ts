@@ -34,6 +34,75 @@ export function withFrontmatter(meta: Frontmatter, body: string): string {
   return `---\nid: ${meta.id}\ntitle: ${meta.title}\nrev_last_changed: ${meta.rev_last_changed}\n---\n\n${body.replace(/^\n+/, '').replace(/\s*$/, '\n')}`
 }
 
+export type SourceBlockRange = {
+  start: number
+  end: number
+}
+
+/** 1-based source line of the first body character after YAML frontmatter. */
+export function bodyStartLine(markdown: string): number {
+  const { body } = splitFrontmatter(markdown)
+  if (!body) {
+    const prefix = markdown.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? markdown
+    return Math.max(1, prefix.split('\n').length)
+  }
+  const idx = markdown.indexOf(body)
+  if (idx <= 0) return 1
+  return markdown.slice(0, idx).split('\n').length
+}
+
+/** Source-line span of each top-level body block, matching `parseBody` order. */
+export function blockSourceRanges(markdown: string): SourceBlockRange[] {
+  const { body } = splitFrontmatter(markdown)
+  const start = bodyStartLine(markdown)
+  const lines = body.replace(/\n+$/, '').split('\n')
+  if (lines.length === 1 && lines[0] === '') return []
+  const blocks: SourceBlockRange[] = []
+  let i = 0
+  while (i < lines.length) {
+    if (!lines[i].trim()) {
+      i += 1
+      continue
+    }
+    const from = i
+    i = advanceBlock(lines, i)
+    blocks.push({ start: start + from, end: start + i - 1 })
+  }
+  return blocks
+}
+
+/** -1 = title / frontmatter. Otherwise index into `blockSourceRanges`. */
+export function blockIndexForLine(line: number, blocks: SourceBlockRange[], bodyStart: number): number {
+  if (line < bodyStart) return -1
+  const hit = blocks.findIndex((block) => line >= block.start && line <= block.end)
+  if (hit >= 0) return hit
+  const next = blocks.findIndex((block) => block.start > line)
+  if (next >= 0) return next
+  return blocks.length ? blocks.length - 1 : -1
+}
+
+function advanceBlock(lines: string[], i: number): number {
+  const line = lines[i]
+  if (/^:::(note|caution|warning)\s*$/.test(line)) {
+    i += 1
+    while (i < lines.length && lines[i].trim() !== ':::') i += 1
+    if (i < lines.length) i += 1
+    return i
+  }
+  if (line.startsWith('|')) {
+    while (i < lines.length && lines[i].startsWith('|')) i += 1
+    return i
+  }
+  if (/^(#{1,3})\s+/.test(line)) return i + 1
+  if (/^\d+\.\s+/.test(line)) {
+    while (i < lines.length && /^\d+\.\s+/.test(lines[i])) i += 1
+    return i
+  }
+  i += 1
+  while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) i += 1
+  return i
+}
+
 export function parseBody(markdown: string): JSONContent {
   const lines = markdown.replace(/\n+$/, '').split('\n')
   const blocks: JSONContent[] = []

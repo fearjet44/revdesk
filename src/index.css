@@ -452,6 +452,7 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .paper-wrap {
+  position: relative;
   background:
     linear-gradient(90deg, transparent 47px, #e3b8b4 47px, #e3b8b4 48px, transparent 48px),
     repeating-linear-gradient(180deg, var(--paper) 0 31px, #efe8d7 31px 32px);
@@ -460,6 +461,34 @@ textarea { min-height: 88px; resize: vertical; }
   min-height: 640px;
   padding: 28px 36px 48px 64px;
   box-shadow: var(--shadow);
+}
+
+.print-gutter-ln {
+  position: absolute;
+  left: 6px;
+  width: 38px;
+  text-align: right;
+  color: var(--alert);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.print-ln-badge {
+  flex: 0 0 auto;
+  min-width: 36px;
+  padding: 4px 6px;
+  text-align: center;
+  color: var(--alert);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid #7a3030;
+  background: #2a1414;
 }
 
 .editor-chrome {
@@ -784,7 +813,40 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .comment-list {
-  padding: 8px 0 4px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.comment-card {
+  appearance: none;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #161b22;
+  color: inherit;
+  font: inherit;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.comment-card:hover {
+  border-color: var(--alert);
+}
+
+.comment-card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.comment-card-body p {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: pre-wrap;
 }
 
 .comment-list .diff-thread {

@@ -1,11 +1,34 @@
 import { useEditor, EditorContent } from '@tiptap/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
-import { parseSection, serializeSection } from '../schema/markdown.ts'
-import type { Frontmatter, ReviewComment, SectionFile } from '../types.ts'
+import {
+  blockIndexForLine,
+  blockSourceRanges,
+  bodyStartLine,
+  parseSection,
+  serializeSection,
+} from '../schema/markdown.ts'
+import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
+
+type GutterMark = { line: number; top: number }
+
+function workingLineForComment(comment: ReviewComment, rows: DiffRow[]): number {
+  if (comment.side === 'new') return comment.line
+  const at = rows.findIndex((row) => row.kind === 'del' && row.old_line === comment.line)
+  if (at < 0) return comment.line
+  for (let i = at + 1; i < rows.length; i += 1) {
+    const line = rows[i].new_line
+    if (line != null) return line
+  }
+  for (let i = at - 1; i >= 0; i -= 1) {
+    const line = rows[i].new_line
+    if (line != null) return line
+  }
+  return comment.line
+}
 
 export function SectionEditor({
   onChanged,
@@ -25,6 +48,10 @@ export function SectionEditor({
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
   const [comments, setComments] = useState<ReviewComment[]>([])
+  const [markdown, setMarkdown] = useState('')
+  const [diffRows, setDiffRows] = useState<DiffRow[]>([])
+  const [gutterMarks, setGutterMarks] = useState<GutterMark[]>([])
+  const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
     extensions: editorExtensions,
@@ -51,13 +78,20 @@ export function SectionEditor({
         const parsed = parseSection(file.markdown)
         setMeta(parsed.meta)
         setPath(file.path)
+        setMarkdown(file.markdown)
         editor.commands.setContent(parsed.doc)
         setSaved(true)
         try {
-          const all = await api.comments(changeId)
-          if (!cancelled) setComments(all.filter((row) => row.section === sectionId))
+          const review = await api.reviewSection(changeId, sectionId)
+          if (!cancelled) {
+            setComments(review.comments)
+            setDiffRows(review.rows)
+          }
         } catch {
-          if (!cancelled) setComments([])
+          if (!cancelled) {
+            setComments([])
+            setDiffRows([])
+          }
         }
       })
       .catch((err: unknown) => {
@@ -69,6 +103,76 @@ export function SectionEditor({
   }, [changeId, sectionId, editor])
 
   const canSave = useMemo(() => Boolean(editor && meta && changeId && sectionId && !saved), [editor, meta, changeId, sectionId, saved])
+
+  useLayoutEffect(() => {
+    const paper = paperRef.current
+    if (!editor || !paper || !comments.length || !markdown) {
+      setGutterMarks([])
+      return
+    }
+
+    function measure() {
+      const wrap = paperRef.current
+      const view = editor?.view
+      if (!wrap || !view) return
+      const paperBox = wrap.getBoundingClientRect()
+      const bodyStart = bodyStartLine(markdown)
+      const ranges = blockSourceRanges(markdown)
+      const byBlock = new Map<number, number[]>()
+      for (const comment of comments) {
+        const placeAt = workingLineForComment(comment, diffRows)
+        const block = blockIndexForLine(placeAt, ranges, bodyStart)
+        const lines = byBlock.get(block) ?? []
+        if (!lines.includes(comment.line)) lines.push(comment.line)
+        byBlock.set(block, lines)
+      }
+      const next: GutterMark[] = []
+      for (const [block, lines] of byBlock) {
+        let top = 28
+        if (block < 0) {
+          const title = wrap.querySelector('.title-field')
+          if (title) top = title.getBoundingClientRect().top - paperBox.top + wrap.scrollTop
+        } else {
+          let pos = 0
+          const doc = view.state.doc
+          if (block < doc.childCount) {
+            doc.forEach((node, offset, index) => {
+              if (index === block) pos = offset
+              void node
+            })
+            try {
+              const coords = view.coordsAtPos(pos + 1)
+              top = coords.top - paperBox.top + wrap.scrollTop
+            } catch {
+              top = 28
+            }
+          }
+        }
+        lines
+          .sort((a, b) => a - b)
+          .forEach((line, index) => {
+            next.push({ line, top: top + index * 14 })
+          })
+      }
+      setGutterMarks(next)
+    }
+
+    measure()
+    const frame = requestAnimationFrame(measure)
+    const ro = new ResizeObserver(measure)
+    ro.observe(paper)
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(frame)
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [editor, comments, markdown, diffRows])
+
+  function scrollToCommentLine(line: number) {
+    const mark = paperRef.current?.querySelector(`[data-print-ln="${line}"]`)
+    mark?.scrollIntoView({ block: 'center' })
+  }
 
   async function goReview() {
     if (!onView) return
@@ -133,18 +237,26 @@ export function SectionEditor({
 
       {comments.length ? (
         <section className="panel comment-return">
-          <div className="panel-hd">RETURNED COMMENTS · {comments.length}</div>
+          <div className="panel-hd">COMMENTS · {comments.length} — numbers match the red gutter</div>
           <div className="comment-list">
             {comments.map((comment) => (
-              <div key={comment.id} className="diff-thread">
-                <div className="diff-thread-hd">
-                  <strong>{comment.author}</strong>
-                  <span className="meta">
-                    {comment.side === 'new' ? 'incoming' : 'outgoing'} L{comment.line} · {comment.path}
-                  </span>
+              <button
+                key={comment.id}
+                type="button"
+                className="comment-card"
+                onClick={() => scrollToCommentLine(comment.line)}
+              >
+                <span className="print-ln-badge" aria-label={`Line ${comment.line}`}>
+                  {comment.line}
+                </span>
+                <div className="comment-card-body">
+                  <div className="diff-thread-hd">
+                    <strong>{comment.author}</strong>
+                    <span className="meta">{comment.side === 'new' ? 'incoming' : 'outgoing'}</span>
+                  </div>
+                  <p>{comment.body}</p>
                 </div>
-                <p>{comment.body}</p>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -190,7 +302,17 @@ export function SectionEditor({
         </div>
       </div>
 
-      <div className={`paper-wrap${readOnly ? ' is-readonly' : ''}`}>
+      <div className={`paper-wrap${readOnly ? ' is-readonly' : ''}`} ref={paperRef}>
+        {gutterMarks.map((mark) => (
+          <span
+            key={`${mark.line}-${mark.top}`}
+            className="print-gutter-ln"
+            data-print-ln={mark.line}
+            style={{ top: mark.top }}
+          >
+            {mark.line}
+          </span>
+        ))}
         {meta ? (
           readOnly ? (
             <h2 className="title-field">{meta.title}</h2>
