@@ -5,7 +5,7 @@ import { ChangeView } from './components/ChangeView.tsx'
 import { DeskHome } from './components/DeskHome.tsx'
 import { IssueView } from './components/IssueView.tsx'
 import { ManualView } from './components/ManualView.tsx'
-import { SectionEditor } from './components/SectionEditor.tsx'
+import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
 import type { DeskPayload } from './types.ts'
 
@@ -83,7 +83,7 @@ export default function App() {
           <Route path="/" element={<DeskHome desk={desk} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
           <Route path="/changes/:changeId" element={<ChangeView onChanged={refresh} />} />
-          <Route path="/changes/:changeId/sections/:sectionId" element={<SectionEditor onChanged={refresh} />} />
+          <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />
           <Route path="/issues/:issueId" element={<IssueView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

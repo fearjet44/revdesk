@@ -1,6 +1,6 @@
 # REVDESK — Controlled Manual Desk
 
-Local editor for controlled manuals. The UI never mentions Git. Persistence is Markdown with YAML frontmatter plus control YAML under `data/`.
+Local editor for controlled manuals. The author desk never mentions Git. The reviewer screen shows a line diff and stores comments as git notes. Persistence is Markdown with YAML frontmatter plus control YAML under `data/`.
 
 ## Run (UI)
 
@@ -18,6 +18,7 @@ Same binary for Slice 1 + Slice 2. No server required. Override the library with
 ./bin/revdesk launched gom
 npm run test:slice2   # Slice 2 acceptance path
 npm run test:slice6   # Slice 6 ingest classify + lorem scaffold
+npm run test:review   # reviewer diff + git-notes comments
 ```
 
 ### Launch model

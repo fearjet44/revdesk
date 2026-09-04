@@ -16,6 +16,8 @@ import type {
   InstrumentRecord,
   IssueRecord,
   LaunchedStatus,
+  ReviewComment,
+  SectionReview,
   TouchAction,
   TrRecord,
 } from '../server/types.ts'
@@ -194,6 +196,32 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === 'change' && sub === 'return-to-edit') {
       const id = requirePositional(rest, 0, 'change id')
       return emit(json, repo.returnToEdit(id), formatChange)
+    }
+
+    if (cmd === 'change' && sub === 'diff') {
+      const id = requirePositional(rest, 0, 'change id')
+      const opts = parseOpts(rest.slice(1))
+      const change = repo.readChange(id)
+      const sectionId = opts.section ?? change.touched[0]?.id
+      if (!sectionId) throw new RepoError(2, `${id} has no touched sections.`)
+      return emit(json, repo.reviewSection(id, sectionId), formatReviewDiff)
+    }
+
+    if (cmd === 'change' && sub === 'comments') {
+      const id = requirePositional(rest, 0, 'change id')
+      return emit(json, repo.listComments(id), formatComments)
+    }
+
+    if (cmd === 'change' && sub === 'comment') {
+      const id = requirePositional(rest, 0, 'change id')
+      const opts = parseOpts(rest.slice(1))
+      const comment = repo.addComment(id, {
+        section: requireOpt(opts, 'section'),
+        line: Number(opts.line),
+        side: opts.side === 'old' ? 'old' : 'new',
+        body: requireOpt(opts, 'body'),
+      })
+      return emit(json, comment, formatComment)
     }
 
     if (cmd === 'instrument' && sub === 'attach') {
@@ -432,6 +460,39 @@ function formatInstrument(inst: InstrumentRecord): string {
   ].join('\n')
 }
 
+function formatReviewDiff(review: SectionReview): string {
+  const lines = [
+    `DIFF ${review.change.id}  ${review.section.id}  ${review.section.title}`,
+    `notes ${review.notes_ref}${review.commit ? `  commit ${review.commit}` : ''}${review.branch ? `  branch ${review.branch}` : ''}`,
+    '',
+  ]
+  for (const row of review.rows) {
+    const oldN = row.old_line == null ? '    ' : String(row.old_line).padStart(4)
+    const newN = row.new_line == null ? '    ' : String(row.new_line).padStart(4)
+    const mark = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : ' '
+    lines.push(`${oldN} ${newN} ${mark} ${row.text}`)
+  }
+  if (review.comments.length) {
+    lines.push('', 'COMMENTS')
+    for (const comment of review.comments) lines.push(formatComment(comment))
+  }
+  return lines.join('\n')
+}
+
+function formatComments(rows: ReviewComment[]): string {
+  if (!rows.length) return 'No review comments.'
+  return rows.map(formatComment).join('\n\n')
+}
+
+function formatComment(comment: ReviewComment): string {
+  return [
+    `${comment.id}  ${comment.section}  ${comment.side}:${comment.line}`,
+    `  ${comment.path}`,
+    `  ${comment.author}  ${comment.at}`,
+    `  ${comment.body}`,
+  ].join('\n')
+}
+
 function formatPreview(preview: ReturnType<Repo['preview']>): string {
   const lines = [
     `PREVIEW ${preview.change.id}  (${preview.change.status})`,
@@ -579,6 +640,9 @@ Usage:
                         [--section <id> ...] [--kind tr|rev] [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
   revdesk change show | touch | submit | approve | withdraw | return-to-edit
+  revdesk change diff     <CHG> [--section <id>]
+  revdesk change comments <CHG>
+  revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."
 
   revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
   revdesk instrument show   <CHG>

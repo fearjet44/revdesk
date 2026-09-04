@@ -175,3 +175,37 @@ export type SectionFile = {
   markdown: string
   body: string
 }
+
+export type DiffKind = 'equal' | 'del' | 'add'
+
+export type DiffRow = {
+  kind: DiffKind
+  old_line: number | null
+  new_line: number | null
+  text: string
+}
+
+export type ReviewComment = {
+  id: string
+  change: string
+  section: string
+  path: string
+  line: number
+  side: 'old' | 'new'
+  body: string
+  author: string
+  at: string
+}
+
+export type SectionReview = {
+  change: ChangeRecord
+  section: TouchedSection
+  source: string
+  working: string
+  rows: DiffRow[]
+  comments: ReviewComment[]
+  commit: string | null
+  branch: string | null
+  notes_ref: string
+  can_comment: boolean
+}

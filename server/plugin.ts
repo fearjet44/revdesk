@@ -159,6 +159,36 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'GET' && parts[0] === 'changes' && parts[2] === 'comments') {
+    sendJson(res, 200, repo.listComments(parts[1]))
+    return
+  }
+
+  if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'comments') {
+    const body = await readJson<{
+      section?: string
+      line?: number
+      side?: string
+      body?: string
+    }>(req)
+    sendJson(
+      res,
+      201,
+      repo.addComment(parts[1], {
+        section: body.section ?? '',
+        line: Number(body.line),
+        side: body.side === 'old' ? 'old' : 'new',
+        body: body.body ?? '',
+      }),
+    )
+    return
+  }
+
+  if (method === 'GET' && parts[0] === 'changes' && parts[2] === 'sections' && parts[4] === 'review') {
+    sendJson(res, 200, repo.reviewSection(parts[1], parts[3]))
+    return
+  }
+
   if (method === 'GET' && parts[0] === 'changes' && parts[2] === 'sections' && parts[3]) {
     sendJson(res, 200, repo.getSectionForChange(parts[3], parts[1]))
     return

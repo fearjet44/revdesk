@@ -408,7 +408,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
                   <span className="meta">{change.status === 'launched' ? 'Launched' : 'Closed'}</span>
                 ) : (
                   <Link className="btn" to={`/changes/${change.id}/sections/${section.id}`}>
-                    Edit
+                    {canKickback ? 'Review' : 'Edit'}
                   </Link>
                 )}
               </div>

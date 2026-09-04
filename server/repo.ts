@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
@@ -9,16 +9,24 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { lineDiff } from './diff.ts'
 import {
   GitAdapterError,
+  REVIEW_NOTES_REF,
+  changeBranchName,
+  changeBranchTip,
   fullTagName,
   gitStatus,
   loadGitConfig,
   preflightLaunch,
+  readReviewNotes,
   snapshotLaunch,
+  snapshotReview,
   startChangeBranch,
   tagOk,
+  toGitPath,
   trTagName,
+  writeReviewNotes,
 } from './git.ts'
 import type { GitStatusInfo } from './git.ts'
 import type {
@@ -39,7 +47,9 @@ import type {
   ManualDetail,
   ManualRecord,
   PackageKind,
+  ReviewComment,
   SectionFile,
+  SectionReview,
   SectionSummary,
   TouchAction,
   TouchedSection,
@@ -67,6 +77,8 @@ const OPEN_STATUSES = new Set<ChangeStatus>([
   'ready-to-launch',
   'edit',
 ])
+
+const REVIEWER_STATUSES = new Set<ChangeStatus>(['review', 'approved', 'ready-to-launch'])
 
 /** Exit codes per Slice 2: 2 validation, 3 not found, 4 not allowed, 5 pipeline */
 export class RepoError extends Error {
@@ -463,6 +475,7 @@ export class Repo {
         note: `submitted for review by ${opts.role ? formatRole(opts.role) : AUTHOR}`,
       })
       this.writeChange(change)
+      this.trySnapshotReview(change)
       return this.readChange(changeId)
     }
 
@@ -956,6 +969,105 @@ export class Repo {
       tag,
       source_commit,
       tag_ok: tag_ok_flag,
+    }
+  }
+
+  reviewSection(changeId: string, sectionId: string): SectionReview {
+    const change = this.readChange(changeId)
+    const section = change.touched.find((item) => item.id === sectionId)
+    if (!section) throw new RepoError(3, `Section ${sectionId} is not on ${changeId}.`)
+    const source = this.readSection(section.source)
+    const working = this.readSection(section.working)
+    const notes = readReviewNotes(this.root, changeId)
+    const cfg = loadGitConfig(this.root)
+    return {
+      change,
+      section,
+      source: source.markdown,
+      working: working.markdown,
+      rows: lineDiff(source.markdown, working.markdown),
+      comments: (notes?.comments ?? []).filter((row) => row.section === sectionId),
+      commit: notes?.commit ?? changeBranchTip(this.root, changeId),
+      branch: changeBranchName(cfg, changeId),
+      notes_ref: REVIEW_NOTES_REF,
+      can_comment: REVIEWER_STATUSES.has(change.status),
+    }
+  }
+
+  listComments(changeId: string): ReviewComment[] {
+    this.readChange(changeId)
+    return readReviewNotes(this.root, changeId)?.comments ?? []
+  }
+
+  addComment(
+    changeId: string,
+    input: { section: string; line: number; side: 'old' | 'new'; body: string },
+  ): ReviewComment {
+    const change = this.readChange(changeId)
+    if (!REVIEWER_STATUSES.has(change.status)) {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; comments are written on the reviewer desk.`,
+      )
+    }
+    const section = change.touched.find((item) => item.id === input.section)
+    if (!section) throw new RepoError(3, `Section ${input.section} is not on ${changeId}.`)
+    const body = input.body.trim()
+    if (!body) throw new RepoError(2, 'Comment body is required.')
+    const side = input.side
+    if (side !== 'old' && side !== 'new') throw new RepoError(2, 'side must be old or new.')
+    const line = Number(input.line)
+    if (!Number.isInteger(line) || line < 1) throw new RepoError(2, 'line must be a 1-based integer.')
+
+    const source = this.readSection(section.source)
+    const working = this.readSection(section.working)
+    const rows = lineDiff(source.markdown, working.markdown)
+    const hit = rows.find((row) =>
+      side === 'old' ? row.old_line === line : row.new_line === line,
+    )
+    if (!hit) throw new RepoError(2, `Line ${line} (${side}) is not in ${section.id}.`)
+
+    const snap = this.snapshotChangeReview(change)
+    const gitPath = toGitPath(this.root, this.abs(section.source))
+    const existing = readReviewNotes(this.root, changeId)?.comments ?? []
+    const comment: ReviewComment = {
+      id: `rc-${randomBytes(4).toString('hex')}`,
+      change: changeId,
+      section: section.id,
+      path: gitPath,
+      line,
+      side,
+      body,
+      author: AUTHOR,
+      at: nowIso(),
+    }
+    writeReviewNotes(this.root, changeId, snap.commit, [...existing, comment])
+    return comment
+  }
+
+  private snapshotChangeReview(change: ChangeRecord): { commit: string; branch: string } {
+    try {
+      const files = change.touched.map((item) => ({
+        gitPath: toGitPath(this.root, this.abs(item.source)),
+        content: this.readSection(item.working).markdown,
+      }))
+      return snapshotReview(
+        this.root,
+        change.id,
+        files,
+        `Revdesk review snapshot ${change.id}`,
+      )
+    } catch (error) {
+      throwGit(error)
+    }
+  }
+
+  private trySnapshotReview(change: ChangeRecord): void {
+    try {
+      this.snapshotChangeReview(change)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`warning: review snapshot skipped for ${change.id}: ${message}`)
     }
   }
 

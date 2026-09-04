@@ -75,6 +75,9 @@ revdesk change submit <CHG>
 revdesk change approve <CHG> [--role <who>]
 revdesk change withdraw <CHG> --why "..."
 revdesk change return-to-edit <CHG>
+revdesk change diff     <CHG> [--section <id>]
+revdesk change comments <CHG>
+revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."
 
 revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
                                 [--reference TEXT]
@@ -99,6 +102,13 @@ revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 ```
 
 `revdesk git` with any other subcommand exits 2. Tags are cut only by `issue` / `tr issue`.
+
+Reviewer comments are **git notes** (`refs/notes/revdesk/review`) on the `change/<CHG>` snapshot commit. The desk paints incoming (green) / outgoing (red) against issued markdown. Inspect outside Revdesk:
+
+```sh
+git notes --ref=revdesk/review show change/CHG-2026-003
+git show change/CHG-2026-003
+```
 
 `ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`.
 

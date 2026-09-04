@@ -108,6 +108,9 @@ Repo status → HTTP:
 | POST | `/api/changes/:id/return-to-edit` | `revdesk change return-to-edit` |
 | POST | `/api/changes/:id/withdraw` | `revdesk change withdraw` |
 | GET | `/api/changes/:id/preview` | `revdesk preview` |
+| GET | `/api/changes/:id/sections/:section/review` | `revdesk change diff` |
+| GET | `/api/changes/:id/comments` | `revdesk change comments` |
+| POST | `/api/changes/:id/comments` | `revdesk change comment` |
 | GET | `/api/changes/:id/sections/:section` | `revdesk section get` |
 | PUT | `/api/changes/:id/sections/:section` | `revdesk section put` (body `{ "markdown": "…" }`) |
 | POST | `/api/changes/:id/transition` | `submit` / `approve` |
@@ -145,7 +148,7 @@ The UI and `./bin/revdesk` are two fronts on `server/repo.ts`. If the CLI’s da
 
 Do not run two writers against the same change package on purpose (editor + `section put`, or two Vite processes). Last write wins; there is no lock server.
 
-Git tags (when a manuals repo is discovered) are cut only by `issue` / `tr issue`. The UI does not say branch, commit, tag, or push. `revdesk git status` is the operator check.
+Git tags (when a manuals repo is discovered) are cut only by `issue` / `tr issue`. The reviewer screen is the exception: it shows a GitHub-style line diff and writes comments as git notes (`revdesk/review`) on `change/<CHG>`. `revdesk git status` is still the operator check for launch dirtiness.
 
 ## Typical desk path
 

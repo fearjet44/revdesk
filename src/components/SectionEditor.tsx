@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
 import { parseSection, serializeSection } from '../schema/markdown.ts'
-import type { Frontmatter, SectionFile } from '../types.ts'
+import type { Frontmatter, ReviewComment, SectionFile } from '../types.ts'
 
 export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> }) {
   const { changeId, sectionId } = useParams()
@@ -13,6 +13,7 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [comments, setComments] = useState<ReviewComment[]>([])
 
   const editor = useEditor({
     extensions: editorExtensions,
@@ -27,13 +28,19 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
     let cancelled = false
     api
       .workingSection(changeId, sectionId)
-      .then((file: SectionFile) => {
+      .then(async (file: SectionFile) => {
         if (cancelled) return
         const parsed = parseSection(file.markdown)
         setMeta(parsed.meta)
         setPath(file.path)
         editor.commands.setContent(parsed.doc)
         setSaved(true)
+        try {
+          const all = await api.comments(changeId)
+          if (!cancelled) setComments(all.filter((row) => row.section === sectionId))
+        } catch {
+          if (!cancelled) setComments([])
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to open working copy.')
@@ -90,6 +97,25 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
       </div>
 
       {error ? <div className="banner error">{error}</div> : null}
+
+      {comments.length ? (
+        <section className="panel comment-return">
+          <div className="panel-hd">RETURNED COMMENTS · {comments.length}</div>
+          <div className="comment-list">
+            {comments.map((comment) => (
+              <div key={comment.id} className="diff-thread">
+                <div className="diff-thread-hd">
+                  <strong>{comment.author}</strong>
+                  <span className="meta">
+                    {comment.side === 'new' ? 'incoming' : 'outgoing'} L{comment.line} · {comment.path}
+                  </span>
+                </div>
+                <p>{comment.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="editor-chrome">
         <div className="toolbar">

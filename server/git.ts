@@ -1,7 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
+
+/** Git notes namespace for reviewer comments. Inspect with `git notes --ref=revdesk/review show <commit>`. */
+export const REVIEW_NOTES_REF = 'revdesk/review'
 
 /** Porcelain paths that may be snapshotted on launch. Trailing slash = prefix. */
 const ALLOWED_PREFIXES = ['manuals/', 'control/', 'artifacts/', '.revdesk/'] as const
@@ -41,6 +45,36 @@ export type GitStatusInfo = {
 export type GitSnapshotResult = {
   source_commit: string | null
   git_skipped: boolean
+}
+
+export type ReviewFile = {
+  gitPath: string
+  content: string
+}
+
+export type ReviewCommentRecord = {
+  id: string
+  change: string
+  section: string
+  path: string
+  line: number
+  side: 'old' | 'new'
+  body: string
+  author: string
+  at: string
+}
+
+export type ReviewNotes = {
+  change: string
+  commit: string
+  comments: ReviewCommentRecord[]
+}
+
+export type ReviewSnapshot = {
+  commit: string
+  branch: string
+  git_root: string
+  reused: boolean
 }
 
 const DEFAULTS: GitConfig = {
@@ -464,6 +498,7 @@ function spawnGit(
   root: string,
   cfg: GitConfig,
   args: string[],
+  extra?: { env?: Record<string, string | undefined>; input?: string },
 ): { status: number; stdout: string; stderr: string } {
   const result = spawnSync(
     'git',
@@ -471,6 +506,7 @@ function spawnGit(
     {
       cwd: root,
       encoding: 'utf8',
+      input: extra?.input,
       env: {
         ...process.env,
         GIT_TERMINAL_PROMPT: '0',
@@ -478,6 +514,7 @@ function spawnGit(
         GIT_AUTHOR_EMAIL: cfg.author_email,
         GIT_COMMITTER_NAME: cfg.author_name,
         GIT_COMMITTER_EMAIL: cfg.author_email,
+        ...extra?.env,
       },
     },
   )
@@ -499,4 +536,200 @@ function gitFail(verb: string, result: { stdout: string; stderr: string }): stri
 function str(value: unknown, fallback: string): string {
   if (value == null || value === '') return fallback
   return String(value)
+}
+
+/**
+ * Git root used for review snapshots and notes. Unlike launch tags, this
+ * *may* be the Revdesk application checkout — the reviewer asked Git to leak.
+ * Still uses a detached index so HEAD and the operator's index stay put.
+ */
+export function resolveReviewGitRoot(dataRoot: string): string | null {
+  const cfg = loadGitConfig(dataRoot)
+  if (!cfg.enabled) return null
+  // Walk even when git.yaml discover_parent is false. Launch tags still skip
+  // the application checkout; review notes are the leak the reviewer asked for.
+  return findGitRoot(dataRoot, true)
+}
+
+export function toGitPath(dataRoot: string, absOrDataRel: string): string {
+  const root = resolveReviewGitRoot(dataRoot)
+  if (!root) {
+    throw new GitAdapterError(5, 'No git repository; review comments are stored as git notes.')
+  }
+  const abs = path.isAbsolute(absOrDataRel) ? absOrDataRel : path.join(dataRoot, absOrDataRel)
+  const rel = path.relative(root, abs).split(path.sep).join('/')
+  if (!rel || rel === '.' || rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new GitAdapterError(5, `Path ${abs} is outside the git repository ${root}.`)
+  }
+  return rel
+}
+
+export function changeBranchTip(dataRoot: string, changeId: string): string | null {
+  const cfg = loadGitConfig(dataRoot)
+  const root = resolveReviewGitRoot(dataRoot)
+  if (!root) return null
+  const branch = changeBranchName(cfg, changeId)
+  if (!refExists(root, cfg, `refs/heads/${branch}`)) return null
+  return revParse(root, cfg, `refs/heads/${branch}`)
+}
+
+/**
+ * Commit working section contents at their *issued* paths on `change/{id}`
+ * without checking the branch out. Parent is the existing change branch, else HEAD.
+ */
+export function snapshotReview(
+  dataRoot: string,
+  changeId: string,
+  files: ReviewFile[],
+  message: string,
+): ReviewSnapshot {
+  const cfg = loadGitConfig(dataRoot)
+  if (!cfg.enabled) {
+    throw new GitAdapterError(5, 'Git is disabled; review comments are stored as git notes.')
+  }
+  const root = resolveReviewGitRoot(dataRoot)
+  if (!root) {
+    throw new GitAdapterError(5, 'No git repository; review comments are stored as git notes.')
+  }
+
+  const branch = changeBranchName(cfg, changeId)
+  const branchRef = `refs/heads/${branch}`
+  const parent =
+    (refExists(root, cfg, branchRef) ? revParse(root, cfg, branchRef) : null) ??
+    revParse(root, cfg, 'HEAD')
+  if (!parent) {
+    throw new GitAdapterError(5, 'git rev-parse HEAD failed; cannot snapshot a review commit.')
+  }
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-review-'))
+  const indexFile = path.join(dir, 'index')
+  const env = { GIT_INDEX_FILE: indexFile }
+  try {
+    runGitEnv(root, cfg, ['read-tree', parent], env)
+    for (const file of files) {
+      const hashed = spawnGit(root, cfg, ['hash-object', '-w', '--stdin'], { input: file.content })
+      if (hashed.status !== 0) throw new GitAdapterError(5, gitFail('hash-object', hashed))
+      const blob = hashed.stdout.trim()
+      if (!blob) throw new GitAdapterError(5, 'git hash-object returned an empty sha.')
+      runGitEnv(
+        root,
+        cfg,
+        ['update-index', '--add', '--cacheinfo', `100644,${blob},${file.gitPath}`],
+        env,
+      )
+    }
+    const treeResult = spawnGit(root, cfg, ['write-tree'], { env })
+    if (treeResult.status !== 0) throw new GitAdapterError(5, gitFail('write-tree', treeResult))
+    const tree = treeResult.stdout.trim()
+    const parentTree = revParse(root, cfg, `${parent}^{tree}`)
+    if (parentTree && tree === parentTree) {
+      return { commit: parent, branch, git_root: root, reused: true }
+    }
+    const commitResult = spawnGit(root, cfg, ['commit-tree', tree, '-p', parent, '-m', message], {
+      env,
+    })
+    if (commitResult.status !== 0) throw new GitAdapterError(5, gitFail('commit-tree', commitResult))
+    const commit = commitResult.stdout.trim()
+    if (!commit) throw new GitAdapterError(5, 'git commit-tree returned an empty sha.')
+    runGit(root, cfg, ['update-ref', branchRef, commit])
+    copyReviewNotes(root, cfg, parent, commit)
+    return { commit, branch, git_root: root, reused: false }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+export function readReviewNotes(dataRoot: string, changeId: string): ReviewNotes | null {
+  const cfg = loadGitConfig(dataRoot)
+  const root = resolveReviewGitRoot(dataRoot)
+  if (!root) return null
+  const commit = changeBranchTip(dataRoot, changeId)
+  if (!commit) return null
+  return parseNotes(showNotes(root, cfg, commit), changeId, commit)
+}
+
+export function writeReviewNotes(
+  dataRoot: string,
+  changeId: string,
+  commit: string,
+  comments: ReviewCommentRecord[],
+): ReviewNotes {
+  const cfg = loadGitConfig(dataRoot)
+  const root = resolveReviewGitRoot(dataRoot)
+  if (!root) {
+    throw new GitAdapterError(5, 'No git repository; review comments are stored as git notes.')
+  }
+  const payload: ReviewNotes = { change: changeId, commit, comments }
+  const json = `${JSON.stringify(payload, null, 2)}\n`
+  writeNotesFile(root, cfg, commit, json)
+  return payload
+}
+
+function copyReviewNotes(root: string, cfg: GitConfig, from: string, to: string): void {
+  if (from === to) return
+  const shown = showNotes(root, cfg, from)
+  if (!shown) return
+  try {
+    writeNotesFile(root, cfg, to, shown.endsWith('\n') ? shown : `${shown}\n`)
+  } catch {
+    console.error(`warning: could not copy review notes from ${from.slice(0, 7)} to ${to.slice(0, 7)}`)
+  }
+}
+
+function writeNotesFile(root: string, cfg: GitConfig, commit: string, contents: string): void {
+  const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-notes-'))
+  const file = path.join(dir, 'notes.json')
+  try {
+    writeFileSync(file, contents)
+    const result = spawnGit(root, cfg, ['notes', `--ref=${REVIEW_NOTES_REF}`, 'add', '-f', '-F', file, commit])
+    if (result.status !== 0) throw new GitAdapterError(5, gitFail('notes', result))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function showNotes(root: string, cfg: GitConfig, commit: string): string | null {
+  const result = spawnGit(root, cfg, ['notes', `--ref=${REVIEW_NOTES_REF}`, 'show', commit])
+  if (result.status !== 0) return null
+  const text = result.stdout.trim()
+  return text || null
+}
+
+function parseNotes(raw: string | null, changeId: string, commit: string): ReviewNotes | null {
+  if (!raw) return { change: changeId, commit, comments: [] }
+  try {
+    const parsed = JSON.parse(raw) as Partial<ReviewNotes>
+    const comments = Array.isArray(parsed.comments) ? parsed.comments.filter(isComment) : []
+    return { change: changeId, commit, comments }
+  } catch {
+    throw new GitAdapterError(5, `Review notes on ${commit} are not valid JSON.`)
+  }
+}
+
+function isComment(row: unknown): row is ReviewCommentRecord {
+  if (!row || typeof row !== 'object') return false
+  const c = row as Record<string, unknown>
+  return (
+    typeof c.id === 'string' &&
+    typeof c.change === 'string' &&
+    typeof c.section === 'string' &&
+    typeof c.path === 'string' &&
+    typeof c.line === 'number' &&
+    (c.side === 'old' || c.side === 'new') &&
+    typeof c.body === 'string' &&
+    typeof c.author === 'string' &&
+    typeof c.at === 'string'
+  )
+}
+
+function runGitEnv(
+  root: string,
+  cfg: GitConfig,
+  args: string[],
+  env: Record<string, string | undefined>,
+): void {
+  const result = spawnGit(root, cfg, args, { env })
+  if (result.status !== 0) {
+    throw new GitAdapterError(2, gitFail(args[0] ?? 'git', result))
+  }
 }

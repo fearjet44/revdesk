@@ -7,7 +7,9 @@ import type {
   LaunchedStatus,
   ManualDetail,
   ManualRecord,
+  ReviewComment,
   SectionFile,
+  SectionReview,
   TrRecord,
 } from './types.ts'
 
@@ -43,6 +45,17 @@ export const api = {
   }) => request<ChangeRecord>('/api/changes', { method: 'POST', body: JSON.stringify(body) }),
   workingSection: (changeId: string, sectionId: string) =>
     request<SectionFile>(`/api/changes/${changeId}/sections/${sectionId}`),
+  reviewSection: (changeId: string, sectionId: string) =>
+    request<SectionReview>(`/api/changes/${changeId}/sections/${sectionId}/review`),
+  comments: (changeId: string) => request<ReviewComment[]>(`/api/changes/${changeId}/comments`),
+  addComment: (
+    changeId: string,
+    body: { section: string; line: number; side: 'old' | 'new'; body: string },
+  ) =>
+    request<ReviewComment>(`/api/changes/${changeId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   saveWorkingSection: (changeId: string, sectionId: string, markdown: string) =>
     request<SectionFile>(`/api/changes/${changeId}/sections/${sectionId}`, {
       method: 'PUT',
