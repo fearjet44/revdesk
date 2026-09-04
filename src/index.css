@@ -478,6 +478,7 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .print-ln-badge {
+  appearance: none;
   flex: 0 0 auto;
   min-width: 36px;
   padding: 4px 6px;
@@ -778,6 +779,10 @@ textarea { min-height: 88px; resize: vertical; }
   border: 1px solid var(--line);
 }
 
+.diff-thread.is-closed {
+  opacity: 0.55;
+}
+
 .diff-thread p {
   margin: 6px 0 0;
   color: var(--ink);
@@ -819,7 +824,6 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .comment-card {
-  appearance: none;
   display: flex;
   gap: 12px;
   align-items: flex-start;
@@ -828,13 +832,32 @@ textarea { min-height: 88px; resize: vertical; }
   border: 1px solid var(--line);
   background: #161b22;
   color: inherit;
-  font: inherit;
   padding: 10px 12px;
+}
+
+.comment-card.is-closed {
+  opacity: 0.6;
+}
+
+.comment-card .print-ln-badge {
+  appearance: none;
   cursor: pointer;
 }
 
-.comment-card:hover {
-  border-color: var(--alert);
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.comment-actions input[type="text"] {
+  min-width: 180px;
+  flex: 1;
+  background: #0f1319;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
 }
 
 .comment-card-body {

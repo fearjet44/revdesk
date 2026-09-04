@@ -78,6 +78,7 @@ revdesk change return-to-edit <CHG>
 revdesk change diff     <CHG> [--section <id>]
 revdesk change comments <CHG>
 revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."
+revdesk change answer   <CHG> --comment rc-… --status done|stand|later [--reason "..."]
 
 revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
                                 [--reference TEXT]
@@ -103,7 +104,7 @@ revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 
 `revdesk git` with any other subcommand exits 2. Tags are cut only by `issue` / `tr issue`.
 
-Reviewer comments are **git notes** (`refs/notes/revdesk/review`) on the `change/<CHG>` snapshot commit. The desk paints incoming (green) / outgoing (red) against issued markdown. Inspect outside Revdesk:
+Reviewer comments are **queries** stored as git notes (`refs/notes/revdesk/review`) on the `change/<CHG>` snapshot. They do not write the leaf. The author answers **Done** (text must have changed), **Stand** (stet + reason), or **Later** (reason). Approve refuses open queries. Inspect:
 
 ```sh
 git notes --ref=revdesk/review show change/CHG-2026-003

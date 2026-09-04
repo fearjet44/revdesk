@@ -164,6 +164,20 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'comments' && parts[4] === 'answer') {
+    const body = await readJson<{ status?: string; reason?: string }>(req)
+    sendJson(
+      res,
+      200,
+      repo.answerComment(parts[1], {
+        comment: parts[3] ?? '',
+        status: body.status ?? '',
+        reason: body.reason,
+      }),
+    )
+    return
+  }
+
   if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'comments') {
     const body = await readJson<{
       section?: string

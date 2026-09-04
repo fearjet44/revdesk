@@ -111,6 +111,7 @@ Repo status → HTTP:
 | GET | `/api/changes/:id/sections/:section/review` | `revdesk change diff` |
 | GET | `/api/changes/:id/comments` | `revdesk change comments` |
 | POST | `/api/changes/:id/comments` | `revdesk change comment` |
+| POST | `/api/changes/:id/comments/:id/answer` | `revdesk change answer` |
 | GET | `/api/changes/:id/sections/:section` | `revdesk section get` |
 | PUT | `/api/changes/:id/sections/:section` | `revdesk section put` (body `{ "markdown": "…" }`) |
 | POST | `/api/changes/:id/transition` | `submit` / `approve` |

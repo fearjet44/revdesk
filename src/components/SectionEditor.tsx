@@ -51,6 +51,8 @@ export function SectionEditor({
   const [markdown, setMarkdown] = useState('')
   const [diffRows, setDiffRows] = useState<DiffRow[]>([])
   const [gutterMarks, setGutterMarks] = useState<GutterMark[]>([])
+  const [canAnswer, setCanAnswer] = useState(false)
+  const [reasons, setReasons] = useState<Record<string, string>>({})
   const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -86,11 +88,13 @@ export function SectionEditor({
           if (!cancelled) {
             setComments(review.comments)
             setDiffRows(review.rows)
+            setCanAnswer(review.can_answer)
           }
         } catch {
           if (!cancelled) {
             setComments([])
             setDiffRows([])
+            setCanAnswer(false)
           }
         }
       })
@@ -120,6 +124,7 @@ export function SectionEditor({
       const ranges = blockSourceRanges(markdown)
       const byBlock = new Map<number, number[]>()
       for (const comment of comments) {
+        if (comment.status !== 'open') continue
         const placeAt = workingLineForComment(comment, diffRows)
         const block = blockIndexForLine(placeAt, ranges, bodyStart)
         const lines = byBlock.get(block) ?? []
@@ -172,6 +177,35 @@ export function SectionEditor({
   function scrollToCommentLine(line: number) {
     const mark = paperRef.current?.querySelector(`[data-print-ln="${line}"]`)
     mark?.scrollIntoView({ block: 'center' })
+  }
+
+  async function reloadQueries() {
+    if (!changeId || !sectionId) return
+    const review = await api.reviewSection(changeId, sectionId)
+    setComments(review.comments)
+    setDiffRows(review.rows)
+    setCanAnswer(review.can_answer)
+  }
+
+  async function answerQuery(commentId: string, status: 'done' | 'stand' | 'later') {
+    if (!changeId) return
+    if (status === 'done' && !saved) {
+      const ok = await save()
+      if (!ok) return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await api.answerComment(changeId, commentId, {
+        status,
+        reason: status === 'done' ? undefined : (reasons[commentId] ?? '').trim(),
+      })
+      await reloadQueries()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not answer the query.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function goReview() {
@@ -237,26 +271,73 @@ export function SectionEditor({
 
       {comments.length ? (
         <section className="panel comment-return">
-          <div className="panel-hd">COMMENTS · {comments.length} — numbers match the red gutter</div>
+          <div className="panel-hd">
+            QUERIES · {comments.filter((row) => row.status === 'open').length} open / {comments.length} —
+            red gutter is open only
+          </div>
           <div className="comment-list">
             {comments.map((comment) => (
-              <button
+              <div
                 key={comment.id}
-                type="button"
-                className="comment-card"
-                onClick={() => scrollToCommentLine(comment.line)}
+                className={`comment-card${comment.status === 'open' ? '' : ' is-closed'}`}
               >
-                <span className="print-ln-badge" aria-label={`Line ${comment.line}`}>
+                <button
+                  type="button"
+                  className="print-ln-badge"
+                  aria-label={`Line ${comment.line}`}
+                  onClick={() => scrollToCommentLine(comment.line)}
+                >
                   {comment.line}
-                </span>
+                </button>
                 <div className="comment-card-body">
                   <div className="diff-thread-hd">
                     <strong>{comment.author}</strong>
-                    <span className="meta">{comment.side === 'new' ? 'incoming' : 'outgoing'}</span>
+                    <span className="meta">
+                      {comment.status} · {comment.side === 'new' ? 'incoming' : 'outgoing'}
+                      {comment.reason ? ` · ${comment.reason}` : ''}
+                    </span>
                   </div>
                   <p>{comment.body}</p>
+                  {comment.suggest ? <p className="meta">Suggest: {comment.suggest}</p> : null}
+                  {canAnswer && comment.status === 'open' ? (
+                    <div className="comment-actions">
+                      <button
+                        className="btn primary"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void answerQuery(comment.id, 'done')}
+                      >
+                        Done
+                      </button>
+                      <input
+                        type="text"
+                        value={reasons[comment.id] ?? ''}
+                        onChange={(event) =>
+                          setReasons((current) => ({ ...current, [comment.id]: event.target.value }))
+                        }
+                        placeholder="Reason for Stand or Later"
+                        aria-label={`Reason for ${comment.id}`}
+                      />
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={busy || !(reasons[comment.id] ?? '').trim()}
+                        onClick={() => void answerQuery(comment.id, 'stand')}
+                      >
+                        Stand
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={busy || !(reasons[comment.id] ?? '').trim()}
+                        onClick={() => void answerQuery(comment.id, 'later')}
+                      >
+                        Later
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </section>

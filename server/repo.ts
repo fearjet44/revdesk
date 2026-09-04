@@ -47,6 +47,7 @@ import type {
   ManualDetail,
   ManualRecord,
   PackageKind,
+  QueryStatus,
   ReviewComment,
   SectionFile,
   SectionReview,
@@ -484,6 +485,13 @@ export class Repo {
         throw new RepoError(2, `${changeId} is ${change.status}; approve requires review.`)
       }
       if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+      const open = this.listComments(changeId).filter((row) => row.status === 'open')
+      if (open.length) {
+        throw new RepoError(
+          2,
+          `${changeId} has ${open.length} open ${open.length === 1 ? 'query' : 'queries'}; answer Done, Stand, or Later before approve.`,
+        )
+      }
       change.status = change.instrument ? 'ready-to-launch' : 'approved'
       const actor = opts.role ? formatRole(opts.role) : AUTHOR
       change.history.push({
@@ -986,17 +994,18 @@ export class Repo {
       source: source.markdown,
       working: working.markdown,
       rows: lineDiff(source.markdown, working.markdown),
-      comments: (notes?.comments ?? []).filter((row) => row.section === sectionId),
+      comments: (notes?.comments ?? []).filter((row) => row.section === sectionId).map(normalizeQuery),
       commit: notes?.commit ?? changeBranchTip(this.root, changeId),
       branch: changeBranchName(cfg, changeId),
       notes_ref: REVIEW_NOTES_REF,
       can_comment: REVIEWER_STATUSES.has(change.status),
+      can_answer: change.status === 'draft' || change.status === 'edit',
     }
   }
 
   listComments(changeId: string): ReviewComment[] {
     this.readChange(changeId)
-    return readReviewNotes(this.root, changeId)?.comments ?? []
+    return (readReviewNotes(this.root, changeId)?.comments ?? []).map(normalizeQuery)
   }
 
   addComment(
@@ -1040,9 +1049,73 @@ export class Repo {
       body,
       author: AUTHOR,
       at: nowIso(),
+      from: 'reviewer',
+      cite: null,
+      suggest: null,
+      status: 'open',
+      reason: null,
+      basis: sha256Hex(Buffer.from(working.markdown)),
     }
-    writeReviewNotes(this.root, changeId, snap.commit, [...existing, comment])
+    writeReviewNotes(this.root, changeId, snap.commit, [...existing.map(normalizeQuery), comment])
     return comment
+  }
+
+  answerComment(
+    changeId: string,
+    input: { comment: string; status: string; reason?: string },
+  ): ReviewComment {
+    const change = this.readChange(changeId)
+    if (change.status !== 'draft' && change.status !== 'edit') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; answer queries on the author desk (draft or edit).`,
+      )
+    }
+    const status = input.status.trim() as QueryStatus
+    if (status !== 'done' && status !== 'stand' && status !== 'later') {
+      throw new RepoError(2, 'status must be done, stand, or later.')
+    }
+    const reason = (input.reason ?? '').trim()
+    if ((status === 'stand' || status === 'later') && !reason) {
+      throw new RepoError(2, `${status === 'stand' ? 'Stand' : 'Later'} requires a reason.`)
+    }
+
+    const notes = readReviewNotes(this.root, changeId)
+    const comments = (notes?.comments ?? []).map(normalizeQuery)
+    const index = comments.findIndex((row) => row.id === input.comment)
+    if (index < 0) throw new RepoError(3, `Query ${input.comment} is not on ${changeId}.`)
+    const current = comments[index]
+    if (current.status !== 'open') {
+      throw new RepoError(2, `${current.id} is already ${current.status}.`)
+    }
+
+    if (status === 'done') {
+      const section = change.touched.find((item) => item.id === current.section)
+      if (!section) throw new RepoError(3, `Section ${current.section} is not on ${changeId}.`)
+      const nowHash = sha256Hex(Buffer.from(this.readSection(section.working).markdown))
+      if (!current.basis || nowHash === current.basis) {
+        throw new RepoError(
+          2,
+          `Done requires a change to the text of ${current.section}; use Stand to keep it.`,
+        )
+      }
+    }
+
+    const answered: ReviewComment = {
+      ...current,
+      status,
+      reason: status === 'done' ? null : reason,
+    }
+    comments[index] = answered
+    const snap = this.snapshotChangeReview(change)
+    writeReviewNotes(this.root, changeId, snap.commit, comments)
+    change.history.push({
+      at: nowIso(),
+      action: 'query',
+      note: `${status} ${answered.id}${reason ? ` — ${reason}` : ''}`,
+    })
+    this.writeChange(change)
+    return answered
   }
 
   private snapshotChangeReview(change: ChangeRecord): { commit: string; branch: string } {
@@ -1311,6 +1384,45 @@ function issueOnDisk(issue: IssueRecord): Record<string, unknown> {
 function throwGit(error: unknown): never {
   if (error instanceof GitAdapterError) throw new RepoError(error.status, error.message)
   throw error
+}
+
+function normalizeQuery(row: {
+  id: string
+  change: string
+  section: string
+  path: string
+  line: number
+  side: 'old' | 'new'
+  body: string
+  author: string
+  at: string
+  from?: string | null
+  cite?: string | null
+  suggest?: string | null
+  status?: string | null
+  reason?: string | null
+  basis?: string | null
+}): ReviewComment {
+  const from = row.from === 'gap' || row.from === 'author' ? row.from : 'reviewer'
+  const status: QueryStatus =
+    row.status === 'done' || row.status === 'stand' || row.status === 'later' ? row.status : 'open'
+  return {
+    id: row.id,
+    change: row.change,
+    section: row.section,
+    path: row.path,
+    line: row.line,
+    side: row.side,
+    body: row.body,
+    author: row.author,
+    at: row.at,
+    from,
+    cite: row.cite ?? null,
+    suggest: row.suggest ?? null,
+    status,
+    reason: row.reason ?? null,
+    basis: row.basis ?? null,
+  }
 }
 
 function issuedTagGuess(abbrev: string, revision: number): string {

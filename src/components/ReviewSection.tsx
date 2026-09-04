@@ -206,14 +206,19 @@ export function ReviewSection({
                 <span className="diff-code">{row.text === '' ? ' ' : row.text}</span>
               </button>
               {threads.map((comment) => (
-                <div key={comment.id} className="diff-thread">
+                <div
+                  key={comment.id}
+                  className={`diff-thread${comment.status === 'open' ? '' : ' is-closed'}`}
+                >
                   <div className="diff-thread-hd">
                     <strong>{comment.author}</strong>
                     <span className="meta">
-                      {comment.side === 'new' ? 'incoming' : 'outgoing'} L{comment.line}
+                      {comment.status} · {comment.side === 'new' ? 'incoming' : 'outgoing'} L
+                      {comment.line}
                     </span>
                   </div>
                   <p>{comment.body}</p>
+                  {comment.reason ? <p className="meta">{comment.reason}</p> : null}
                 </div>
               ))}
               {composingHere ? (

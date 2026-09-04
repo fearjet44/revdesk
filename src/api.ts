@@ -56,6 +56,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  answerComment: (
+    changeId: string,
+    commentId: string,
+    body: { status: 'done' | 'stand' | 'later'; reason?: string },
+  ) =>
+    request<ReviewComment>(`/api/changes/${changeId}/comments/${commentId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   saveWorkingSection: (changeId: string, sectionId: string, markdown: string) =>
     request<SectionFile>(`/api/changes/${changeId}/sections/${sectionId}`, {
       method: 'PUT',

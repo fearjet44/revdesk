@@ -62,6 +62,12 @@ export type ReviewCommentRecord = {
   body: string
   author: string
   at: string
+  from?: 'reviewer' | 'gap' | 'author'
+  cite?: string | null
+  suggest?: string | null
+  status?: 'open' | 'done' | 'stand' | 'later'
+  reason?: string | null
+  basis?: string | null
 }
 
 export type ReviewNotes = {

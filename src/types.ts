@@ -185,6 +185,9 @@ export type DiffRow = {
   text: string
 }
 
+export type QueryStatus = 'open' | 'done' | 'stand' | 'later'
+export type QueryFrom = 'reviewer' | 'gap' | 'author'
+
 export type ReviewComment = {
   id: string
   change: string
@@ -195,6 +198,12 @@ export type ReviewComment = {
   body: string
   author: string
   at: string
+  from: QueryFrom
+  cite: string | null
+  suggest: string | null
+  status: QueryStatus
+  reason: string | null
+  basis: string | null
 }
 
 export type SectionReview = {
@@ -208,4 +217,5 @@ export type SectionReview = {
   branch: string | null
   notes_ref: string
   can_comment: boolean
+  can_answer: boolean
 }

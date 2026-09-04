@@ -224,6 +224,17 @@ async function main(argv: string[]): Promise<number> {
       return emit(json, comment, formatComment)
     }
 
+    if (cmd === 'change' && sub === 'answer') {
+      const id = requirePositional(rest, 0, 'change id')
+      const opts = parseOpts(rest.slice(1))
+      const comment = repo.answerComment(id, {
+        comment: requireOpt(opts, 'comment'),
+        status: requireOpt(opts, 'status'),
+        reason: opts.reason,
+      })
+      return emit(json, comment, formatComment)
+    }
+
     if (cmd === 'instrument' && sub === 'attach') {
       const id = requirePositional(rest, 0, 'change id')
       const opts = parseOpts(rest.slice(1))
@@ -485,12 +496,16 @@ function formatComments(rows: ReviewComment[]): string {
 }
 
 function formatComment(comment: ReviewComment): string {
-  return [
-    `${comment.id}  ${comment.section}  ${comment.side}:${comment.line}`,
+  const lines = [
+    `${comment.id}  ${comment.status}  ${comment.section}  ${comment.side}:${comment.line}`,
     `  ${comment.path}`,
-    `  ${comment.author}  ${comment.at}`,
+    `  ${comment.from}  ${comment.author}  ${comment.at}`,
     `  ${comment.body}`,
-  ].join('\n')
+  ]
+  if (comment.suggest) lines.push(`  suggest ${comment.suggest}`)
+  if (comment.cite) lines.push(`  cite ${comment.cite}`)
+  if (comment.reason) lines.push(`  reason ${comment.reason}`)
+  return lines.join('\n')
 }
 
 function formatPreview(preview: ReturnType<Repo['preview']>): string {
@@ -643,6 +658,7 @@ Usage:
   revdesk change diff     <CHG> [--section <id>]
   revdesk change comments <CHG>
   revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."
+  revdesk change answer   <CHG> --comment rc-… --status done|stand|later [--reason "..."]
 
   revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
   revdesk instrument show   <CHG>
