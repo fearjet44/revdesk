@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import type { ChangeRecord } from '../types.ts'
 import { ReviewSection } from './ReviewSection.tsx'
 import { SectionEditor } from './SectionEditor.tsx'
+import type { SectionView } from './ViewToggle.tsx'
 
 const REVIEWER = new Set(['review', 'approved', 'ready-to-launch'])
 
 export function SectionDesk({ onChanged }: { onChanged: () => Promise<void> }) {
   const { changeId } = useParams()
+  const [params, setParams] = useSearchParams()
   const [change, setChange] = useState<ChangeRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,6 +32,20 @@ export function SectionDesk({ onChanged }: { onChanged: () => Promise<void> }) {
 
   if (error && !change) return <div className="banner error">{error}</div>
   if (!change) return <div className="empty">Opening the working copy…</div>
-  if (REVIEWER.has(change.status)) return <ReviewSection onChanged={onChanged} />
-  return <SectionEditor onChanged={onChanged} />
+
+  const reviewer = REVIEWER.has(change.status)
+  const requested = params.get('view')
+  const view: SectionView =
+    requested === 'print' || requested === 'review' ? requested : reviewer ? 'review' : 'print'
+
+  function setView(next: SectionView) {
+    const nextParams = new URLSearchParams(params)
+    nextParams.set('view', next)
+    setParams(nextParams, { replace: true })
+  }
+
+  if (view === 'review') {
+    return <ReviewSection onChanged={onChanged} view={view} onView={setView} />
+  }
+  return <SectionEditor onChanged={onChanged} readOnly={reviewer} view={view} onView={setView} />
 }

@@ -5,8 +5,19 @@ import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
 import { parseSection, serializeSection } from '../schema/markdown.ts'
 import type { Frontmatter, ReviewComment, SectionFile } from '../types.ts'
+import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
-export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> }) {
+export function SectionEditor({
+  onChanged,
+  readOnly = false,
+  view = 'print',
+  onView,
+}: {
+  onChanged: () => Promise<void>
+  readOnly?: boolean
+  view?: SectionView
+  onView?: (view: SectionView) => void
+}) {
   const { changeId, sectionId } = useParams()
   const [meta, setMeta] = useState<Frontmatter | null>(null)
   const [path, setPath] = useState('')
@@ -19,9 +30,16 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
     extensions: editorExtensions,
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
+    editable: !readOnly,
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
-    onUpdate: () => setSaved(false),
+    onUpdate: () => {
+      if (!readOnly) setSaved(false)
+    },
   })
+
+  useEffect(() => {
+    editor?.setEditable(!readOnly)
+  }, [editor, readOnly])
 
   useEffect(() => {
     if (!changeId || !sectionId || !editor) return
@@ -52,8 +70,17 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
 
   const canSave = useMemo(() => Boolean(editor && meta && changeId && sectionId && !saved), [editor, meta, changeId, sectionId, saved])
 
-  async function save() {
-    if (!editor || !meta || !changeId || !sectionId) return
+  async function goReview() {
+    if (!onView) return
+    if (!readOnly && !saved) {
+      const ok = await save()
+      if (!ok) return
+    }
+    onView('review')
+  }
+
+  async function save(): Promise<boolean> {
+    if (!editor || !meta || !changeId || !sectionId || readOnly) return false
     setBusy(true)
     setError(null)
     try {
@@ -62,8 +89,10 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
       setMeta(file.meta)
       setSaved(true)
       await onChanged()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed.')
+      return false
     } finally {
       setBusy(false)
     }
@@ -79,20 +108,24 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
     <>
       <div className="page-head">
         <div>
-          <p className="kicker">WORKING COPY · {changeId}</p>
+          <p className="kicker">{readOnly ? 'PRINT' : 'WORKING COPY'} · {changeId}</p>
           <h1>{meta?.title ?? 'Section'}</h1>
           <p className="lede">
-            Edits write Markdown with YAML frontmatter to the working folder. Issued text is
-            unchanged until this change is issued.
+            {readOnly
+              ? 'Rendered page as it will read. Switch to Review for incoming and outgoing lines.'
+              : 'Edits write Markdown with YAML frontmatter to the working folder. Issued text is unchanged until this change is issued.'}
           </p>
         </div>
         <div className="actions">
+          {onView ? <ViewToggle view={view} onChange={(next) => (next === 'review' ? void goReview() : onView(next))} /> : null}
           <Link className="btn ghost" to={`/changes/${changeId}`}>
             Back to packet
           </Link>
-          <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
-            {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
-          </button>
+          {readOnly ? null : (
+            <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
+              {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -118,6 +151,7 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
       ) : null}
 
       <div className="editor-chrome">
+        {readOnly ? null : (
         <div className="toolbar">
           <button type="button" className={editor?.isActive('heading', { level: 1 }) ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
             H1
@@ -147,6 +181,7 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
             Table
           </button>
         </div>
+        )}
         <div className="editor-meta">
           <span>
             {meta?.id} · rev last changed {meta?.rev_last_changed}
@@ -155,16 +190,20 @@ export function SectionEditor({ onChanged }: { onChanged: () => Promise<void> })
         </div>
       </div>
 
-      <div className="paper-wrap">
+      <div className={`paper-wrap${readOnly ? ' is-readonly' : ''}`}>
         {meta ? (
-          <input
-            className="title-field"
-            value={meta.title}
-            onChange={(event) => {
-              setMeta({ ...meta, title: event.target.value })
-              setSaved(false)
-            }}
-          />
+          readOnly ? (
+            <h2 className="title-field">{meta.title}</h2>
+          ) : (
+            <input
+              className="title-field"
+              value={meta.title}
+              onChange={(event) => {
+                setMeta({ ...meta, title: event.target.value })
+                setSaved(false)
+              }}
+            />
+          )
         ) : null}
         <EditorContent editor={editor} />
       </div>

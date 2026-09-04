@@ -285,6 +285,24 @@ h1 {
 .btn.danger { background: #2a1414; border-color: #7a3030; color: #e4b4b0; }
 .btn.ghost { background: transparent; }
 
+.view-picks {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+}
+
+.view-picks .btn {
+  border: 0;
+  min-width: 88px;
+}
+
+.view-picks .btn + .btn {
+  border-left: 1px solid var(--line-strong);
+}
+
+.paper-wrap.is-readonly .ProseMirror {
+  caret-color: transparent;
+}
+
 .lamp {
   display: inline-flex;
   align-items: center;

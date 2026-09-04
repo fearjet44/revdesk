@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import type { DiffRow, ReviewComment, SectionReview } from '../types.ts'
+import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type LineKey = string
 
@@ -22,7 +23,15 @@ function rowSide(row: DiffRow): { side: 'old' | 'new'; line: number } | null {
   return null
 }
 
-export function ReviewSection({ onChanged }: { onChanged: () => Promise<void> }) {
+export function ReviewSection({
+  onChanged,
+  view = 'review',
+  onView,
+}: {
+  onChanged: () => Promise<void>
+  view?: SectionView
+  onView?: (view: SectionView) => void
+}) {
   const { changeId, sectionId } = useParams()
   const [review, setReview] = useState<SectionReview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -149,6 +158,7 @@ export function ReviewSection({ onChanged }: { onChanged: () => Promise<void> })
           </p>
         </div>
         <div className="actions">
+          {onView ? <ViewToggle view={view} onChange={onView} /> : null}
           <Link className="btn ghost" to={`/changes/${changeId}`}>
             Back to packet
           </Link>
