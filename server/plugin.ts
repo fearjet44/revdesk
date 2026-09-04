@@ -209,9 +209,12 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
   }
 
   if (method === 'PUT' && parts[0] === 'changes' && parts[2] === 'sections' && parts[3]) {
-    const body = await readJson<{ markdown?: string }>(req)
+    const body = await readJson<{ markdown?: string; mark?: string; note?: string }>(req)
     if (!body.markdown) throw new RepoError(2, 'markdown is required.')
-    sendJson(res, 200, repo.saveWorkingSection(parts[1], parts[3], body.markdown))
+    sendJson(res, 200, repo.saveWorkingSection(parts[1], parts[3], body.markdown, {
+      mark: body.mark,
+      note: body.note,
+    }))
     return
   }
 

@@ -11,6 +11,7 @@ import {
   serializeSection,
 } from '../schema/markdown.ts'
 import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
+import { WRITE_MARKS } from '../../server/marks.ts'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type GutterMark = { line: number; top: number }
@@ -53,6 +54,8 @@ export function SectionEditor({
   const [gutterMarks, setGutterMarks] = useState<GutterMark[]>([])
   const [canAnswer, setCanAnswer] = useState(false)
   const [reasons, setReasons] = useState<Record<string, string>>({})
+  const [writeMark, setWriteMark] = useState('')
+  const [writeNote, setWriteNote] = useState('')
   const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -89,6 +92,11 @@ export function SectionEditor({
             setComments(review.comments)
             setDiffRows(review.rows)
             setCanAnswer(review.can_answer)
+            const touch = review.change.touched.find((item) => item.id === sectionId)
+            if (touch?.mark) {
+              setWriteMark(touch.mark)
+              setWriteNote(touch.mark_note ?? '')
+            }
           }
         } catch {
           if (!cancelled) {
@@ -106,7 +114,12 @@ export function SectionEditor({
     }
   }, [changeId, sectionId, editor])
 
-  const canSave = useMemo(() => Boolean(editor && meta && changeId && sectionId && !saved), [editor, meta, changeId, sectionId, saved])
+  const markRow = WRITE_MARKS.find((row) => row.code === writeMark)
+  const markReady = Boolean(writeMark && (!markRow?.needsNote || writeNote.trim()))
+  const canSave = useMemo(
+    () => Boolean(editor && meta && changeId && sectionId && !saved && !readOnly && markReady),
+    [editor, meta, changeId, sectionId, saved, readOnly, markReady],
+  )
 
   useLayoutEffect(() => {
     const paper = paperRef.current
@@ -223,7 +236,10 @@ export function SectionEditor({
     setError(null)
     try {
       const markdown = serializeSection(meta, editor.getJSON())
-      const file = await api.saveWorkingSection(changeId, sectionId, markdown)
+      const file = await api.saveWorkingSection(changeId, sectionId, markdown, {
+        mark: writeMark,
+        note: writeNote.trim() || undefined,
+      })
       setMeta(file.meta)
       setSaved(true)
       await onChanged()
@@ -260,9 +276,33 @@ export function SectionEditor({
             Back to packet
           </Link>
           {readOnly ? null : (
-            <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
-              {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
-            </button>
+            <>
+              <label className="write-mark">
+                <span className="meta">Mark</span>
+                <select
+                  value={writeMark}
+                  onChange={(event) => setWriteMark(event.target.value)}
+                  aria-label="Write mark"
+                >
+                  <option value="">Why this write…</option>
+                  {WRITE_MARKS.map((row) => (
+                    <option key={row.code} value={row.code}>
+                      {row.code} — {row.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input
+                type="text"
+                value={writeNote}
+                onChange={(event) => setWriteNote(event.target.value)}
+                placeholder={markRow?.needsNote ? 'Finding / letter id' : 'Note (optional)'}
+                aria-label="Write mark note"
+              />
+              <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
+                {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
+              </button>
+            </>
           )}
         </div>
       </div>

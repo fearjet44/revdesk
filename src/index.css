@@ -246,6 +246,28 @@ h1 {
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.page-head .actions { align-items: flex-end; }
+
+.write-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.write-mark select {
+  background: #0f1319;
+  border: 1px solid var(--line);
+  padding: 7px 8px;
+  min-width: 220px;
+}
+
+.page-head .actions input[type="text"] {
+  min-width: 160px;
+  background: #0f1319;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+}
+
 .packet-actions {
   margin-bottom: 16px;
   align-items: center;

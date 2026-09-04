@@ -79,6 +79,9 @@ export type TouchedSection = {
   source: string
   working: string
   action: TouchAction
+  /** Last write mark on this leaf (RF, GS, …). */
+  mark?: string
+  mark_note?: string
 }
 
 export type ChangeEvent = {

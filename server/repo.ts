@@ -9,6 +9,7 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { formatWriteMark, parseWriteMark, snapshotMarkLine } from './marks.ts'
 import { lineDiff } from './diff.ts'
 import {
   GitAdapterError,
@@ -237,6 +238,8 @@ export class Repo {
         source: item.source,
         working: item.working,
         action: (item.action as TouchAction) || 'amend',
+        mark: item.mark || undefined,
+        mark_note: item.mark_note || undefined,
       }
     })
     return {
@@ -274,11 +277,12 @@ export class Repo {
       instrument: change.instrument ?? null,
       launch_kind: change.launch_kind ?? null,
       launch_id: change.launch_id ?? null,
-      touched: change.touched.map(({ id, source, working, action }) => ({
+      touched: change.touched.map(({ id, source, working, action, mark, mark_note }) => ({
         id,
         source,
         working,
         action,
+        ...(mark ? { mark, mark_note: mark_note || undefined } : {}),
       })),
       history: change.history,
     }
@@ -427,7 +431,12 @@ export class Repo {
     return this.readChange(changeId)
   }
 
-  saveWorkingSection(changeId: string, sectionId: string, markdown: string): SectionFile {
+  saveWorkingSection(
+    changeId: string,
+    sectionId: string,
+    markdown: string,
+    opts: { mark?: string; note?: string } = {},
+  ): SectionFile {
     const change = this.readChange(changeId)
     if (change.status === 'launched' || change.status === 'withdrawn') {
       throw new RepoError(2, `A ${change.status} change cannot be edited.`)
@@ -446,7 +455,28 @@ export class Repo {
       { ...incoming.meta, id: existing.meta.id, rev_last_changed: existing.meta.rev_last_changed },
       incoming.body,
     )
-    return this.writeSection(touched.working, next)
+    if (ensureTrailingNewline(next) === ensureTrailingNewline(existing.markdown)) {
+      return existing
+    }
+    if (!(opts.mark ?? '').trim()) {
+      throw new RepoError(2, 'Write mark is required (RF, GS, PC, …).')
+    }
+    let mark: { mark: string; note: string | undefined }
+    try {
+      mark = parseWriteMark(opts.mark ?? '', opts.note)
+    } catch (error) {
+      throw new RepoError(2, error instanceof Error ? error.message : 'Write mark is required.')
+    }
+    const written = this.writeSection(touched.working, next)
+    touched.mark = mark.mark
+    touched.mark_note = mark.note
+    change.history.push({
+      at: nowIso(),
+      action: 'wrote',
+      note: `wrote ${sectionId} ${formatWriteMark(mark.mark, mark.note)}`,
+    })
+    this.writeChange(change)
+    return written
   }
 
   getSectionForChange(sectionId: string, changeId: string): SectionFile {
@@ -456,8 +486,13 @@ export class Repo {
     return this.readSection(touched.working)
   }
 
-  putSectionForChange(sectionId: string, changeId: string, markdown: string): SectionFile {
-    return this.saveWorkingSection(changeId, sectionId, markdown)
+  putSectionForChange(
+    sectionId: string,
+    changeId: string,
+    markdown: string,
+    opts: { mark?: string; note?: string } = {},
+  ): SectionFile {
+    return this.saveWorkingSection(changeId, sectionId, markdown, opts)
   }
 
   transition(changeId: string, action: ChangeAction, opts: { role?: string } = {}): ChangeRecord {
@@ -1124,12 +1159,13 @@ export class Repo {
         gitPath: toGitPath(this.root, this.abs(item.source)),
         content: this.readSection(item.working).markdown,
       }))
-      return snapshotReview(
-        this.root,
-        change.id,
-        files,
-        `Revdesk review snapshot ${change.id}`,
-      )
+      const marked = change.touched.filter((item) => item.mark)
+      const message = marked.length
+        ? marked
+            .map((item) => snapshotMarkLine(change.id, item.id, item.mark!, item.mark_note))
+            .join('\n')
+        : `Revdesk review snapshot ${change.id}`
+      return snapshotReview(this.root, change.id, files, message)
     } catch (error) {
       throwGit(error)
     }

@@ -64,6 +64,8 @@ export type TouchedSection = {
   source: string
   working: string
   action: TouchAction
+  mark?: string
+  mark_note?: string
 }
 
 export type ChangeEvent = {

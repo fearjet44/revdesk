@@ -276,7 +276,10 @@ async function main(argv: string[]): Promise<number> {
       const changeId = requireOpt(opts, 'change')
       const filePath = requireOpt(opts, 'file')
       const markdown = readFileSync(path.resolve(filePath), 'utf8')
-      const file = repo.putSectionForChange(sectionId, changeId, markdown)
+      const file = repo.putSectionForChange(sectionId, changeId, markdown, {
+        mark: opts.mark,
+        note: opts.note,
+      })
       return emit(json, file, () => `wrote ${file.path}`)
     }
 
@@ -454,6 +457,7 @@ function formatChange(change: ChangeRecord): string {
   for (const t of change.touched) {
     lines.push(`  ${t.id}  ${t.action}  ${t.title}`)
     lines.push(`    working ${t.working}`)
+    if (t.mark) lines.push(`    mark ${t.mark}${t.mark_note ? `  ${t.mark_note}` : ''}`)
   }
   lines.push('', 'HISTORY')
   for (const h of change.history) {
@@ -663,7 +667,8 @@ Usage:
   revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
   revdesk instrument show   <CHG>
 
-  revdesk section get|put …
+  revdesk section get <id> --change <CHG> [--out file]
+  revdesk section put <id> --change <CHG> --file <path> --mark RF|GS|… [--note "…"]
   revdesk preview <CHG>
 
   revdesk issue <CHG> --effective YYYY-MM-DD

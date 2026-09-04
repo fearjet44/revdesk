@@ -65,10 +65,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  saveWorkingSection: (changeId: string, sectionId: string, markdown: string) =>
+  saveWorkingSection: (
+    changeId: string,
+    sectionId: string,
+    markdown: string,
+    mark?: { mark: string; note?: string },
+  ) =>
     request<SectionFile>(`/api/changes/${changeId}/sections/${sectionId}`, {
       method: 'PUT',
-      body: JSON.stringify({ markdown }),
+      body: JSON.stringify({ markdown, mark: mark?.mark, note: mark?.note }),
     }),
   transition: (changeId: string, action: ChangeAction) =>
     request<ChangeRecord>(`/api/changes/${changeId}/transition`, {

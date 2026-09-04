@@ -85,7 +85,7 @@ revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --
 revdesk instrument show   <CHG>
 
 revdesk section get <section-id> --change <CHG> [--out <path>]
-revdesk section put <section-id> --change <CHG> --file <path>
+revdesk section put <section-id> --change <CHG> --file <path> --mark RF|GS|… [--note "…"]
 revdesk preview <CHG>
 
 revdesk issue <CHG> --effective YYYY-MM-DD
@@ -166,7 +166,7 @@ Sample library in this checkout already has `gom` at `GOM-R13` and open `CHG-202
 
 ./bin/revdesk section get gom-ident --change CHG-2026-002 --out /tmp/gom-ident.md
 # edit /tmp/gom-ident.md — keep YAML frontmatter id/title/rev_last_changed
-./bin/revdesk section put gom-ident --change CHG-2026-002 --file /tmp/gom-ident.md
+./bin/revdesk section put gom-ident --change CHG-2026-002 --file /tmp/gom-ident.md --mark GS
 
 ./bin/revdesk change submit CHG-2026-002
 ./bin/revdesk change approve CHG-2026-002
