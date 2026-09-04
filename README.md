@@ -17,6 +17,7 @@ Same binary for Slice 1 + Slice 2. No server required. Override the library with
 ./bin/revdesk status
 ./bin/revdesk launched gom
 npm run test:slice2   # Slice 2 acceptance path
+npm run test:slice6   # Slice 6 ingest classify + lorem scaffold
 ```
 
 ### Launch model
@@ -58,9 +59,10 @@ Exit codes: `0` ok · `2` validation · `3` not found · `4` not allowed · `5` 
 data/
   manuals/<id>/manual.yaml
   manuals/<id>/sections/*.md
+  letters/…                    # sample POI letter + .eml for smoke attach
   control/changes/CHG-*.yaml
   control/working/CHG-*/…
-  control/instruments/…
+  control/instruments/…        # hashed copies after attach; do not edit
   control/issues/<MANUAL>-R<n>.yaml
   control/trs/<MANUAL>-R<n>-TR<k>.yaml
   artifacts/…                  # placeholder PDF this slice
@@ -69,6 +71,8 @@ data/
 Fixture for acceptance: `fixtures/tiny-gom`.
 
 Sample section bodies in `data/` and `fixtures/` are **lorem ipsum**. Put real operator manuals for parser training in `corpus/` (gitignored). Do not commit them.
+
+Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Classify a corpus PDF with `revdesk ingest classify <pdf>`.
 
 ## License
 

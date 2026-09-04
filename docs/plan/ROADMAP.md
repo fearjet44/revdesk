@@ -50,7 +50,7 @@ How a living GOM / FOTM / MEL becomes Revdesk sections instead of a toy fixture.
 
 **Done enough when:** one real book (start with GOM) opens in the desk with the right leaves, and a change packet can touch those leaves.
 
-**Where we are:** `data/manuals/gom` and `fixtures/tiny-gom` only. The work manuals library and `CURRENT-REVISIONS.md` stay outside this repo until ingest has a contract.
+**Where we are:** Slice 6 scaffold is the first cut — `docs/plan/slice-6-ingest-scaffold.md`. `revdesk ingest classify` inspects LEP/LES/rev-only + Nimbl Word house style. Gold catalogs + lorem sample books (`gom-lep`, `tp`) sit beside the tiny desk `gom`. Real PDFs stay in `corpus/` (gitignored). `ingest apply` (transcribe operator prose) is not this slice.
 
 ---
 
@@ -70,4 +70,4 @@ How a living GOM / FOTM / MEL becomes Revdesk sections instead of a toy fixture.
 2. Pillar 2 Git adapter (3b) so launch leaves a tag.
 3. Pillar 3 ingest so the desk is the GOM, not Foo/Bar.
 
-Ingest can start as a spike in parallel if it does not rewrite `server/repo.ts` while Slice 4 is open.
+Slice 6 ingest classify/scaffold may run in parallel with Slice 4 if it does not rewrite `server/repo.ts`.

@@ -1,0 +1,32 @@
+SAMPLE — not an FAA instrument. For Revdesk smoke only.
+
+Federal Aviation Administration
+San Diego Flight Standards District Office
+8750 Gravity Lane
+San Diego, CA 92123
+
+4 September 2026
+
+Chief Pilot
+Sample Air, LLC
+Principal base of operations
+
+Subject: Approval / acceptance of manual revision — SAMPLE
+Reference: CHG packet on the local Revdesk desk
+
+This letter is a stand-in for a POI approval or acceptance letter.
+
+I have reviewed the submitted change packet for the Sample Air controlled manual
+library. For smoke testing, treat this file as sufficient to attach and launch:
+
+  Instrument type:  approval-letter  (training program) or
+                    acceptance-letter (operations manual)
+  Authority:        poi
+  Dated:            2026-09-04
+
+This correspondence does not accept or approve any real certificate, OpSpec, or
+manual. Hash and store it like a live letter; do not send it to a FSDO.
+
+Jane Doe
+Principal Operations Inspector  (sample)
+San Diego FSDO

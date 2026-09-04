@@ -1,0 +1,1533 @@
+{
+  "id": "gom-lep",
+  "title": "General Operations Manual",
+  "abbrev": "GOML",
+  "kind_guess": "gom",
+  "control_class": "faa-accepted",
+  "owner": "Chief Pilot",
+  "authority": "poi",
+  "instrument_required": true,
+  "current_issued": "GOML-R11",
+  "next_revision": 12,
+  "effective": "2022-11-01",
+  "revision": {
+    "number": 11,
+    "date": "2022-11-01",
+    "label": "Revision 11"
+  },
+  "house_style": "nimbl-word",
+  "pagination": {
+    "control_surface": "lep",
+    "lep_inferred": false,
+    "regions": [
+      {
+        "name": "cover",
+        "scheme": "letter-cover"
+      },
+      {
+        "name": "front-matter",
+        "scheme": "roman-front",
+        "slots": [
+          "i",
+          "ii",
+          "iii",
+          "iv",
+          "v",
+          "vi",
+          "vii",
+          "viii",
+          "ix",
+          "x",
+          "xi",
+          "xii",
+          "xiii",
+          "xiv"
+        ]
+      },
+      {
+        "name": "body",
+        "scheme": "chapter-page"
+      },
+      {
+        "name": "appendix",
+        "scheme": "section-page"
+      }
+    ]
+  },
+  "lep_slots": [
+    "i",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "vi",
+    "vii",
+    "viii",
+    "ix",
+    "x",
+    "xi",
+    "xii",
+    "xiii",
+    "xiv",
+    "1-1",
+    "1-2",
+    "1-3",
+    "1-4",
+    "1-5",
+    "1-6",
+    "2-1",
+    "2-2",
+    "2-3",
+    "2-4",
+    "2-5",
+    "2-6",
+    "2-7",
+    "2-8",
+    "3-1",
+    "3-2",
+    "4-1",
+    "4-2",
+    "5-1",
+    "5-2",
+    "5-3",
+    "5-4",
+    "6-1",
+    "6-2",
+    "6-3",
+    "6-4",
+    "7-1",
+    "7-2",
+    "7-3",
+    "7-4",
+    "7-5",
+    "7-6",
+    "7-7",
+    "7-8",
+    "7-9",
+    "7-10",
+    "7-11",
+    "7-12",
+    "8-1",
+    "8-2",
+    "8-3",
+    "8-4",
+    "9-1",
+    "9-2",
+    "9-3",
+    "9-4",
+    "9-5",
+    "9-6",
+    "9-7",
+    "9-8",
+    "9-9",
+    "9-10",
+    "9-11",
+    "9-12",
+    "9-13",
+    "9-14",
+    "9-15",
+    "9-16",
+    "9-17",
+    "9-18",
+    "9-19",
+    "9-20",
+    "9-21",
+    "9-22",
+    "9-23",
+    "9-24",
+    "10-1",
+    "10-2",
+    "10-3",
+    "10-4",
+    "10-5",
+    "10-6",
+    "11-1",
+    "11-2",
+    "12-1",
+    "12-2",
+    "12-3",
+    "12-4",
+    "12-5",
+    "12-6",
+    "13-1",
+    "13-2",
+    "13-3",
+    "13-4",
+    "13-5",
+    "13-6",
+    "13-7",
+    "13-8",
+    "13-9",
+    "13-10",
+    "13-11",
+    "13-12",
+    "13-13",
+    "13-14",
+    "13-15",
+    "13-16",
+    "13-17",
+    "13-18",
+    "13-19",
+    "13-20",
+    "13-21",
+    "13-22",
+    "13-23",
+    "13-24",
+    "14-1",
+    "14-2",
+    "15-1",
+    "15-2",
+    "16-1",
+    "16-2",
+    "17-1",
+    "17-2",
+    "17-3",
+    "17-4",
+    "18-1",
+    "18-2",
+    "18-3",
+    "18-4",
+    "18-5",
+    "18-6",
+    "18-7",
+    "18-8",
+    "18-9",
+    "18-10",
+    "18-11",
+    "18-12",
+    "18-13",
+    "18-14",
+    "18-15",
+    "18-16",
+    "18-17",
+    "18-18",
+    "18-19",
+    "18-20",
+    "18-21",
+    "18-22",
+    "18-23",
+    "18-24",
+    "18-25",
+    "18-26",
+    "18-27",
+    "18-28",
+    "18-29",
+    "18-30",
+    "18-31",
+    "18-32",
+    "18-33",
+    "18-34",
+    "18-35",
+    "18-36",
+    "18-37",
+    "18-38",
+    "18-39",
+    "18-40",
+    "18-41",
+    "18-42",
+    "18-43",
+    "18-44",
+    "A-1",
+    "A-2"
+  ],
+  "source": {
+    "supplier": "nimbl",
+    "template": "word-pdfmaker",
+    "corpus_file": "Premier Air Charter GOM Revision 11.pdf",
+    "note": "Structure only. Sample bodies are lorem ipsum. Do not copy operator prose from the corpus PDF."
+  },
+  "leaves": [
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Record of Revision",
+      "start": "i",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "List of Effective Pages",
+      "start": "iii",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Table of Contents",
+      "start": "vii",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "1",
+      "title": "Company Policy, Procedures, and Rules of Conduct",
+      "start": "1-1",
+      "headings": [
+        {
+          "num": "1.1.0",
+          "title": "Introduction"
+        },
+        {
+          "num": "1.2.0",
+          "title": "Distribution"
+        },
+        {
+          "num": "1.3.0",
+          "title": "Employee Company Manual Responsibilities"
+        },
+        {
+          "num": "1.4.0",
+          "title": "References upon Which This Manual is Based"
+        },
+        {
+          "num": "1.5.0",
+          "title": "Employee Conduct and Appearance"
+        },
+        {
+          "num": "1.6.0",
+          "title": "Smoking"
+        },
+        {
+          "num": "1.7.0",
+          "title": "Blood Donations - Flight Crews"
+        },
+        {
+          "num": "1.8.0",
+          "title": "Scuba Diving"
+        },
+        {
+          "num": "1.9.0",
+          "title": "Alcohol and Drugs - General"
+        },
+        {
+          "num": "1.10.0",
+          "title": "Alcohol Consumption - Flight Crews"
+        },
+        {
+          "num": "1.11.0",
+          "title": "Suspension from Flight Duty"
+        },
+        {
+          "num": "1.12.0",
+          "title": "Flight Time - General"
+        },
+        {
+          "num": "1.13.0",
+          "title": "Flight Time Limitations"
+        },
+        {
+          "num": "1.14.0",
+          "title": "Operations Not Governed by Part 135"
+        },
+        {
+          "num": "1.15.0",
+          "title": "Serving Alcoholic Beverages"
+        },
+        {
+          "num": "1.16.0",
+          "title": "Medical Certificates"
+        },
+        {
+          "num": "1.17.0",
+          "title": "On-The-Job Injuries"
+        },
+        {
+          "num": "1.18.0",
+          "title": "Address and Telephone"
+        },
+        {
+          "num": "1.19.0",
+          "title": "Safety"
+        },
+        {
+          "num": "1.20.0",
+          "title": "FAA, Flight Standards Information Management System (FSIMS)"
+        },
+        {
+          "num": "1.21.0",
+          "title": "A Final Word"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "2",
+      "title": "Management Personnel",
+      "start": "2-1",
+      "headings": [
+        {
+          "num": "2.1.0",
+          "title": "Management Personnel"
+        },
+        {
+          "num": "2.2.0",
+          "title": "Quick Contact Reference"
+        },
+        {
+          "num": "2.3.0",
+          "title": "Responsibility for Operational Control"
+        },
+        {
+          "num": "2.4.0",
+          "title": "Agent for Service"
+        },
+        {
+          "num": "2.5.0",
+          "title": "Person Authorized to Sign for the Operations Specifications"
+        },
+        {
+          "num": "2.6.0",
+          "title": "Organizational Chart"
+        },
+        {
+          "num": "2.7.0",
+          "title": "Duties and Responsibilities of the Director of Operations (DOO)"
+        },
+        {
+          "num": "2.8.0",
+          "title": "Duties and Responsibilities of the Chief Pilot"
+        },
+        {
+          "num": "2.9.0",
+          "title": "Duties and Responsibilities of the Director of Maintenance"
+        },
+        {
+          "num": "2.10.0",
+          "title": "Duties and Responsibilities of a Pilot in Command (PIC)"
+        },
+        {
+          "num": "2.11.0",
+          "title": "Duties and Responsibilities of a Second-in-Command (SIC)"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "3",
+      "title": "Operations Specifications Highlights",
+      "start": "3-1",
+      "headings": [
+        {
+          "num": "3.1.0",
+          "title": "Operations Specifications \u2013 Authorized Operations"
+        },
+        {
+          "num": "3.2.0",
+          "title": "Limitations"
+        },
+        {
+          "num": "3.3.0",
+          "title": "Authorizations"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "4",
+      "title": "Operations Specifications",
+      "start": "4-1",
+      "headings": [
+        {
+          "num": "4.1.0",
+          "title": "Overview"
+        },
+        {
+          "num": "4.2.0",
+          "title": "Authorized Operations"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "5",
+      "title": "Weight and Balance",
+      "start": "5-1",
+      "headings": [
+        {
+          "num": "5.1.0",
+          "title": "Pilot-in-Command Responsibility"
+        },
+        {
+          "num": "5.2.0",
+          "title": "Maximum Allowable Takeoff Weight (MATW)"
+        },
+        {
+          "num": "5.3.0",
+          "title": "Determination of Passenger, Cargo and Baggage Weights and Loading of the Aircraft2"
+        },
+        {
+          "num": "5.4.0",
+          "title": "Load Manifest"
+        },
+        {
+          "num": "5.5.0",
+          "title": "Employee Responsibilities"
+        },
+        {
+          "num": "5.6.0",
+          "title": "Multi-Engine Aircraft Weighing"
+        },
+        {
+          "num": "5.7.0",
+          "title": "Using the American Aeronautics Graph and Plotter"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "6",
+      "title": "Accidents",
+      "start": "6-1",
+      "headings": [
+        {
+          "num": "6.1.0",
+          "title": "General Information"
+        },
+        {
+          "num": "6.2.0",
+          "title": "PIC Action to be Taken in the Case of an Accident or NTSB Reportable Incident"
+        },
+        {
+          "num": "6.3.0",
+          "title": "Director of Operations, Chief Pilot, Director of Maintenance, and other Company Employee Accident Notification Responsibilities"
+        },
+        {
+          "num": "6.4.0",
+          "title": "Completion of NTSB Form 6120.1/2"
+        },
+        {
+          "num": "6.5.0",
+          "title": "Accident Preliminary Notification Form"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "7",
+      "title": "Airworthiness & Maintenance",
+      "start": "7-1",
+      "headings": [
+        {
+          "num": "7.1.0",
+          "title": "General Overview"
+        },
+        {
+          "num": "7.2.0",
+          "title": "Aircraft Return to Service"
+        },
+        {
+          "num": "7.3.0",
+          "title": "PIC Pre-Departure Responsibilities"
+        },
+        {
+          "num": "7.4.0",
+          "title": "Procedures for Reporting and Recording Mechanical Irregularities"
+        },
+        {
+          "num": "7.5.0",
+          "title": "Pilot, MEL Responsibilities - General"
+        },
+        {
+          "num": "7.6.0",
+          "title": "Pilot MEL Responsibilities \u2013 Specific MEL Use Procedures"
+        },
+        {
+          "num": "7.7.0",
+          "title": "Procedures for the PIC to Obtain Maintenance or Servicing of the Aircraft Where Previous Arrangements Have Not Been Made."
+        },
+        {
+          "num": "7.8.0",
+          "title": "Operation with MEL Deferred Items to Locations without Maintenance Facilities"
+        },
+        {
+          "num": "7.9.0",
+          "title": "DOM Responsibilities"
+        },
+        {
+          "num": "7.10.0",
+          "title": "Approval for Return to Service"
+        },
+        {
+          "num": "7.11.0",
+          "title": "Unairworthy Aircraft"
+        },
+        {
+          "num": "7.12.0",
+          "title": "Other Work Performed on an Aircraft during Inspection"
+        },
+        {
+          "num": "7.13.0",
+          "title": "Major Repairs and Alterations"
+        },
+        {
+          "num": "7.14.0",
+          "title": "Return to Service"
+        },
+        {
+          "num": "7.15.0",
+          "title": "Flight Check"
+        },
+        {
+          "num": "7.16.0",
+          "title": "Recording of Altimeter System Maintenance Performed by Repair Stations"
+        },
+        {
+          "num": "7.17.0",
+          "title": "New and Repetitive ADs"
+        },
+        {
+          "num": "7.18.0",
+          "title": "Service Difficulty Reports. (Ref. FAR 135.415)"
+        },
+        {
+          "num": "7.19.0",
+          "title": "Mechanical Interruption Summary Reports (Ref. FAR 135.417)"
+        },
+        {
+          "num": "7.20.0",
+          "title": "Correction of Mechanical Irregularities"
+        },
+        {
+          "num": "7.21.0",
+          "title": "Control of the Weight and Balance Form"
+        },
+        {
+          "num": "7.22.0",
+          "title": "Aircraft Weighing"
+        },
+        {
+          "num": "7.23.0",
+          "title": "MEL Management Program"
+        },
+        {
+          "num": "7.24.0",
+          "title": "Nonessential Equipment and Furnishings (NEF)"
+        },
+        {
+          "num": "7.25.0",
+          "title": "Adding and Removing Aircraft to Certificate"
+        },
+        {
+          "num": "7.26.0",
+          "title": "Reduced Vertical Separation Minimums (RVSM) Maintenance Procedures"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "8",
+      "title": "Refueling Procedures, Precautions, and Aircraft Towing",
+      "start": "8-1",
+      "headings": [
+        {
+          "num": "8.1.0",
+          "title": "General Procedures for Refueling"
+        },
+        {
+          "num": "8.2.0",
+          "title": "Additional Considerations for Refueling Away From the Home Base"
+        },
+        {
+          "num": "8.3.0",
+          "title": "Post-Fueling"
+        },
+        {
+          "num": "8.4.0",
+          "title": "Quality Control Requirements for Fuel Vendors"
+        },
+        {
+          "num": "8.5.0",
+          "title": "Aircraft Towing"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "9",
+      "title": "Ramp Procedures, Passenger Safety, and Briefing",
+      "start": "9-1",
+      "headings": [
+        {
+          "num": "9.1.0",
+          "title": "Passenger Safety - Responsibility"
+        },
+        {
+          "num": "9.2.0",
+          "title": "Passenger Guidance on the Ramp"
+        },
+        {
+          "num": "9.3.0",
+          "title": "Ramp Vehicles"
+        },
+        {
+          "num": "9.4.0",
+          "title": "Problem Passengers"
+        },
+        {
+          "num": "9.5.0",
+          "title": "Deportees Transported by Air"
+        },
+        {
+          "num": "9.6.0",
+          "title": "HAZMAT Incidents"
+        },
+        {
+          "num": "9.7.0",
+          "title": "Handicapped Passengers"
+        },
+        {
+          "num": "9.8.0",
+          "title": "Child Restraint Systems (CRS) and Aviation Child Safety Devices (ACSD)"
+        },
+        {
+          "num": "9.9.0",
+          "title": "Passenger, Carry-On Oxygen"
+        },
+        {
+          "num": "9.10.0",
+          "title": "Portable Oxygen Concentrators (POCs)"
+        },
+        {
+          "num": "9.11.0",
+          "title": "Prohibition Against Carriage of Weapons FAR 135.119"
+        },
+        {
+          "num": "9.12.0",
+          "title": "Airport Security Identification Areas (SIDA)"
+        },
+        {
+          "num": "9.13.0",
+          "title": "Cargo and Carry-on Baggage"
+        },
+        {
+          "num": "9.14.0",
+          "title": "Cold Weather Operations",
+          "children": [
+            {
+              "num": "9.14.1",
+              "title": "Preflight inspection for contaminants"
+            },
+            {
+              "num": "9.14.2",
+              "title": "Removal of Snow or Other Frozen Contaminants"
+            },
+            {
+              "num": "9.14.3",
+              "title": "Pre-Takeoff Inspection for Contaminants"
+            }
+          ]
+        },
+        {
+          "num": "9.15.0",
+          "title": "Baggage Doors"
+        },
+        {
+          "num": "9.16.0",
+          "title": "Emergency Evacuation"
+        },
+        {
+          "num": "9.17.0",
+          "title": "Passenger Briefing"
+        },
+        {
+          "num": "9.18.0",
+          "title": "Passenger Briefing Cards"
+        },
+        {
+          "num": "9.19.0",
+          "title": "Passenger Screening and National Security"
+        },
+        {
+          "num": "9.20.0",
+          "title": "Person Employed to Provide Cabin Services"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "10",
+      "title": "Operational Control and Flight Locating",
+      "start": "10-1",
+      "headings": [
+        {
+          "num": "10.1.0",
+          "title": "Operational Control",
+          "children": [
+            {
+              "num": "10.1.1",
+              "title": "Company Policy with Respect to Operational Control"
+            },
+            {
+              "num": "10.1.2",
+              "title": "Safety vs. Passenger Demands"
+            },
+            {
+              "num": "10.1.3",
+              "title": "Person(s) Responsible for Operational Control"
+            },
+            {
+              "num": "10.1.4",
+              "title": "Some Specific Operational Control Functions and Responsibilities"
+            },
+            {
+              "num": "10.1.5",
+              "title": "Additional Operational Control Aspects"
+            },
+            {
+              "num": "10.1.6",
+              "title": "Series of Flights"
+            },
+            {
+              "num": "10.1.7",
+              "title": "Management versus PIC Functions and Responsibilities"
+            }
+          ]
+        },
+        {
+          "num": "10.2.0",
+          "title": "Flight Locating",
+          "children": [
+            {
+              "num": "10.2.1",
+              "title": "Flight Locators"
+            },
+            {
+              "num": "10.2.2",
+              "title": "Flight Plan Filing and Flight Locating"
+            },
+            {
+              "num": "10.2.3",
+              "title": "Operations into Areas with No Radio Communications"
+            },
+            {
+              "num": "10.2.4",
+              "title": "Operations into Areas with No Communications, Period"
+            },
+            {
+              "num": "10.2.5",
+              "title": "Overdue Flights"
+            },
+            {
+              "num": "10.2.6",
+              "title": "Flight Locator Personnel Training"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "11",
+      "title": "Enroute Qualification",
+      "start": "11-1",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "12",
+      "title": "Flight Planning",
+      "start": "12-1",
+      "headings": [
+        {
+          "num": "12.1.0",
+          "title": "Airport Information"
+        },
+        {
+          "num": "12.2.0",
+          "title": "NOTAMs"
+        },
+        {
+          "num": "12.3.0",
+          "title": "Aircraft Performance"
+        },
+        {
+          "num": "12.4.0",
+          "title": "Weather Information"
+        },
+        {
+          "num": "12.5.0",
+          "title": "Flight Plans"
+        },
+        {
+          "num": "12.6.0",
+          "title": "Selection of Alternate Airports"
+        },
+        {
+          "num": "12.7.0",
+          "title": "Fuel Requirements"
+        },
+        {
+          "num": "12.8.0",
+          "title": "Load Control"
+        },
+        {
+          "num": "12.9.0",
+          "title": "Airworthiness of the Aircraft"
+        },
+        {
+          "num": "12.10.0",
+          "title": "Charts"
+        },
+        {
+          "num": "12.11.0",
+          "title": "Electronic Flight Bag (EFB)"
+        },
+        {
+          "num": "12.12.0",
+          "title": "Pilot Currency"
+        },
+        {
+          "num": "12.13.0",
+          "title": "Crew Rest"
+        },
+        {
+          "num": "12.14.0",
+          "title": "Restricted or Suspended Operations"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "13",
+      "title": "Flight Operations",
+      "start": "13-1",
+      "headings": [
+        {
+          "num": "13.1.0",
+          "title": "Preflight"
+        },
+        {
+          "num": "13.2.0",
+          "title": "Aircraft Control Responsibilities"
+        },
+        {
+          "num": "13.3.0",
+          "title": "Taxiing: Stowing of Service Items"
+        },
+        {
+          "num": "13.4.0",
+          "title": "Checklists"
+        },
+        {
+          "num": "13.4.0",
+          "title": "Departure Briefing"
+        },
+        {
+          "num": "13.5.0",
+          "title": "Departure Procedures"
+        },
+        {
+          "num": "13.6.0",
+          "title": "Climb, Cruise, and Descent Pilot Call-Outs"
+        },
+        {
+          "num": "13.7.0",
+          "title": "Stabilized Approach"
+        },
+        {
+          "num": "13.8.0",
+          "title": "Instrument Approach Procedures"
+        },
+        {
+          "num": "13.9.0",
+          "title": "Responsibilities of the Landing and Non-Landing Pilots"
+        },
+        {
+          "num": "13.10.0",
+          "title": "Circling and Contact Approaches"
+        },
+        {
+          "num": "13.11.0",
+          "title": "Reporting Potentially Hazardous Meteorological and Other Conditions"
+        },
+        {
+          "num": "13.12.0",
+          "title": "Severe Weather and Nonstandard Instrument Approach or Departure Procedures"
+        },
+        {
+          "num": "13.13.0",
+          "title": "In-Flight Icing"
+        },
+        {
+          "num": "13.14.0",
+          "title": "Critical Phases of Flight (Sterile Cockpit)"
+        },
+        {
+          "num": "13.15.0",
+          "title": "Preparing for an Approach at Night in VMC Conditions or when IMC Conditions Might be Encountered"
+        },
+        {
+          "num": "13.16.0",
+          "title": "CFIT Accidents. Special Caution to be Exercised During Night, VFR Departures \u2013 Use of VFR Charts"
+        },
+        {
+          "num": "13.17.0",
+          "title": "Pre-Takeoff Safety"
+        },
+        {
+          "num": "13.18.0",
+          "title": "Vertical Speed Indicator (VSI) Knowledge Needed by Pilots"
+        },
+        {
+          "num": "13.19.0",
+          "title": "Acknowledgment of Altitude Clearances and Read Backs"
+        },
+        {
+          "num": "13.20.0",
+          "title": "After Landing Aircraft Check"
+        },
+        {
+          "num": "13.21.0",
+          "title": "\u201cOperational\u201d FARs: The Need for Pilot Familiarity"
+        },
+        {
+          "num": "13.22.0",
+          "title": "Reduced Vertical Separation Minimums (RVSM)",
+          "children": [
+            {
+              "num": "13.22.1",
+              "title": "RVSM Authorization"
+            },
+            {
+              "num": "13.22.2",
+              "title": "Flight Level Orientation Scheme"
+            },
+            {
+              "num": "13.22.3",
+              "title": "Flight Crew Training"
+            },
+            {
+              "num": "13.22.4",
+              "title": "Flight Planning"
+            },
+            {
+              "num": "13.22.5",
+              "title": "Pre-Flight Procedures"
+            },
+            {
+              "num": "13.22.6",
+              "title": "Procedures Prior to RVSM Airspace Entry"
+            },
+            {
+              "num": "13.22.7",
+              "title": "In-Flight Procedures"
+            },
+            {
+              "num": "13.22.8",
+              "title": "Post-Flight Procedures"
+            },
+            {
+              "num": "13.22.9",
+              "title": "Procedures for Non-RVSM Aircraft"
+            },
+            {
+              "num": "13.22.10",
+              "title": "Pilot/Controller Phraseology"
+            },
+            {
+              "num": "13.22.11",
+              "title": "Contingency Actions: Weather Encounters and Aircraft Systems Failures"
+            },
+            {
+              "num": "13.22.12",
+              "title": "Guidance on Severe Turbulence and Mountain Wave Activity (MWA)"
+            },
+            {
+              "num": "13.22.13",
+              "title": "Severe Turbulence"
+            },
+            {
+              "num": "13.22.14",
+              "title": "Mountain Wave Activity (MWA)"
+            },
+            {
+              "num": "13.22.15",
+              "title": "Use of Merging Target Procedures"
+            },
+            {
+              "num": "13.22.16",
+              "title": "TCAS Sensitivity"
+            },
+            {
+              "num": "13.22.17",
+              "title": "Pre-Flight Tools"
+            },
+            {
+              "num": "13.22.19",
+              "title": "Severe Turbulence (including that associated with MWA)"
+            },
+            {
+              "num": "13.22.20",
+              "title": "Flight Level (FL) Change or Re-route"
+            },
+            {
+              "num": "13.22.21",
+              "title": "Guidance on Wake Turbulence"
+            },
+            {
+              "num": "13.22.22",
+              "title": "RVSM Procedures and Strategic Lateral Offset Procedures: Gulf of Mexico"
+            },
+            {
+              "num": "13.22.23",
+              "title": "Procedures Applicable in Gulf of Mexico Airspace"
+            },
+            {
+              "num": "13.22.24",
+              "title": "The Strategic Lateral Offset Procedure"
+            },
+            {
+              "num": "13.22.25",
+              "title": "FAA Reporting"
+            },
+            {
+              "num": "13.22.26",
+              "title": "Airborne Operations Check Following Maintenance on RVSM Critical Components"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "14",
+      "title": "Lower Than Standard Takeoff Minimums",
+      "start": "14-1",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "15",
+      "title": "Observer Seat - FAA Enroute Inspection",
+      "start": "15-1",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "16",
+      "title": "Hazardous Materials Operations Manual and Training Program",
+      "start": "16-1",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "17",
+      "title": "Emergencies",
+      "start": "17-1",
+      "headings": [
+        {
+          "num": "17.1.0",
+          "title": "General"
+        },
+        {
+          "num": "17.2.0",
+          "title": "Pilot in Command Responsibilities"
+        },
+        {
+          "num": "17.3.0",
+          "title": "Forced Landing - Emergency Evacuation"
+        },
+        {
+          "num": "17.4.0",
+          "title": "Fire Warning"
+        },
+        {
+          "num": "17.5.0",
+          "title": "In-Flight Illness"
+        },
+        {
+          "num": "17.6.0",
+          "title": "Special Emergency: Hijacking"
+        },
+        {
+          "num": "17.7.0",
+          "title": "Bomb Threats"
+        },
+        {
+          "num": "17.8.0",
+          "title": "In-Flight Bomb Threats"
+        },
+        {
+          "num": "17.9.0",
+          "title": "Numbers for the Transportation Security Administration"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "18",
+      "title": "International Operations",
+      "start": "18-1",
+      "headings": [
+        {
+          "num": "18.1.0",
+          "title": "Introduction"
+        },
+        {
+          "num": "18.2.0",
+          "title": "International Operations Procedures Manual"
+        },
+        {
+          "num": "18.3.0",
+          "title": "Definitions"
+        },
+        {
+          "num": "18.4.0",
+          "title": "Crew Training and Qualifications"
+        },
+        {
+          "num": "18.5.0",
+          "title": "ICAO Altimetry"
+        },
+        {
+          "num": "18.6.0",
+          "title": "Trip Planning",
+          "children": [
+            {
+              "num": "18.6.1",
+              "title": "Research"
+            },
+            {
+              "num": "18.6.2",
+              "title": "International Checklist (Attachment #2)"
+            },
+            {
+              "num": "18.6.3",
+              "title": "Computer Flight Plans"
+            },
+            {
+              "num": "18.6.4",
+              "title": "Airport Selection"
+            },
+            {
+              "num": "18.6.5",
+              "title": "Permits"
+            }
+          ]
+        },
+        {
+          "num": "18.7.0",
+          "title": "Passports and Visas"
+        },
+        {
+          "num": "18.8.0",
+          "title": "Immunization"
+        },
+        {
+          "num": "18.9.0",
+          "title": "Ground Handling Agents"
+        },
+        {
+          "num": "18.10.0",
+          "title": "Trip Kits"
+        },
+        {
+          "num": "18.11.0",
+          "title": "Security"
+        },
+        {
+          "num": "18.12.0",
+          "title": "Trip Briefing"
+        },
+        {
+          "num": "18.13.0",
+          "title": "Minimum Equipment List (MEL)"
+        },
+        {
+          "num": "18.14.0",
+          "title": "Pre-Departure Procedures",
+          "children": [
+            {
+              "num": "18.14.1",
+              "title": "Preflight"
+            },
+            {
+              "num": "18.14.2",
+              "title": "ICAO Flight Plan"
+            },
+            {
+              "num": "18.14.3",
+              "title": "Master Document/CFP and Plotting Chart Master Document/CFP and Plotting Chart"
+            },
+            {
+              "num": "18.14.4",
+              "title": "Alternates"
+            },
+            {
+              "num": "18.14.5",
+              "title": "Equal Time Points"
+            },
+            {
+              "num": "18.14.6",
+              "title": "Point of Safe Return"
+            },
+            {
+              "num": "18.14.7",
+              "title": "Slot Times"
+            },
+            {
+              "num": "18.14.8",
+              "title": "Programming Long Range Navigation Systems (LNR)"
+            },
+            {
+              "num": "18.14.9",
+              "title": "Reduced Vertical Separation Minimums (RVSM)"
+            },
+            {
+              "num": "18.14.10",
+              "title": "Required Navigation Performance (RNP-5/RNP-10"
+            }
+          ]
+        },
+        {
+          "num": "18.15.0",
+          "title": "Enroute Procedures",
+          "children": [
+            {
+              "num": "18.15.1",
+              "title": "Relief Crew Members"
+            },
+            {
+              "num": "18.15.2",
+              "title": "Clearances"
+            }
+          ]
+        },
+        {
+          "num": "18.16.0",
+          "title": "Contingencies",
+          "children": [
+            {
+              "num": "18.16.1",
+              "title": "Lost Communication Procedures"
+            },
+            {
+              "num": "18.16.2",
+              "title": "Autopilot Loss"
+            },
+            {
+              "num": "18.16.3",
+              "title": "Navigation System Problems"
+            },
+            {
+              "num": "18.16.4",
+              "title": "Fuel Consumption Problems"
+            },
+            {
+              "num": "18.16.5",
+              "title": "Weather/Wake Turbulence Avoidance"
+            },
+            {
+              "num": "18.16.6",
+              "title": "Descent Due to Engine Loss or Decompression"
+            },
+            {
+              "num": "18.16.7",
+              "title": "Medical Emergencies"
+            },
+            {
+              "num": "18.16.8",
+              "title": "Ditching"
+            },
+            {
+              "num": "18.16.9",
+              "title": "Hijacked Aircraft"
+            },
+            {
+              "num": "18.16.10",
+              "title": "Intercepted Aircraft"
+            }
+          ]
+        },
+        {
+          "num": "18.17.0",
+          "title": "Post-Flight",
+          "children": [
+            {
+              "num": "18.17.1",
+              "title": "Navigation Equipment"
+            },
+            {
+              "num": "18.17.2",
+              "title": "RVSM Equipment"
+            },
+            {
+              "num": "18.17.3",
+              "title": "Customs / Immigration / Agriculture"
+            },
+            {
+              "num": "18.17.4",
+              "title": "Navigation Logs"
+            }
+          ]
+        },
+        {
+          "num": "18.18.0",
+          "title": "Sources of Information"
+        },
+        {
+          "num": "18.19.0",
+          "title": "Emergency Repairs and Maintenance While in Mexico"
+        },
+        {
+          "num": "18.20.0",
+          "title": "Firearms and Valuables"
+        },
+        {
+          "num": "18.21.0",
+          "title": "Suggested Additional Equipment to be Carried in the Aircraft"
+        },
+        {
+          "num": "18.22.0",
+          "title": "Flight Plan Requirements, and US Customs and Border Protection (CBP) Notification for Foreign Flights"
+        },
+        {
+          "num": "18.23.0",
+          "title": "Attachment 1: Meters to Feet"
+        },
+        {
+          "num": "18.24.0",
+          "title": "Attachment 2: International Flight Planning Checklists",
+          "children": [
+            {
+              "num": "18.24.1",
+              "title": "Documentation Aircrew"
+            },
+            {
+              "num": "18.24.2",
+              "title": "Documentation Aircraft"
+            },
+            {
+              "num": "18.24.3",
+              "title": "Documentation Passenger"
+            },
+            {
+              "num": "18.24.4",
+              "title": "Operations Permits"
+            },
+            {
+              "num": "18.24.5",
+              "title": "Operations Services"
+            },
+            {
+              "num": "18.24.6",
+              "title": "Communications Equipment"
+            },
+            {
+              "num": "18.24.7",
+              "title": "Navigation Equipment"
+            },
+            {
+              "num": "18.24.8",
+              "title": "Publications / EFB Flight Deck"
+            },
+            {
+              "num": "18.24.9",
+              "title": "Survival Equipment"
+            },
+            {
+              "num": "18.24.10",
+              "title": "Other Considerations"
+            }
+          ]
+        },
+        {
+          "num": "18.25.0",
+          "title": "Attachment 3: ICAO International Flight Plan & Pre-Flight Pilot Checklist"
+        },
+        {
+          "num": "18.26.0",
+          "title": "Attachment 4: Long Range Navigation Failure (LRN) Procedures Worksheet"
+        },
+        {
+          "num": "18.27.0",
+          "title": "Attachment 5: Dead Reckoning Chart and CR3 Worksheet"
+        },
+        {
+          "num": "18.28.0",
+          "title": "Attachment 6: Example of Westbound NAT Track Message"
+        },
+        {
+          "num": "18.29.0",
+          "title": "Attachment 7: Point of Safe Return"
+        },
+        {
+          "num": "18.30.0",
+          "title": "Attachment 8: Equal Time Point"
+        },
+        {
+          "num": "18.31.0",
+          "title": "Attachment 9",
+          "children": [
+            {
+              "num": "18.31.1",
+              "title": "General"
+            },
+            {
+              "num": "18.31.2",
+              "title": "Action by Intercepted Aircraft"
+            }
+          ]
+        },
+        {
+          "num": "18.32.0",
+          "title": "Attachment 10: Signals for Use in the Event of Interception"
+        },
+        {
+          "num": "18.33.0",
+          "title": "Attachment 11: Radio Communication During Interceptions"
+        },
+        {
+          "num": "18.34.0",
+          "title": "Attachment 12: Contract Maintenance Facility Audit"
+        },
+        {
+          "num": "18.35.0",
+          "title": "Attachment 13: Altitude Deviation Report Form"
+        },
+        {
+          "num": "18.36.0",
+          "title": "Attachment 14: Wake Turbulence Report Form"
+        },
+        {
+          "num": "18.37.0",
+          "title": "Attachment 15: RVSM Operational Procedures",
+          "children": [
+            {
+              "num": "18.37.1",
+              "title": "Preflight Planning"
+            },
+            {
+              "num": "18.37.2",
+              "title": "Preflight Procedures"
+            },
+            {
+              "num": "18.37.3",
+              "title": "Entering RVSM Airspace"
+            },
+            {
+              "num": "18.37.4",
+              "title": "In-Flight Procedures"
+            },
+            {
+              "num": "18.37.5",
+              "title": "Contingency Procedures"
+            },
+            {
+              "num": "18.37.6",
+              "title": "Post-Flight Procedures"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "appendix",
+      "number": "A",
+      "title": "Abbreviations and Acronyms",
+      "start": "A-1",
+      "headings": []
+    }
+  ]
+}

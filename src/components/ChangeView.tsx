@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { NEXT_ACTION, formatDate } from '../status.ts'
-import type { ChangeRecord, ControlClass, InstrumentType, LaunchedStatus } from '../types.ts'
+import type { ChangeRecord, ControlClass, InstrumentType, LaunchedStatus, PackageKind } from '../types.ts'
 import { StatusLamp } from './StatusLamp.tsx'
 
 const INSTRUMENT_TYPES: InstrumentType[] = [
@@ -38,6 +38,20 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const [instrumentDated, setInstrumentDated] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrumentType, setInstrumentType] = useState<InstrumentType>('acceptance-letter')
   const [instrumentAuthority, setInstrumentAuthority] = useState('poi')
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawWhy, setWithdrawWhy] = useState('')
+  const [withdrawFor, setWithdrawFor] = useState(changeId)
+  const [reviewKind, setReviewKind] = useState<PackageKind | null>(null)
+  const [reviewFor, setReviewFor] = useState(changeId)
+  if (changeId !== withdrawFor) {
+    setWithdrawFor(changeId)
+    setWithdrawOpen(false)
+    setWithdrawWhy('')
+  }
+  if (changeId !== reviewFor) {
+    setReviewFor(changeId)
+    setReviewKind(null)
+  }
 
   async function load() {
     if (!changeId) return
@@ -77,15 +91,20 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   }
 
   const next = NEXT_ACTION[change.status]
-  const isAuthorDesk = change.status === 'draft' || change.status === 'edit'
-  const isReviewerDesk =
+  const canKickback =
     change.status === 'review' || change.status === 'approved' || change.status === 'ready-to-launch'
+  const showLaunchPanel = change.status === 'approved' || change.status === 'ready-to-launch'
   const isClosed = change.status === 'launched' || change.status === 'withdrawn'
-  const isTr = change.kind === 'tr'
+  const manyTouches = change.touched.length !== 1
+  const namedKind: PackageKind | null =
+    change.kind === 'tr' || change.kind === 'rev' ? change.kind : manyTouches ? 'rev' : reviewKind
+  const isTr = namedKind === 'tr'
+  const kindLabel = change.kind === 'tr' ? 'TR' : change.kind === 'rev' ? 'REV' : 'WIP'
   const hasInstrument = Boolean(change.instrument)
   const launchDocEmpty = isTr ? !trFile.trim() : !hasInstrument && !instrumentPath.trim()
   const canIssue =
     (change.status === 'approved' || change.status === 'ready-to-launch') &&
+    namedKind != null &&
     (isTr ? Boolean(trFile.trim() && launched?.full) : hasInstrument)
 
   return (
@@ -98,7 +117,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
         </div>
         <div className="stamp-block">
           <strong>CHANGE PACKET</strong>
-          <span className="stamp-kind">{isTr ? 'TR' : 'REV'}</span>
+          <span className="stamp-kind">{kindLabel}</span>
           <StatusLamp status={change.status} />
           <br />
           {launched?.full ? (
@@ -128,53 +147,124 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
         <div className="banner">Working copies live under control/working/{change.id}.</div>
       )}
 
-      {next || change.status === 'ready-to-launch' || isAuthorDesk ? (
-        <div className="actions" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+      {!isClosed ? (
+        <div className="actions packet-actions">
           {next ? (
             <button
               className="btn"
               type="button"
               disabled={busy}
-              onClick={() => void run(async () => { setChange(await api.transition(change.id, next.action)) })}
+              onClick={() =>
+                void run(async () => {
+                  setChange(await api.transition(change.id, next.action))
+                  setWithdrawOpen(false)
+                })
+              }
             >
               {next.label}
             </button>
           ) : null}
 
-          {change.status === 'ready-to-launch' ? (
+          {canKickback ? (
             <button
               className="btn"
               type="button"
               disabled={busy}
-              onClick={() => void run(async () => { setChange(await api.returnToEdit(change.id)) })}
+              onClick={() =>
+                void run(async () => {
+                  setChange(await api.returnToEdit(change.id))
+                  setWithdrawOpen(false)
+                })
+              }
             >
               Return to edit
             </button>
           ) : null}
 
-          {isAuthorDesk ? (
+          {withdrawOpen ? (
+            <div className="withdraw-box">
+              <input
+                type="text"
+                value={withdrawWhy}
+                onChange={(event) => setWithdrawWhy(event.target.value)}
+                placeholder="Withdraw reason"
+                aria-label="Withdraw reason"
+              />
+              <button
+                className="btn danger"
+                type="button"
+                disabled={busy || !withdrawWhy.trim()}
+                onClick={() =>
+                  void run(async () => {
+                    setChange(await api.withdraw(change.id, withdrawWhy.trim()))
+                    setWithdrawOpen(false)
+                    setWithdrawWhy('')
+                  })
+                }
+              >
+                Confirm withdraw
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setWithdrawOpen(false)
+                  setWithdrawWhy('')
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
             <button
               className="btn ghost"
               type="button"
               disabled={busy}
-              onClick={() => {
-                const why = window.prompt('Withdraw reason?')
-                if (!why) return
-                void run(async () => {
-                  setChange(await api.withdraw(change.id, why))
-                })
-              }}
+              onClick={() => setWithdrawOpen(true)}
             >
               Withdraw
             </button>
-          ) : null}
+          )}
         </div>
       ) : null}
 
-      {isReviewerDesk ? (
+      {showLaunchPanel ? (
         <section className="panel" style={{ marginBottom: 16 }}>
           <div className="panel-hd">LAUNCH CONTROLS</div>
           <div className="form-grid" style={{ padding: 14 }}>
+            <p className="meta">Not required until you launch. Kind is named here, not when the page was opened.</p>
+            {change.kind === 'wip' ? (
+              <div className="field">
+                Issue as
+                <div className="kind-picks">
+                  <label className={`check ${manyTouches ? 'disabled' : ''}`}>
+                    <input
+                      type="radio"
+                      name="review-kind"
+                      checked={namedKind === 'tr'}
+                      disabled={manyTouches}
+                      onChange={() => setReviewKind('tr')}
+                    />
+                    <span>Temporary revision</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      type="radio"
+                      name="review-kind"
+                      checked={namedKind === 'rev'}
+                      onChange={() => setReviewKind('rev')}
+                    />
+                    <span>Full revision</span>
+                  </label>
+                </div>
+                {manyTouches ? (
+                  <p className="kind-warn">A temporary revision touches one section.</p>
+                ) : namedKind == null ? (
+                  <p className="meta">Pick TR or full revision before launch.</p>
+                ) : null}
+              </div>
+            ) : null}
             {!isTr ? (
               <label className="field">
                 Effective date
@@ -184,14 +274,13 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
 
             {isTr ? (
               <>
-                <label className={`field ${!trFile.trim() ? 'invalid' : ''}`}>
+                <label className="field">
                   TR letter path
                   <input
                     value={trFile}
                     onChange={(e) => setTrFile(e.target.value)}
                     placeholder="/path/to/cp-letter.txt"
                   />
-                  {!trFile.trim() ? <span className="field-error">Launch document required.</span> : null}
                 </label>
                 <label className="field">
                   TR authority
@@ -212,14 +301,13 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
               </p>
             ) : (
               <>
-                <label className={`field ${launchDocEmpty ? 'invalid' : ''}`}>
+                <label className="field">
                   Attach instrument — local file path
                   <input
                     value={instrumentPath}
                     onChange={(e) => setInstrumentPath(e.target.value)}
                     placeholder="/path/to/acceptance-letter.pdf"
                   />
-                  {launchDocEmpty ? <span className="field-error">Launch document required.</span> : null}
                 </label>
                 <label className="field">
                   Instrument type
@@ -297,6 +385,9 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
               >
                 {isTr ? 'Issue temporary revision' : 'Launch revision'}
               </button>
+              {launchDocEmpty ? (
+                <span className="meta">Attach a letter when you are ready to launch.</span>
+              ) : null}
             </div>
           </div>
         </section>

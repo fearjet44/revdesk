@@ -246,6 +246,27 @@ h1 {
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.packet-actions {
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.withdraw-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 100%;
+}
+
+.withdraw-box input[type="text"] {
+  min-width: 240px;
+  flex: 1;
+  background: #0f1319;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+}
+
 .btn {
   appearance: none;
   border: 1px solid var(--line-strong);
@@ -571,9 +592,49 @@ textarea { min-height: 88px; resize: vertical; }
 
 .modal {
   width: min(720px, 100%);
+  max-height: min(90vh, 920px);
+  display: flex;
+  flex-direction: column;
   background: #121821;
   border: 1px solid var(--line-strong);
   box-shadow: var(--shadow);
+}
+
+.modal > .panel-hd {
+  flex: 0 0 auto;
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.modal-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.modal-body .checks {
+  max-height: none;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  background: #10161e;
+  flex: 0 0 auto;
+}
+
+.modal-foot .btn.primary {
+  min-width: 140px;
 }
 
 @media (max-width: 960px) {
@@ -581,4 +642,6 @@ textarea { min-height: 88px; resize: vertical; }
   .rail { border-right: 0; border-bottom: 1px solid var(--line); }
   .grid-2 { grid-template-columns: 1fr; }
   .row { grid-template-columns: 1fr; }
+  .modal-back { padding: 12px; align-items: stretch; }
+  .modal { max-height: 100%; width: 100%; }
 }

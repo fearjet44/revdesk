@@ -1,0 +1,92 @@
+id: TP-R9
+kind: full
+state: launched
+manual: tp
+revision: 9
+control_class: faa-approved
+supersedes: null
+change: CHG-BASELINE
+effective: 2022-11-10
+instrument:
+  type: approval-letter
+  authority: poi
+  file: control/instruments/TP-R9-baseline.txt
+  sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+  dated: 2022-11-10
+  reference: Sample baseline for TP
+manual_artifact:
+  file: artifacts/TP-R9.pdf
+  sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+git_tag: issued/TP/9
+source_commit: null
+git_skipped: true
+incorporated_trs: []
+launched_at: 2022-11-10T00:00:00.000Z
+summary: Baseline launched revision for the sample TP.
+sections:
+  - id: tp-ror
+    title: Record of Revision
+    rev_last_changed: R9
+  - id: tp-lep
+    title: List of Effective Pages
+    rev_last_changed: R9
+  - id: tp-source
+    title: Source of Training Document
+    rev_last_changed: R9
+  - id: tp-ctp
+    title: Contract Training Partner – Training Center Information
+    rev_last_changed: R9
+  - id: tp-toc
+    title: Table of Contents
+    rev_last_changed: R9
+  - id: tp-1
+    title: Section 1 — Introduction and FAA Definitions
+    rev_last_changed: R9
+  - id: tp-2
+    title: "Section 2 — Initial New Hire Training: PIC and SIC"
+    rev_last_changed: R9
+  - id: tp-3
+    title: Section 3 — Upgrade Training for SICs
+    rev_last_changed: R9
+  - id: tp-4
+    title: Section 4 — Recurrent Training for PICs and SICs
+    rev_last_changed: R9
+  - id: tp-5
+    title: Section 5 — Requalification Training for PICs and SICs
+    rev_last_changed: R9
+  - id: tp-6
+    title: Section 6 — Transition Training
+    rev_last_changed: R9
+  - id: tp-7
+    title: Section 7 — Initial Equipment Training
+    rev_last_changed: R9
+  - id: tp-8
+    title: Section 8 — Differences Training
+    rev_last_changed: R9
+  - id: tp-9
+    title: Section 9 — Training Modules
+    rev_last_changed: R9
+  - id: tp-10
+    title: Section 10 — Instructor Training
+    rev_last_changed: R9
+  - id: tp-11
+    title: Section 11 — Check Airman Training
+    rev_last_changed: R9
+  - id: tp-12
+    title: Section 12 — Training Forms
+    rev_last_changed: R9
+  - id: tp-a
+    title: Appendix A — Beechcraft King Air Supplement
+    rev_last_changed: R9
+  - id: tp-b
+    title: Appendix B — Cessna 525 Supplement
+    rev_last_changed: R9
+  - id: tp-c
+    title: Appendix C — CE-750 Supplement
+    rev_last_changed: R9
+  - id: tp-d
+    title: Appendix D — CL-601 Supplement
+    rev_last_changed: R9
+  - id: tp-e
+    title: Appendix E — Cirrus SF-50 Supplement
+    rev_last_changed: R9

@@ -1,0 +1,14 @@
+Sample Operator
+Internal Company Handbook
+
+Revision 4
+Effective 01-Feb-2026
+
+This book has no list of effective pages and no list of effective sections.
+Revision status is shown only on the cover.
+
+Chapter 1 Welcome
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+Chapter 2 How we work
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.

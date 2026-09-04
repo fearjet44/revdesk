@@ -1,0 +1,1159 @@
+{
+  "id": "tp",
+  "title": "FAR Part 135 Training Program",
+  "abbrev": "TP",
+  "kind_guess": "training-program",
+  "control_class": "faa-approved",
+  "owner": "Chief Pilot",
+  "authority": "poi",
+  "instrument_required": true,
+  "current_issued": "TP-R9",
+  "next_revision": 10,
+  "effective": "2022-11-10",
+  "revision": {
+    "number": 9,
+    "date": "2022-11-10",
+    "label": "Revision 9"
+  },
+  "house_style": "nimbl-word",
+  "pagination": {
+    "control_surface": "lep",
+    "lep_inferred": false,
+    "regions": [
+      {
+        "name": "cover",
+        "scheme": "letter-cover"
+      },
+      {
+        "name": "front-matter",
+        "scheme": "roman-front",
+        "slots": [
+          "i",
+          "ii",
+          "iii",
+          "iv",
+          "v",
+          "vi",
+          "vii",
+          "viii",
+          "ix",
+          "x",
+          "xi",
+          "xii",
+          "xiii",
+          "xiv",
+          "xv",
+          "xvi",
+          "xvii",
+          "xviii",
+          "xix",
+          "xx",
+          "xxi",
+          "xxii",
+          "xxiii",
+          "xxiv",
+          "xxv",
+          "xxvi",
+          "xxvii",
+          "xxviii"
+        ]
+      },
+      {
+        "name": "body",
+        "scheme": "chapter-page"
+      },
+      {
+        "name": "appendix",
+        "scheme": "section-page"
+      }
+    ]
+  },
+  "lep_slots": [
+    "i",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "vi",
+    "vii",
+    "viii",
+    "ix",
+    "x",
+    "xi",
+    "xii",
+    "xiii",
+    "xiv",
+    "xv",
+    "xvi",
+    "xvii",
+    "xviii",
+    "xix",
+    "xx",
+    "xxi",
+    "xxii",
+    "xxiii",
+    "xxiv",
+    "xxv",
+    "xxvi",
+    "xxvii",
+    "xxviii",
+    "1-1",
+    "1-2",
+    "1-3",
+    "1-4",
+    "1-5",
+    "1-6",
+    "1-7",
+    "1-8",
+    "1-9",
+    "1-10",
+    "1-11",
+    "1-12",
+    "1-13",
+    "1-14",
+    "2-1",
+    "2-2",
+    "2-3",
+    "2-4",
+    "2-5",
+    "2-6",
+    "3-1",
+    "3-2",
+    "4-1",
+    "4-2",
+    "5-1",
+    "5-2",
+    "6-1",
+    "6-2",
+    "7-1",
+    "7-2",
+    "8-1",
+    "8-2",
+    "9-1",
+    "9-2",
+    "9-3",
+    "9-4",
+    "9-5",
+    "9-6",
+    "9-7",
+    "9-8",
+    "9-9",
+    "9-10",
+    "9-11",
+    "9-12",
+    "9-13",
+    "9-14",
+    "9-15",
+    "9-16",
+    "9-17",
+    "9-18",
+    "9-19",
+    "9-20",
+    "9-21",
+    "9-22",
+    "9-23",
+    "9-24",
+    "9-25",
+    "9-26",
+    "9-27",
+    "9-28",
+    "10-1",
+    "10-2",
+    "10-3",
+    "10-4",
+    "11-1",
+    "11-2",
+    "12-1",
+    "12-2",
+    "12-3",
+    "12-4",
+    "12-5",
+    "12-6",
+    "12-7",
+    "12-8",
+    "12-9",
+    "12-10",
+    "12-11",
+    "12-12",
+    "12-13",
+    "12-14",
+    "12-15",
+    "12-16",
+    "12-17",
+    "12-18",
+    "12-19",
+    "12-20",
+    "12-21",
+    "12-22",
+    "12-23",
+    "12-24",
+    "12-25",
+    "12-26",
+    "12-27",
+    "12-28",
+    "12-29",
+    "12-30",
+    "12-31",
+    "12-32",
+    "12-33",
+    "12-34",
+    "12-35",
+    "12-36",
+    "12-37",
+    "12-38",
+    "12-39",
+    "12-40",
+    "12-41",
+    "12-42",
+    "12-43",
+    "12-44",
+    "12-45",
+    "12-46",
+    "12-47",
+    "12-48",
+    "A-1",
+    "A-2",
+    "B-1",
+    "B-2",
+    "C-1",
+    "C-2",
+    "D-1",
+    "D-2",
+    "E-1",
+    "E-2"
+  ],
+  "source": {
+    "supplier": "nimbl",
+    "template": "word-pdfmaker",
+    "corpus_file": "far-part-135-training-program.pdf",
+    "note": "Structure only. Sample bodies are lorem ipsum. Do not copy operator prose from the corpus PDF."
+  },
+  "leaves": [
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Record of Revision",
+      "start": "i",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "List of Effective Pages",
+      "start": "iii",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Source of Training Document",
+      "start": "ix",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Contract Training Partner \u2013 Training Center Information",
+      "start": "xvii",
+      "headings": []
+    },
+    {
+      "kind": "front",
+      "number": null,
+      "title": "Table of Contents",
+      "start": "xxi",
+      "headings": []
+    },
+    {
+      "kind": "section",
+      "number": "1",
+      "title": "Introduction and FAA Definitions",
+      "start": "1-1",
+      "headings": [
+        {
+          "num": "1.1.0",
+          "title": "Explanation of Training Program Design"
+        },
+        {
+          "num": "1.2.0",
+          "title": "Training Objective"
+        },
+        {
+          "num": "1.3.0",
+          "title": "Flight Training"
+        },
+        {
+          "num": "1.4.0",
+          "title": "Aircraft Training Using Flight Simulator Modules"
+        },
+        {
+          "num": "1.5.0",
+          "title": "Training Center Evaluators/Check Airman"
+        },
+        {
+          "num": "1.6.0",
+          "title": "Company Background"
+        },
+        {
+          "num": "1.7.0",
+          "title": "Crewmembers"
+        },
+        {
+          "num": "1.8.0",
+          "title": "Modular Training"
+        },
+        {
+          "num": "1.9.0",
+          "title": "Curriculum Segments"
+        },
+        {
+          "num": "1.10.0",
+          "title": "Definitions of Training Hours, Checking Months, and Eligibility Period"
+        },
+        {
+          "num": "1.11.0",
+          "title": "Aircraft Families"
+        },
+        {
+          "num": "1.12.0",
+          "title": "Minimum Training Time Requirements"
+        },
+        {
+          "num": "1.13.0",
+          "title": "Crew Qualifications"
+        },
+        {
+          "num": "1.14.0",
+          "title": "Evaluation"
+        },
+        {
+          "num": "1.15.0",
+          "title": "Documentation of Training and Flight Checks"
+        },
+        {
+          "num": "1.16.0",
+          "title": "Training Facilities"
+        },
+        {
+          "num": "1.17.0",
+          "title": "Training Materials"
+        },
+        {
+          "num": "1.18.0",
+          "title": "Desk Top Computer \"Simulator\" Training"
+        },
+        {
+          "num": "1.19.0",
+          "title": "Common Abbreviations"
+        },
+        {
+          "num": "1.20.0",
+          "title": "References upon Which this Training Program is Based"
+        },
+        {
+          "num": "1.21.0",
+          "title": "A Note with Respect to Compliance and Safety"
+        },
+        {
+          "num": "1.22.0",
+          "title": "An Important Note on Footnotes"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "2",
+      "title": "Initial New Hire Training: PIC and SIC",
+      "start": "2-1",
+      "headings": [
+        {
+          "num": "2.1.0",
+          "title": "Objectives of Initial New-Hire Training"
+        },
+        {
+          "num": "2.2.0",
+          "title": "Prerequisites for Initial New-Hire Training"
+        },
+        {
+          "num": "2.3.0",
+          "title": "Methods of Instruction"
+        },
+        {
+          "num": "2.4.0",
+          "title": "Completion Standards"
+        },
+        {
+          "num": "2.5.0",
+          "title": "Crewmembers with Previous 135 Experience"
+        },
+        {
+          "num": "2.6.0",
+          "title": "Training Currency: Assignment to Duties"
+        },
+        {
+          "num": "2.7.0",
+          "title": "Basic Indoctrination Training",
+          "children": [
+            {
+              "num": "2.7.1",
+              "title": "Objectives of Basic Indoctrination Training"
+            },
+            {
+              "num": "2.7.2",
+              "title": "Basic Indoctrination Ground Training Hours"
+            },
+            {
+              "num": "2.7.3",
+              "title": "Basic Indoctrination Modules"
+            }
+          ]
+        },
+        {
+          "num": "2.8.0",
+          "title": "General Emergency Training",
+          "children": [
+            {
+              "num": "2.8.1",
+              "title": "Objectives"
+            },
+            {
+              "num": "2.8.2",
+              "title": "Training Hours"
+            },
+            {
+              "num": "2.8.3",
+              "title": "Aircraft Specific vs. General Emergency Training"
+            }
+          ]
+        },
+        {
+          "num": "2.9.0",
+          "title": "Special Training",
+          "children": [
+            {
+              "num": "2.9.1",
+              "title": "Objectives of Special Training"
+            },
+            {
+              "num": "2.9.2",
+              "title": "Ground Training Hours"
+            },
+            {
+              "num": "2.9.3",
+              "title": "Training Modules"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "3",
+      "title": "Upgrade Training for SICs",
+      "start": "3-1",
+      "headings": [
+        {
+          "num": "3.1.0",
+          "title": "Upgrade Training Objectives"
+        },
+        {
+          "num": "3.2.0",
+          "title": "Ground Training Hours"
+        },
+        {
+          "num": "3.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "3.4.0",
+          "title": "Training Modules"
+        },
+        {
+          "num": "3.5.0",
+          "title": "Completion Standards"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "4",
+      "title": "Recurrent Training for PICs and SICs",
+      "start": "4-1",
+      "headings": [
+        {
+          "num": "4.1.0",
+          "title": "Training Objectives"
+        },
+        {
+          "num": "4.2.0",
+          "title": "Ground Training Hours"
+        },
+        {
+          "num": "4.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "4.4.0",
+          "title": "Recurrent Training Modules",
+          "children": [
+            {
+              "num": "4.4.1",
+              "title": "Ground Training"
+            },
+            {
+              "num": "4.4.2",
+              "title": "Flight Training"
+            }
+          ]
+        },
+        {
+          "num": "4.5.0",
+          "title": "Recurrent Training Testing"
+        },
+        {
+          "num": "4.6.0",
+          "title": "Completion Standards"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "5",
+      "title": "Requalification Training for PICs and SICs",
+      "start": "5-1",
+      "headings": [
+        {
+          "num": "5.1.0",
+          "title": "Objective"
+        },
+        {
+          "num": "5.2.0",
+          "title": "Training Hours"
+        },
+        {
+          "num": "5.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "5.4.0",
+          "title": "Reasons for Crewmembers Losing Qualifications"
+        },
+        {
+          "num": "5.5.0",
+          "title": "Re-Establishing Landing Currency"
+        },
+        {
+          "num": "5.6.0",
+          "title": "Re-Establishing IFR Currency"
+        },
+        {
+          "num": "5.7.0",
+          "title": "Requalification after Failure on a Check Ride"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "6",
+      "title": "Transition Training",
+      "start": "6-1",
+      "headings": [
+        {
+          "num": "6.1.0",
+          "title": "Transition Training Objectives"
+        },
+        {
+          "num": "6.2.0",
+          "title": "Ground Training Hours"
+        },
+        {
+          "num": "6.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "6.4.0",
+          "title": "Training Modules"
+        },
+        {
+          "num": "6.5.0",
+          "title": "Completion Standards"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "7",
+      "title": "Initial Equipment Training",
+      "start": "7-1",
+      "headings": [
+        {
+          "num": "7.1.0",
+          "title": "Initial Equipment Training Objectives"
+        },
+        {
+          "num": "7.2.0",
+          "title": "Ground Training Hours"
+        },
+        {
+          "num": "7.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "7.4.0",
+          "title": "Training Modules"
+        },
+        {
+          "num": "7.5.0",
+          "title": "Completion Standards"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "8",
+      "title": "Differences Training",
+      "start": "8-1",
+      "headings": [
+        {
+          "num": "8.1.0",
+          "title": "Introduction and Objectives"
+        },
+        {
+          "num": "8.2.0",
+          "title": "Differences Training Hours:"
+        },
+        {
+          "num": "8.3.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "8.4.0",
+          "title": "Training Modules"
+        },
+        {
+          "num": "8.5.0",
+          "title": "Completion Standards"
+        },
+        {
+          "num": "8.6.0",
+          "title": "Definitions with Respect to Differences Training"
+        },
+        {
+          "num": "8.7.0",
+          "title": "DOO/CP's Differences Training Responsibilities"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "9",
+      "title": "Training Modules",
+      "start": "9-1",
+      "headings": [
+        {
+          "num": "9.1.0",
+          "title": "INDOC 1: Crew Duties and Responsibilities"
+        },
+        {
+          "num": "9.2.0",
+          "title": "INDOC 2: Federal Aviation Regulations Parts 61, 91, and 135. NTSB and HAZMAT Rules. Applicable Transportation Security Regulations (TSR)"
+        },
+        {
+          "num": "9.3.0",
+          "title": "INDOC 3: Air Carrier Certificate and OPSPECS"
+        },
+        {
+          "num": "9.4.0",
+          "title": "INDOC 4: Operational Control and an Overview of Flight Locating"
+        },
+        {
+          "num": "9.5.0",
+          "title": "INDOC 5: Principles of Weight and Balance"
+        },
+        {
+          "num": "9.6.0",
+          "title": "INDOC 6: Principles of Aircraft Performance and Airport Analysis"
+        },
+        {
+          "num": "9.7.0",
+          "title": "INDOC 7: Principles of Meteorology"
+        },
+        {
+          "num": "9.8.0",
+          "title": "INDOC 8: Review of Navigation, Airspace, ATC Procedures, and RVSM"
+        },
+        {
+          "num": "9.9.0",
+          "title": "INDOC 9: Enroute, Terminal Area Charting, and Flight Planning"
+        },
+        {
+          "num": "9.10.0",
+          "title": "INDOC 10: Concepts of Instrument Procedures"
+        },
+        {
+          "num": "9.11.0",
+          "title": "INDOC 11: Airport Ground Operational Safety"
+        },
+        {
+          "num": "9.12.0",
+          "title": "EMERG 01: Flight Crewmember Duties, Responsibilities, Coordination, and Company Communication"
+        },
+        {
+          "num": "9.13.0",
+          "title": "EMERG 02: Aircraft Fires, Portable Fire Extinguishers"
+        },
+        {
+          "num": "9.14.0",
+          "title": "EMERG 03: Illness, Injury, Basic First Aid and First Aid Equipment"
+        },
+        {
+          "num": "9.15.0",
+          "title": "EMERG 04: Ground Evacuation, Ditching and Rapid Decompression"
+        },
+        {
+          "num": "9.16.0",
+          "title": "EMERG 05: Review of Previous Accidents and Incidents"
+        },
+        {
+          "num": "9.17.0",
+          "title": "EMERG 06: Crewmember Incapacitation"
+        },
+        {
+          "num": "9.18.0",
+          "title": "EMERG 07: Hijacking and Other Unusual Situations"
+        },
+        {
+          "num": "9.19.0",
+          "title": "EMERG 08: Aircraft Fires, Use of Fire Extinguishers"
+        },
+        {
+          "num": "9.20.0",
+          "title": "EMERG 09: Portable Oxygen Systems (If Applicable) (DRILL TNG)"
+        },
+        {
+          "num": "9.21.0",
+          "title": "EMERG 10: Emergency Exit Operation (DRILL TNG)"
+        },
+        {
+          "num": "9.22.0",
+          "title": "EMERG 11: Ditching Equipment (DRILL TNG)"
+        },
+        {
+          "num": "9.23.0",
+          "title": "SPCL 01: HAZMAT"
+        },
+        {
+          "num": "9.24.0",
+          "title": "SPCL 02: Use of an Autopilot in Lieu of an SIC"
+        },
+        {
+          "num": "9.25.0",
+          "title": "SPCL 03: Lower than Standard TIO Minimums"
+        },
+        {
+          "num": "9.26.0",
+          "title": "SPCL 04: Cold Weather Operations"
+        },
+        {
+          "num": "9.27.0",
+          "title": "SPCL 05: Crew Resource Management"
+        },
+        {
+          "num": "9.28.0",
+          "title": "SPCL 06: Extended Over-Water Operations"
+        },
+        {
+          "num": "9.29.0",
+          "title": "SPCL 07: International Operations"
+        },
+        {
+          "num": "9.30.0",
+          "title": "SPCL 08: Air Ambulance Operations"
+        },
+        {
+          "num": "9.31.0",
+          "title": "CFI 01: Duties, Functions and Responsibilities of an Air Transportation Instructor - An Overview 1"
+        },
+        {
+          "num": "9.32.0",
+          "title": "CFI 02: Instructor Relevant FARs and Company Policies and Procedures"
+        },
+        {
+          "num": "9.33.0",
+          "title": "CFI 03: Instructing Methods and Evaluation of Student Performance"
+        },
+        {
+          "num": "9.34.0",
+          "title": "CFI 04: Fundamentals of the Teaching Process"
+        },
+        {
+          "num": "9.35.0",
+          "title": "CFI 05: Flight instructor Flight Training"
+        },
+        {
+          "num": "9.36.0",
+          "title": "CFI 06: Check Airman Duties, Functions and Responsibilities"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "10",
+      "title": "Instructor Training",
+      "start": "10-1",
+      "headings": [
+        {
+          "num": "10.1.0",
+          "title": "Objective"
+        },
+        {
+          "num": "10.2.0",
+          "title": "Prerequisites"
+        },
+        {
+          "num": "10.3.0",
+          "title": "Outsourced Training Center Sim Instructors and Check Airman"
+        },
+        {
+          "num": "10.4.0",
+          "title": "Methods of Instruction"
+        },
+        {
+          "num": "10.5.0",
+          "title": "Completion Standards"
+        },
+        {
+          "num": "10.6.0",
+          "title": "Training Hours"
+        },
+        {
+          "num": "10.7.0",
+          "title": "Ground Instruction"
+        },
+        {
+          "num": "10.8.0",
+          "title": "Flight Instruction"
+        },
+        {
+          "num": "10.9.0",
+          "title": "Observation of Instructors"
+        },
+        {
+          "num": "10.10.0",
+          "title": "Flight Instructor Authorized Activities"
+        },
+        {
+          "num": "10.11.0",
+          "title": "Records"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "11",
+      "title": "Check Airman Training",
+      "start": "11-1",
+      "headings": [
+        {
+          "num": "11.1.0",
+          "title": "Objective"
+        },
+        {
+          "num": "11.2.0",
+          "title": "Requirements"
+        },
+        {
+          "num": "11.3.0",
+          "title": "Outsourced Training Center Sim Instructors and Check Airman"
+        },
+        {
+          "num": "11.4.0",
+          "title": "Qualifications"
+        },
+        {
+          "num": "11.5.0",
+          "title": "Training Hours"
+        },
+        {
+          "num": "11.6.0",
+          "title": "Ground Instruction"
+        },
+        {
+          "num": "11.7.0",
+          "title": "Flight Instruction"
+        },
+        {
+          "num": "11.8.0",
+          "title": "FAA Observation of Check Airmen"
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "12",
+      "title": "Training Forms",
+      "start": "12-1",
+      "headings": [
+        {
+          "num": "12.1.0",
+          "title": "Training Forms Overview",
+          "children": [
+            {
+              "num": "12.1.1",
+              "title": "Training Records"
+            },
+            {
+              "num": "12.1.2",
+              "title": "Training Certification"
+            },
+            {
+              "num": "12.1.3",
+              "title": "Training Forms"
+            },
+            {
+              "num": "12.1.4",
+              "title": "Contract Training Partner Training Authorization Forms"
+            },
+            {
+              "num": "12.1.5",
+              "title": "Training & Checking Authorization Form (TCA)"
+            },
+            {
+              "num": "12.1.6",
+              "title": "Training Summary Checklist Form (TSC)"
+            },
+            {
+              "num": "12.1.7",
+              "title": "DA (Document Acknowledgement Form)"
+            },
+            {
+              "num": "12.1.8",
+              "title": "CDT-1 (Contract Differences Training Form)"
+            },
+            {
+              "num": "12.1.9",
+              "title": "CDT-2 (Contract Differences Training Form)"
+            }
+          ]
+        },
+        {
+          "num": "12.2.0",
+          "title": "Individual Pilot Training Record Initial Training",
+          "children": [
+            {
+              "num": "12.2.1",
+              "title": "Basic Indoctrination Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.2.2",
+              "title": "Emergency Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.2.3",
+              "title": "Special Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.2.4",
+              "title": "Aircraft-Specific Ground Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.2.5",
+              "title": "Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.2.6",
+              "title": "Completion of Initial Training Certification"
+            }
+          ]
+        },
+        {
+          "num": "12.3.0",
+          "title": "Individual Pilot Training Record Upgrade Training",
+          "children": [
+            {
+              "num": "12.3.1",
+              "title": "Aircraft-Specific Ground Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.3.2",
+              "title": "Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.3.3",
+              "title": "Completion of Upgrade Training Certification"
+            }
+          ]
+        },
+        {
+          "num": "12.4.0",
+          "title": "Individual Pilot Training Record Recurrent Training",
+          "children": [
+            {
+              "num": "12.4.1",
+              "title": "Basic Indoctrination Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.4.2",
+              "title": "Emergency Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.4.3",
+              "title": "Special Training (See Main Volume for modules)"
+            },
+            {
+              "num": "12.4.4",
+              "title": "Aircraft-Specific Ground Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.4.5",
+              "title": "First Year of Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.4.6",
+              "title": "Second Year of Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)"
+            },
+            {
+              "num": "12.4.7",
+              "title": "Third Year of Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.4.8",
+              "title": "Recurrent Training Final Test"
+            },
+            {
+              "num": "12.4.9",
+              "title": "Completion of First Year of a Three-Year Cycle of Recurrent Training"
+            },
+            {
+              "num": "12.4.10",
+              "title": "Completion of Second Year of a Three-Year Cycle of Recurrent Training"
+            },
+            {
+              "num": "12.4.11",
+              "title": "Certificate of Completion of Entire Three-Year Recurrent Training Cycle"
+            }
+          ]
+        },
+        {
+          "num": "12.5.0",
+          "title": "Individual Pilot Training Record Transition Training",
+          "children": [
+            {
+              "num": "12.5.1",
+              "title": "Aircraft-Specific Ground Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.5.2",
+              "title": "Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.5.3",
+              "title": "Completion of Transition Training Certification"
+            }
+          ]
+        },
+        {
+          "num": "12.6.0",
+          "title": "Individual Pilot Training Record Initial Equipment Training",
+          "children": [
+            {
+              "num": "12.6.1",
+              "title": "Aircraft-Specific Ground Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.6.2",
+              "title": "Flight Training (See the applicable, Aircraft-Specific Supplement to the Main Volume for modules)."
+            },
+            {
+              "num": "12.6.3",
+              "title": "Completion of Initial Equipment Training Certification"
+            }
+          ]
+        },
+        {
+          "num": "12.7.0",
+          "title": "Individual Pilot Training Record Differences Training",
+          "children": [
+            {
+              "num": "12.7.1",
+              "title": "Ground Training"
+            },
+            {
+              "num": "12.7.2",
+              "title": "Flight Training"
+            },
+            {
+              "num": "12.7.3",
+              "title": "Completion of Differences Training Certification"
+            }
+          ]
+        },
+        {
+          "num": "12.8.0",
+          "title": "Individual Pilot Training Record Instructor / Check Airman Training",
+          "children": [
+            {
+              "num": "12.8.1",
+              "title": "Ground Instruction"
+            },
+            {
+              "num": "12.8.2",
+              "title": "Flight Instruction"
+            },
+            {
+              "num": "12.8.3",
+              "title": "Completion of Instructor Training"
+            },
+            {
+              "num": "12.8.4",
+              "title": "Completion of Check Airmen Training"
+            }
+          ]
+        },
+        {
+          "num": "12.9.0",
+          "title": "Individual Pilot Training Record Credit Given for Previous Experience and/or Training"
+        },
+        {
+          "num": "12.10.0",
+          "title": "Training & Checking Authorization"
+        }
+      ]
+    },
+    {
+      "kind": "appendix",
+      "number": "A",
+      "title": "Beechcraft King Air Supplement",
+      "start": "A-1",
+      "headings": []
+    },
+    {
+      "kind": "appendix",
+      "number": "B",
+      "title": "Cessna 525 Supplement",
+      "start": "B-1",
+      "headings": []
+    },
+    {
+      "kind": "appendix",
+      "number": "C",
+      "title": "CE-750 Supplement",
+      "start": "C-1",
+      "headings": []
+    },
+    {
+      "kind": "appendix",
+      "number": "D",
+      "title": "CL-601 Supplement",
+      "start": "D-1",
+      "headings": []
+    },
+    {
+      "kind": "appendix",
+      "number": "E",
+      "title": "Cirrus SF-50 Supplement",
+      "start": "E-1",
+      "headings": []
+    }
+  ]
+}

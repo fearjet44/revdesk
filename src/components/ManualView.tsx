@@ -11,6 +11,7 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
   const [manual, setManual] = useState<ManualDetail | null>(null)
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!manualId) return
@@ -28,7 +29,26 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
     }
   }, [manualId])
 
-  if (error) return <div className="banner error">{error}</div>
+  async function openPage(sectionId: string, sectionTitle: string) {
+    if (!manual) return
+    setBusyId(sectionId)
+    setError(null)
+    try {
+      const change = await api.startChange({
+        manual: manual.id,
+        title: sectionTitle,
+        reason: 'Working copy',
+        sectionIds: [sectionId],
+      })
+      await onChanged()
+      navigate(`/changes/${change.id}/sections/${sectionId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open the page.')
+      setBusyId(null)
+    }
+  }
+
+  if (error && !manual) return <div className="banner error">{error}</div>
   if (!manual) return <div className="empty">Pulling the issued book…</div>
 
   return (
@@ -40,15 +60,18 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           <p className="lede">
             Current {manual.current_issued ?? '(never launched)'}, next full {manual.next_revision}
             {manual.effective ? `, effective ${formatDate(manual.effective)}` : ''}. Owner:{' '}
-            {manual.owner}. Open a change to amend a section; launch requires a stored instrument.
+            {manual.owner}. Open a page to dirty a working copy. Review names it a TR or a full
+            revision.
           </p>
         </div>
         <div className="actions">
-          <button className="btn primary" type="button" onClick={() => setOpen(true)}>
-            Open a change
+          <button className="btn" type="button" onClick={() => setOpen(true)}>
+            Open several pages
           </button>
         </div>
       </div>
+
+      {error ? <div className="banner error">{error}</div> : null}
 
       <section className="panel">
         <div className="panel-hd">
@@ -69,7 +92,14 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
                   On {section.open_change}
                 </Link>
               ) : (
-                <span className="meta">Clear</span>
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => void openPage(section.id, section.title)}
+                >
+                  {busyId === section.id ? 'Opening…' : 'Open'}
+                </button>
               )}
             </div>
           ))}

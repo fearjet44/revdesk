@@ -1,20 +1,30 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseSection, serializeSection } from '../src/schema/markdown.ts'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+function walkMd(dir: string): string[] {
+  if (!dir) return []
+  const out: string[] = []
+  for (const name of readdirSync(dir, { withFileTypes: true })) {
+    const abs = path.join(dir, name.name)
+    if (name.isDirectory()) out.push(...walkMd(abs))
+    else if (name.name.endsWith('.md')) out.push(abs)
+  }
+  return out
+}
+
 const files = [
-  'data/manuals/gom/sections/000-identification.md',
-  'data/manuals/gom/sections/010-administration.md',
-  'data/manuals/gom/sections/100-section-a-management.md',
-  'data/manuals/gom/sections/110-section-b-weight-and-balance.md',
-  'fixtures/tiny-gom/manuals/gom/sections/243-operational-control.md',
-]
+  ...walkMd(path.join(root, 'data', 'manuals')),
+  ...walkMd(path.join(root, 'fixtures', 'tiny-gom', 'manuals')),
+].filter((abs) => abs.includes(`${path.sep}sections${path.sep}`))
 
 let failed = 0
-for (const rel of files) {
-  const raw = readFileSync(path.join(root, rel), 'utf8')
+for (const abs of files.sort()) {
+  const rel = path.relative(root, abs)
+  const raw = readFileSync(abs, 'utf8')
   const { meta, doc } = parseSection(raw)
   const again = serializeSection(meta, doc)
   const { doc: doc2 } = parseSection(again)

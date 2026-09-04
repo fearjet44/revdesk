@@ -69,4 +69,4 @@ An agent gets section ids, titles, and body. Suite of company manuals in one Rev
 
 ## Implementation note for agents
 
-Behavior lock. Do not tell the coding agent to use `git stash`. Save WIP however the tree already works (`control/working/…`). Kind moves from create-time to review-time in Slice 5.
+Behavior lock. Do not tell the coding agent to use `git stash`. Save WIP however the tree already works (`control/working/…`). Kind moves from create-time to review-time: `change start` omits `--kind` (stores `wip`); reviewer names TR vs rev at launch.

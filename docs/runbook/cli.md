@@ -92,9 +92,15 @@ revdesk tr list [--manual gom]
 revdesk tr show <GOM-Rn-TRk>
 
 revdesk git status
+
+revdesk ingest catalogs
+revdesk ingest classify <pdf|txt> [--json]
+revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 ```
 
 `revdesk git` with any other subcommand exits 2. Tags are cut only by `issue` / `tr issue`.
+
+`ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`.
 
 ## Launch model
 
@@ -193,6 +199,16 @@ TR instrument authorities: `chief-pilot | ae | ceo | do`. File is hashed and sto
 
 Instrument `--type`: `approval-letter | acceptance-letter | third-party-letter | internal-letter`. Third-party may be a saved `.eml` or PDF; empty `issued/` is not a launch.
 
+Smoke files for the live desk (paste these paths in LAUNCH CONTROLS):
+
+```text
+data/letters/poi-approval.txt     # POI letter  (.txt)
+data/letters/poi-approval.eml     # POI email   (.eml)
+data/letters/chief-pilot-tr.txt   # TR internal letter
+```
+
+Attach copies live under `control/instruments/`. Do not edit those; edit the sources in `data/letters/`. The UI path is resolved from the process cwd (repo root when you `npm run dev`).
+
 `issue` of N+1 marks active TRs on N as `incorporated` (default: all active TRs).
 
 ### Kickback and withdraw
@@ -266,6 +282,7 @@ Walking up from `data/` in this development checkout finds revdesk’s own `.git
 npm run test:md
 npm run test:slice2    # fixtures/tiny-gom copy; launch + TR YAML
 npm run test:slice3    # throwaway git repo in $TMPDIR; does not tag this checkout
+npm run test:slice6    # ingest classify + lorem Nimbl sample books
 ```
 
 Both slice scripts invoke `node --experimental-strip-types cli/revdesk.ts` with `REVDESK_DATA` set to a temp tree.

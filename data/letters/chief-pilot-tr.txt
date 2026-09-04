@@ -1,0 +1,21 @@
+SAMPLE — not a company instrument. For Revdesk smoke only.
+
+Sample Air, LLC
+Office of the Chief Pilot
+4 September 2026
+
+Subject: Internal letter — temporary revision (sample)
+
+This file stands in for a Chief Pilot / Director of Operations letter used to
+issue a temporary revision against the last launched full rev.
+
+  Instrument type:  internal-letter
+  Authority:        chief-pilot   (or ae | ceo | do)
+  Dated:            2026-09-04
+  Path to paste:    data/letters/chief-pilot-tr.txt
+
+Authorize the single-section working copy as a TR. This letter does not put
+any real procedure in force.
+
+Chief Pilot (sample)
+Sample Air, LLC

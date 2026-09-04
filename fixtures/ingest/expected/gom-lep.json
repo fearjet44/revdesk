@@ -1,0 +1,19 @@
+{
+  "control_surface": "lep",
+  "control_class_guess": "faa-accepted",
+  "house_style": "nimbl-word",
+  "kind_guess": "gom",
+  "revision": { "number": 11 },
+  "pagination_schemes": ["letter-cover", "roman-front", "chapter-page", "section-page"],
+  "must_include_sections": [
+    "Company Policy, Procedures, and Rules of Conduct",
+    "Management Personnel",
+    "Weight and Balance",
+    "Operational Control and Flight Locating",
+    "International Operations",
+    "Abbreviations and Acronyms"
+  ],
+  "section_count_min": 18,
+  "appendix_count_min": 1,
+  "corpus_file": "Premier Air Charter GOM Revision 11.pdf"
+}

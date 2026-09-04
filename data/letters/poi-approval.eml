@@ -1,0 +1,28 @@
+From: Jane Doe <jane.doe.poi@example.invalid>
+To: Chief Pilot <chiefpilot@sampleair.invalid>
+Cc: SAN FSDO Front Office <san-fsdo@example.invalid>
+Subject: SAMPLE — POI approval/acceptance of manual revision
+Date: Fri, 04 Sep 2026 09:15:00 -0700
+Message-ID: <sample-poi-approval-2026-09-04@example.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+
+SAMPLE — not an FAA instrument. For Revdesk smoke only.
+
+Inspector Doe, SAN FSDO.
+
+Attached in spirit (this body is the instrument): treat this saved .eml as a
+POI approval or acceptance letter when launching a full revision.
+
+  Instrument type:  approval-letter  or  acceptance-letter
+  Authority:        poi
+  Dated:            2026-09-04
+  Path to paste:    data/letters/poi-approval.eml
+
+I have reviewed the change packet on the local desk. You may attach this file
+and launch. This message does not accept or approve any real certificate.
+
+Jane Doe
+Principal Operations Inspector (sample)
+San Diego FSDO

@@ -1,0 +1,19 @@
+{
+  "control_surface": "lep",
+  "control_class_guess": "faa-approved",
+  "house_style": "nimbl-word",
+  "kind_guess": "training-program",
+  "revision": { "number": 9 },
+  "pagination_schemes": ["letter-cover", "roman-front", "chapter-page", "section-page"],
+  "must_include_sections": [
+    "Introduction and FAA Definitions",
+    "Initial New Hire Training: PIC and SIC",
+    "Training Modules",
+    "Instructor Training",
+    "Check Airman Training",
+    "Beechcraft King Air Supplement"
+  ],
+  "section_count_min": 12,
+  "appendix_count_min": 5,
+  "corpus_file": "far-part-135-training-program.pdf"
+}

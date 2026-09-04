@@ -11,7 +11,8 @@ export type ChangeStatus =
 
 export type ChangeAction = 'submit' | 'approve'
 export type TouchAction = 'amend' | 'add' | 'delete'
-export type PackageKind = 'tr' | 'rev'
+/** tr/rev are named at review/launch. wip = dirty pages, unclassified. */
+export type PackageKind = 'tr' | 'rev' | 'wip'
 
 export type InstrumentType =
   | 'approval-letter'
@@ -84,6 +85,7 @@ export type ChangeRecord = {
   id: string
   manual: string
   status: ChangeStatus
+  /** Named at review/launch. Missing or `wip` on disk → unclassified. */
   kind: PackageKind
   title: string
   reason: string

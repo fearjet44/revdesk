@@ -1,0 +1,92 @@
+id: GOML-R11
+kind: full
+state: launched
+manual: gom-lep
+revision: 11
+control_class: faa-accepted
+supersedes: null
+change: CHG-BASELINE
+effective: 2022-11-01
+instrument:
+  type: acceptance-letter
+  authority: poi
+  file: control/instruments/GOML-R11-baseline.txt
+  sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+  dated: 2022-11-01
+  reference: Sample baseline for GOML
+manual_artifact:
+  file: artifacts/GOML-R11.pdf
+  sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+git_tag: issued/GOML/11
+source_commit: null
+git_skipped: true
+incorporated_trs: []
+launched_at: 2022-11-01T00:00:00.000Z
+summary: Baseline launched revision for the sample GOML.
+sections:
+  - id: gomlep-ror
+    title: Record of Revision
+    rev_last_changed: R11
+  - id: gomlep-lep
+    title: List of Effective Pages
+    rev_last_changed: R11
+  - id: gomlep-toc
+    title: Table of Contents
+    rev_last_changed: R11
+  - id: gomlep-1
+    title: Section 1 — Company Policy, Procedures, and Rules of Conduct
+    rev_last_changed: R11
+  - id: gomlep-2
+    title: Section 2 — Management Personnel
+    rev_last_changed: R11
+  - id: gomlep-3
+    title: Section 3 — Operations Specifications Highlights
+    rev_last_changed: R11
+  - id: gomlep-4
+    title: Section 4 — Operations Specifications
+    rev_last_changed: R11
+  - id: gomlep-5
+    title: Section 5 — Weight and Balance
+    rev_last_changed: R11
+  - id: gomlep-6
+    title: Section 6 — Accidents
+    rev_last_changed: R11
+  - id: gomlep-7
+    title: Section 7 — Airworthiness & Maintenance
+    rev_last_changed: R11
+  - id: gomlep-8
+    title: Section 8 — Refueling Procedures, Precautions, and Aircraft Towing
+    rev_last_changed: R11
+  - id: gomlep-9
+    title: Section 9 — Ramp Procedures, Passenger Safety, and Briefing
+    rev_last_changed: R11
+  - id: gomlep-10
+    title: Section 10 — Operational Control and Flight Locating
+    rev_last_changed: R11
+  - id: gomlep-11
+    title: Section 11 — Enroute Qualification
+    rev_last_changed: R11
+  - id: gomlep-12
+    title: Section 12 — Flight Planning
+    rev_last_changed: R11
+  - id: gomlep-13
+    title: Section 13 — Flight Operations
+    rev_last_changed: R11
+  - id: gomlep-14
+    title: Section 14 — Lower Than Standard Takeoff Minimums
+    rev_last_changed: R11
+  - id: gomlep-15
+    title: Section 15 — Observer Seat - FAA Enroute Inspection
+    rev_last_changed: R11
+  - id: gomlep-16
+    title: Section 16 — Hazardous Materials Operations Manual and Training Program
+    rev_last_changed: R11
+  - id: gomlep-17
+    title: Section 17 — Emergencies
+    rev_last_changed: R11
+  - id: gomlep-18
+    title: Section 18 — International Operations
+    rev_last_changed: R11
+  - id: gomlep-a
+    title: Appendix A — Abbreviations and Acronyms
+    rev_last_changed: R11

@@ -11,11 +11,21 @@ npm install
 npm run dev
 ```
 
-That runs `vite`. Open **http://localhost:5173**.
+That runs `vite`. Open **http://127.0.0.1:5173**.
+
+Vite **binds loopback only** (`127.0.0.1:5173`, `strictPort: true`). Do not pass `--host` or bind the Tailscale IP. Remote access is Tailscale Serve in front of loopback:
+
+```sh
+sudo tailscale serve --bg --https=5173 http://127.0.0.1:5173
+```
+
+Then the desk is also at `https://<magicdns>:5173` on the tailnet. Serve occupies the tailnet `:5173`; Vite still owns localhost. `strictPort` stops Vite from walking 5174/5175 when it sees that.
+
+If localhost:5173 is dead but Serve is still up, the magicdns URL will 400/fail — restart `npm run dev`, not Serve.
 
 First-time install needs Node **20.19+** or **22.12+** (Vite 8). The CLI additionally uses `--experimental-strip-types` (Node 22 is the comfortable target).
 
-Stop with `Ctrl-C`.
+Stop Vite with `Ctrl-C`. Leave Serve in place unless you mean to drop remote access.
 
 ### What this starts
 
@@ -35,7 +45,7 @@ The plugin constructs `new Repo('<repo>/data')` once at process start. Reloading
 
 The desk is up when:
 
-1. Vite prints the local URL (default port **5173**; Vite picks the next free port if 5173 is taken).
+1. Vite prints `http://127.0.0.1:5173/` (it will **exit** if that port is taken — it does not walk 5174).
 2. `GET /api/desk` returns JSON with `manuals`, `changes`, `issues`, `trs`.
 
 ```sh
@@ -54,6 +64,7 @@ Always `<repo>/data` for the server:
 data/
   manuals/<id>/manual.yaml
   manuals/<id>/sections/*.md
+  letters/…                    # sample POI letter + .eml; paste path at launch
   control/changes/CHG-*.yaml
   control/working/CHG-*/…
   control/instruments/…
@@ -171,6 +182,7 @@ launched ↛ withdrawn
 npm run test:md       # markdown roundtrip
 npm run test:slice2   # launch / TR YAML (temp copy of fixtures/tiny-gom)
 npm run test:slice3   # git adapter (throwaway repo in $TMPDIR)
+npm run test:slice6   # ingest classify + lorem Nimbl sample books
 ```
 
 Those scripts call the CLI, not Vite. They do not require the server to be running.

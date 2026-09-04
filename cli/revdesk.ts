@@ -2,6 +2,14 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  classifyFromText,
+  classifyPdf,
+  formatClassification,
+  listCatalogs,
+  loadCatalog,
+  scaffoldCatalog,
+} from '../server/ingest.ts'
 import { Repo, RepoError } from '../server/repo.ts'
 import type {
   ChangeRecord,
@@ -37,6 +45,53 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === 'launched') {
       const id = requirePositional(sub ? [sub, ...rest] : rest, 0, 'manual id')
       return emit(json, repo.launched(id), formatLaunched)
+    }
+
+    if (cmd === 'ingest' && sub === 'classify') {
+      const file = requirePositional(rest, 0, 'pdf or text file')
+      const abs = path.resolve(file)
+      const report = abs.toLowerCase().endsWith('.txt')
+        ? classifyFromText(readFileSync(abs, 'utf8'), {
+            filename: path.basename(abs),
+            pages: null,
+            creator: null,
+            producer: null,
+          })
+        : classifyPdf(abs)
+      return emit(json, report, formatClassification)
+    }
+
+    if (cmd === 'ingest' && sub === 'scaffold') {
+      const opts = parseOpts(rest)
+      const catalogId = opts.catalog ?? requirePositional(rest, 0, 'catalog id')
+      const out = opts.out ? path.resolve(opts.out) : DATA
+      const result = scaffoldCatalog(catalogId, out)
+      return emit(json, result, (row) =>
+        [`${row.id}  ${row.sections} sections`, `root ${row.root}`, ...row.files.map((f) => `  ${f}`)].join(
+          '\n',
+        ),
+      )
+    }
+
+    if (cmd === 'ingest' && sub === 'catalogs') {
+      const rows = listCatalogs().map((id) => loadCatalog(id))
+      return emit(json, rows, (list) =>
+        table(
+          ['ID', 'ABBREV', 'SURFACE', 'STYLE', 'LEAVES', 'TITLE'],
+          list.map((c) => [
+            c.id,
+            c.abbrev,
+            c.pagination.control_surface,
+            c.house_style,
+            String(c.leaves.length),
+            c.title,
+          ]),
+        ),
+      )
+    }
+
+    if (cmd === 'ingest') {
+      throw new RepoError(2, 'Usage: revdesk ingest classify <file> | scaffold --catalog <id> [--out dir] | catalogs')
     }
 
     if (cmd === 'git' && sub === 'status') {
@@ -77,7 +132,7 @@ async function main(argv: string[]): Promise<number> {
           ['ID', 'KIND', 'STATUS', 'MANUAL', 'LAUNCH', 'TOUCHED', 'TITLE'],
           rows.map((c) => [
             c.id,
-            c.kind === 'tr' ? 'TR' : 'REV',
+            c.kind === 'tr' ? 'TR' : c.kind === 'rev' ? 'REV' : 'WIP',
             c.status,
             c.manual,
             c.launch_id ?? '—',
@@ -335,7 +390,7 @@ function formatManual(manual: ReturnType<Repo['getManual']>): string {
 
 function formatChange(change: ChangeRecord): string {
   const lines = [
-    `${change.id}  ${change.status}  ${change.kind === 'tr' ? 'TR' : 'REV'}`,
+    `${change.id}  ${change.status}  ${change.kind === 'tr' ? 'TR' : change.kind === 'rev' ? 'REV' : 'WIP'}`,
     change.title,
     `manual ${change.manual}  author ${change.author}  created ${change.created}`,
     `reason ${change.reason}`,
@@ -520,8 +575,8 @@ Usage:
   revdesk manual list | show <id>
 
   revdesk change list
-  revdesk change start  --manual <id> --title "..." --kind tr|rev --section <id>
-                        [--section <id> ...] [--reason "..."] [--reason-type <type>] [--ref <ref>]
+  revdesk change start  --manual <id> --title "..." --section <id>
+                        [--section <id> ...] [--kind tr|rev] [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
   revdesk change show | touch | submit | approve | withdraw | return-to-edit
 
@@ -539,6 +594,10 @@ Usage:
   revdesk tr show <GOM-Rn-TRk>
 
   revdesk git status
+
+  revdesk ingest catalogs
+  revdesk ingest classify <pdf|txt> [--json]
+  revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 
 Exit: 0 ok · 2 validation · 3 not found · 4 not allowed · 5 pipeline
 Data root: ${DATA}  (override with REVDESK_DATA)

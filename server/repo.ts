@@ -230,7 +230,7 @@ export class Repo {
       id: String(raw.id),
       manual: String(raw.manual),
       status: normalizeChangeStatus(String(raw.status)),
-      kind: inferPackageKind(raw.kind),
+      kind: inferPackageKind(raw.kind, raw.launch_kind),
       title: String(raw.title),
       reason,
       reason_meta,
@@ -569,10 +569,13 @@ export class Repo {
     if (change.status === 'launched') {
       throw new RepoError(2, `${changeId} is launched; return-to-edit is only for pre-launch kickback.`)
     }
-    if (change.status !== 'ready-to-launch') {
+    if (change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is withdrawn; return-to-edit is only for pre-launch kickback.`)
+    }
+    if (!['review', 'approved', 'ready-to-launch'].includes(change.status)) {
       throw new RepoError(
         2,
-        `${changeId} is ${change.status}; return-to-edit requires ready-to-launch (pre-launch kickback).`,
+        `${changeId} is ${change.status}; return-to-edit requires review, approved, or ready-to-launch.`,
       )
     }
     change.status = 'edit'
@@ -632,6 +635,7 @@ export class Repo {
       )
     }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
+    change.kind = 'rev'
 
     const effectiveDate = effective.trim()
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
@@ -761,10 +765,14 @@ export class Repo {
         `${changeId} is ${change.status}; tr issue requires approved (internal reviews done).`,
       )
     }
+    if (change.kind === 'rev') {
+      throw new RepoError(2, `${changeId} is a full revision package; issue it with \`issue\`.`)
+    }
     if (!change.touched.length) throw new RepoError(2, `${changeId} has no touched sections.`)
     if (change.touched.length !== 1) {
       throw new RepoError(2, TR_ONE_SECTION)
     }
+    change.kind = 'tr'
 
     const manual = this.readManual(change.manual)
     if (!manual.current_issued) {
@@ -1210,15 +1218,17 @@ function assertInstrumentFile(src: string): void {
 }
 
 function parsePackageKind(raw: unknown): PackageKind {
-  if (raw == null || raw === '') return 'rev'
+  if (raw == null || raw === '' || raw === 'wip') return 'wip'
   const value = String(raw).trim().toLowerCase()
-  if (value === 'tr' || value === 'rev') return value
-  throw new RepoError(2, 'kind must be tr or rev.')
+  if (value === 'tr' || value === 'rev' || value === 'wip') return value
+  throw new RepoError(2, 'kind must be tr, rev, or omitted (named at review).')
 }
 
-function inferPackageKind(raw: unknown): PackageKind {
-  if (raw === 'tr' || raw === 'rev') return raw
-  return 'rev'
+function inferPackageKind(raw: unknown, launchKind?: unknown): PackageKind {
+  if (raw === 'tr' || raw === 'rev' || raw === 'wip') return raw
+  if (launchKind === 'temporary') return 'tr'
+  if (launchKind === 'full') return 'rev'
+  return 'wip'
 }
 
 function assertKindTouches(kind: PackageKind, count: number): void {
