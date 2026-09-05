@@ -29,7 +29,7 @@ The desk people sit at. Git never appears.
 **Still inside this pillar:**
 
 - Editor polish (current work). Do not freeze the desk for remote git.
-- Issued print-only view + reference PDF (watermarked). Regulator of-record PDF is the unwatermarked exception — `issued-pdf.md`.
+- Three rails: Manuals (author Open / editor), Issued (crew paper + CF + watermarked PDF) — `issued-pdf.md`. CF answers (Done/Stand/Later) later.
 - File picker (upload) for the launch instrument and the TR letter — `correspondence.md`.
 - Compose window keyed off `control_class`: internal **memo** (that letter *is* the instrument) vs regulator/third-party **request** (inbound reply still gates `issue`).
 - Reviewer TR incorporate/withdraw before a rev launches (`change-package-model.md`).

@@ -13,7 +13,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "revdesk": "node --experimental-strip-types cli/revdesk.ts",
-    "test:md": "node --experimental-strip-types scripts/roundtrip.ts && node --experimental-strip-types scripts/steps-check.ts && node --experimental-strip-types scripts/theme-check.ts && node --experimental-strip-types scripts/pdf-check.ts",
+    "test:md": "node --experimental-strip-types scripts/roundtrip.ts && node --experimental-strip-types scripts/steps-check.ts && node --experimental-strip-types scripts/theme-check.ts && node --experimental-strip-types scripts/pdf-check.ts && node --experimental-strip-types scripts/findings-check.ts",
     "test:slice2": "bash scripts/slice2-acceptance.sh",
     "test:slice3": "bash scripts/slice3-acceptance.sh",
     "test:slice6": "bash scripts/slice6-acceptance.sh",

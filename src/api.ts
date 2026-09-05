@@ -5,6 +5,8 @@ import type {
   InstrumentRecord,
   IssueRecord,
   LaunchedStatus,
+  CrewFinding,
+  CrewSectionFile,
   IssuedSectionFile,
   ManualDetail,
   ManualRecord,
@@ -34,15 +36,26 @@ export const api = {
   manual: (id: string) => request<ManualDetail>(`/api/manuals/${id}`),
   issuedSection: (manualId: string, sectionId: string) =>
     request<IssuedSectionFile>(`/api/manuals/${manualId}/sections/${sectionId}`),
+  crewSection: (issueId: string, sectionId: string) =>
+    request<CrewSectionFile>(`/api/issues/${issueId}/sections/${sectionId}`),
+  findings: (manualId: string, sectionId: string) =>
+    request<CrewFinding[]>(`/api/manuals/${manualId}/sections/${sectionId}/findings`),
+  addFinding: (issueId: string, sectionId: string, body: string) =>
+    request<CrewFinding>(`/api/issues/${issueId}/sections/${sectionId}/findings`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
   pdfUrl: (
-    manualId: string,
+    target: { manualId: string } | { issueId: string },
     opts?: { kind?: 'reference' | 'regulator'; download?: boolean },
   ) => {
     const query = new URLSearchParams()
     if (opts?.kind) query.set('kind', opts.kind)
     if (opts?.download) query.set('download', '1')
     const qs = query.toString()
-    return `/api/manuals/${manualId}/pdf${qs ? `?${qs}` : ''}`
+    const path =
+      'issueId' in target ? `/api/issues/${target.issueId}/pdf` : `/api/manuals/${target.manualId}/pdf`
+    return `${path}${qs ? `?${qs}` : ''}`
   },
   changes: () => request<ChangeRecord[]>('/api/changes'),
   change: (id: string) => request<ChangeRecord>(`/api/changes/${id}`),

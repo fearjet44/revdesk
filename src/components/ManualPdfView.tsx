@@ -3,16 +3,16 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 
 export function ManualPdfView() {
-  const { manualId } = useParams()
+  const { issueId } = useParams()
   const [src, setSrc] = useState<string | null>(null)
   const [filename, setFilename] = useState('manual-reference.pdf')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!manualId) return
+    if (!issueId) return
     let cancelled = false
     let objectUrl = ''
-    fetch(api.pdfUrl(manualId, { kind: 'reference' }))
+    fetch(api.pdfUrl({ issueId }, { kind: 'reference' }))
       .then(async (response) => {
         if (!response.ok) {
           const data = (await response.json()) as { error?: string }
@@ -36,7 +36,7 @@ export function ManualPdfView() {
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [manualId])
+  }, [issueId])
 
   function download() {
     if (!src) return
@@ -59,8 +59,8 @@ export function ManualPdfView() {
           <button className="btn primary" type="button" disabled={!src} onClick={download}>
             Download
           </button>
-          {manualId ? (
-            <Link className="btn ghost" to={`/manuals/${manualId}`}>
+          {issueId ? (
+            <Link className="btn ghost" to={`/issues/${issueId}`}>
               Back to issued
             </Link>
           ) : null}

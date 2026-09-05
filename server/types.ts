@@ -198,6 +198,24 @@ export type IssuedSectionFile = SectionFile & {
   section: SectionSummary
 }
 
+export type CrewFinding = {
+  id: string
+  issue: string
+  manual: string
+  section: string
+  author: string
+  at: string
+  body: string
+  /** `open` this cut. Done/Stand/Later later — same answers as a review query. */
+  status: 'open' | 'done' | 'stand' | 'later'
+}
+
+export type CrewSectionFile = IssuedSectionFile & {
+  issue: IssueRecord
+  findings: CrewFinding[]
+  can_find: boolean
+}
+
 export type ChangePreview = {
   change: ChangeRecord
   manual: ManualRecord

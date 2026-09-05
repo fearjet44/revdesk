@@ -10,7 +10,7 @@ import {
   parseSection,
   serializeSection,
 } from '../schema/markdown.ts'
-import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
+import type { CrewFinding, DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
 import { WRITE_MARKS, writeMarkAfterFirst } from '../../server/marks.ts'
 import {
   DEFAULT_THEME,
@@ -23,6 +23,7 @@ import {
   type DocTheme,
   type HeadingHit,
 } from '../../server/theme.ts'
+import { FindingList } from './FindingList.tsx'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type GutterMark = { line: number; top: number }
@@ -102,6 +103,7 @@ export function SectionEditor({
   const [writeNote, setWriteNote] = useState('')
   const [hasPriorMark, setHasPriorMark] = useState(false)
   const [theme, setTheme] = useState<DocTheme>(DEFAULT_THEME)
+  const [findings, setFindings] = useState<CrewFinding[]>([])
   const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -139,6 +141,12 @@ export function SectionEditor({
             setDiffRows(review.rows)
             setCanAnswer(review.can_answer)
             setTheme(review.theme ?? DEFAULT_THEME)
+            try {
+              const notes = await api.findings(review.change.manual, sectionId)
+              if (!cancelled) setFindings(notes)
+            } catch {
+              if (!cancelled) setFindings([])
+            }
             const touch = review.change.touched.find((item) => item.id === sectionId)
             if (touch?.mark) {
               setWriteMark(touch.mark)
@@ -153,6 +161,7 @@ export function SectionEditor({
             setComments([])
             setDiffRows([])
             setCanAnswer(false)
+            setFindings([])
           }
         }
       })
@@ -374,6 +383,8 @@ export function SectionEditor({
       </div>
 
       {error ? <div className="banner error">{error}</div> : null}
+
+      <FindingList findings={findings} note="incoming from Issued · answers later" />
 
       {comments.length ? (
         <section className="panel comment-return">

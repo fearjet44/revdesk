@@ -18,60 +18,51 @@ export function IssueView() {
   }, [issueId])
 
   if (error) return <div className="banner error">{error}</div>
-  if (!issue) return <div className="empty">Pulling the issue record…</div>
+  if (!issue) return <div className="empty">Pulling the issued book…</div>
 
   return (
     <>
       <div className="page-head">
         <div>
-          <p className="kicker">LAUNCHED FULL REVISION</p>
+          <p className="kicker">ISSUED · {issue.control_class}</p>
           <h1>{issue.id}</h1>
-          <p className="lede">{issue.summary}</p>
+          <p className="lede">
+            {issue.summary} Open a leaf for the read-only paper. Leave a crew finding there. PDF is
+            reference only.
+          </p>
         </div>
-        <div className="stamp-block">
-          <strong>{issue.state.toUpperCase()}</strong>
-          R{issue.revision} · {issue.control_class}
-          <br />
-          Effective {formatDate(issue.effective)}
-          <br />
-          From {issue.change}
+        <div className="actions">
+          <Link className="btn primary" to={`/issues/${issue.id}/pdf`} target="_blank" rel="noreferrer">
+            PDF
+          </Link>
         </div>
       </div>
 
-      <section className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-hd">INSTRUMENT</div>
-        <div style={{ padding: 14 }}>
-          <div className="meta">
-            {issue.instrument.type} · {issue.instrument.authority} · dated{' '}
-            {formatDate(issue.instrument.dated)}
-          </div>
-          <div className="hash">{issue.instrument.sha256}</div>
-          <p className="meta">{issue.instrument.file}</p>
-        </div>
-      </section>
-
-      <section className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-hd">MANUAL ARTIFACT</div>
-        <div style={{ padding: 14 }}>
-          <div className="meta">{issue.manual_artifact.file}</div>
-          <div className="hash">{issue.manual_artifact.sha256}</div>
-          {issue.incorporated_trs.length ? (
-            <p className="meta">Incorporated TRs: {issue.incorporated_trs.join(', ')}</p>
-          ) : null}
-        </div>
-      </section>
+      <div className="stamp-block" style={{ marginBottom: 16 }}>
+        <strong>LAUNCHED</strong>
+        R{issue.revision} · effective {formatDate(issue.effective)}
+        <br />
+        {issue.instrument.type} · {issue.instrument.authority}
+        <br />
+        <span className="meta">{issue.instrument.file}</span>
+      </div>
 
       <section className="panel">
-        <div className="panel-hd">SECTIONS ON THIS ISSUE</div>
+        <div className="panel-hd">
+          <span>SECTIONS</span>
+          <span>{issue.sections.length}</span>
+        </div>
         <div className="rows">
           {issue.sections.map((section) => (
             <div key={section.id} className="row">
               <span className="mono">{section.id}</span>
-              <Link className="section-link" to={`/manuals/${issue.manual}/sections/${section.id}`}>
+              <Link className="section-link" to={`/issues/${issue.id}/sections/${section.id}`}>
                 <span className="title">{section.title}</span>
               </Link>
               <span className="mono">{section.rev_last_changed}</span>
-              <span />
+              <Link className="btn" to={`/issues/${issue.id}/sections/${section.id}`}>
+                Open
+              </Link>
             </div>
           ))}
         </div>

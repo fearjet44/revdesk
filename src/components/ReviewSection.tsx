@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
-import type { DiffRow, ReviewComment, SectionReview } from '../types.ts'
+import type { CrewFinding, DiffRow, ReviewComment, SectionReview } from '../types.ts'
+import { FindingList } from './FindingList.tsx'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type LineKey = string
@@ -34,6 +35,7 @@ export function ReviewSection({
 }) {
   const { changeId, sectionId } = useParams()
   const [review, setReview] = useState<SectionReview | null>(null)
+  const [findings, setFindings] = useState<CrewFinding[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<LineKey | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
@@ -45,6 +47,11 @@ export function ReviewSection({
     if (!changeId || !sectionId) return
     const next = await api.reviewSection(changeId, sectionId)
     setReview(next)
+    try {
+      setFindings(await api.findings(next.change.manual, sectionId))
+    } catch {
+      setFindings([])
+    }
   }
 
   useEffect(() => {
@@ -166,6 +173,8 @@ export function ReviewSection({
       </div>
 
       {error ? <div className="banner error">{error}</div> : null}
+
+      <FindingList findings={findings} note="incoming from Issued · answers later" />
 
       <div className="diff-chrome">
         <span>

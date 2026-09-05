@@ -79,6 +79,11 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'sections' && parts[4] === 'findings') {
+    sendJson(res, 200, repo.findingsForManual(parts[1], parts[3]))
+    return
+  }
+
   if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'sections' && parts[3]) {
     sendJson(res, 200, repo.issuedSection(parts[1], parts[3]))
     return
@@ -265,6 +270,31 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
 
   if (method === 'GET' && parts[0] === 'issues' && parts.length === 1) {
     sendJson(res, 200, repo.listIssues())
+    return
+  }
+
+  if (method === 'GET' && parts[0] === 'issues' && parts[2] === 'pdf' && parts.length === 3) {
+    const issue = repo.readIssue(parts[1])
+    const kind: PdfKind = url.searchParams.get('kind') === 'regulator' ? 'regulator' : 'reference'
+    const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
+    const pdf = await renderIssuedPdf(repo.issuedBook(issue.manual), { kind, downloadedAt: new Date() })
+    sendPdf(res, pdf.bytes, pdf.filename, download)
+    return
+  }
+
+  if (method === 'POST' && parts[0] === 'issues' && parts[2] === 'sections' && parts[4] === 'findings') {
+    const body = await readJson<{ body?: string }>(req)
+    sendJson(res, 201, repo.addFinding(parts[1], parts[3], body.body ?? ''))
+    return
+  }
+
+  if (method === 'GET' && parts[0] === 'issues' && parts[2] === 'sections' && parts[4] === 'findings') {
+    sendJson(res, 200, repo.listFindings(parts[1], parts[3]))
+    return
+  }
+
+  if (method === 'GET' && parts[0] === 'issues' && parts[2] === 'sections' && parts[3]) {
+    sendJson(res, 200, repo.crewSection(parts[1], parts[3]))
     return
   }
 

@@ -1,39 +1,75 @@
-# Revdesk — Issued view and reference PDF (lock)
+# Revdesk — Three rails, issued PDF, crew findings (lock)
 
 Locked 2026-09-05. The launched book in Revdesk is the controlled copy. A PDF is a derivative.
 
-## Pile of pages
+The left rail is already the stub for multi-user.
 
-Open dirties **one** issued leaf into a working copy. Do not offer “Open several pages.” A reviewer reads a pile of pages, not a multi-select packet minted at start. Kind is still named at review (`deferred-kind-and-wip.md`).
+| Rail | Who lives here | Open means |
+|---|---|---|
+| **Manuals** | Author | Print view **with editor**. Dirties one leaf into a working copy. |
+| **Open changes** | Author / reviewer | The packet. |
+| **Issued** | Crew / read-only (pilot stub) | Print-only paper. No dirty. No line gutter. May leave a **CF**. **PDF** lives here. |
 
-## Issued screen
+Solo still shows all three. Company mode later: a read-only login **only** sees Issued. An auditor / regulator rail can reuse this paper later (comments, not edits).
 
-The issued manual screen is view-first:
+## Manuals (author)
 
-- Click a section → print-only, non-editable paper of that leaf. No write dock, no B/I/U, no Review toggle.
-- **Open** on that leaf still starts a one-page working copy. Do not bury Open.
-- **PDF** on the issued screen opens a **new tab** of the whole book.
+- No PDF button. No CF composer.
+- Section title is not a crew view.
+- **Open** → Print with B/I/U, write dock, line gutter (review queries). Starts a one-page `wip` if the leaf is free; otherwise `On CHG-…`.
+- Do not offer “Open several pages.”
+
+CFs on that leaf are **visible** here as incoming notes. Author does not leave CFs here.
+
+## Issued (crew)
+
+Rail lists the **current** launched book per manual (GOM R13, TP R9), not the instrument ledger. Letter hash / artifact sha sit in a quiet stamp.
+
+- **PDF** at the top → new tab, Download, watermark below.
+- **Open** (or the leaf) → read-only paper. House theme. No write dock, no B/I/U, no Review toggle, **no line numbers**. Cannot start a change.
 
 ## PDF
 
-The new tab shows the generated PDF and a **Download** button.
-
-Every crew / desk download is stamped in the header:
+Every crew / desk download is stamped in the header on every page:
 
 ```text
 Reference Only - This is not a controlled copy - Downloaded: YYYY-MM-DD HH:MM UTC
 ```
 
-That stamp is the point. This is a first-class electronic manual. Walking around with a PDF does not make you current.
+`GET /api/issues/:id/pdf` and `GET /api/manuals/:id/pdf` default to `kind=reference`. `download=1` is an attachment.
 
-`GET /api/manuals/:id/pdf` defaults to `kind=reference` (watermarked). `download=1` is an attachment.
+The only unwatermarked PDF is `kind=regulator` (of-record for signature). Not the Issued Download button.
 
-## Regulator exception
+## Crew finding (CF)
 
-The only unwatermarked PDF is the of-record copy that goes to the regulator for digital signature.
+Only composable on Issued paper. One thread **per leaf** this cut (highlighted passage later).
 
-`GET /api/manuals/:id/pdf?kind=regulator` — not the issued-screen Download button. Do not put a clean PDF on the crew/desk download path. Launch may later write that file to `artifacts/<issue>.pdf`. Until then the API is the exception.
+Does not write `manuals/<id>/sections/*.md`. Never launched onto `issued/`. Store `control/findings/<issue-id>/cf-….yaml`.
+
+```yaml
+id: cf-…
+issue: GOM-R13
+manual: gom
+section: gom-ident
+author: Chief Pilot
+at: …
+body: …
+status: open
+```
+
+Distinct from review queries (line + Done/Stand/Later on a change) and from write marks (RF / AEF / IA). **Later (not this cut):** a CF gets the **same author answers** as an auditor query (Done / Stand / Later). Crew then see their note close — feedback that it was received. That also stubs an auditor rail. Do not promote CF → query this cut.
+
+### Visibility this cut
+
+| Viewer | Sees |
+|---|---|
+| The crew who wrote it | Own CFs on that leaf |
+| Other crew | Nothing. The paper is clean. |
+| Author (Manuals / editor) | CFs on that leaf |
+| Reviewer (packet, if the leaf is touched) | CFs on that leaf |
+
+Solo no-auth: you are the author, so you see CFs, and you may leave one from Issued. Company mode later enforces the table. No role switcher this cut. CFs are not on the PDF.
 
 ## Not this lock
 
-Stationery, ForeFlight/OBDS push, historical-revision PDFs from superseded markdown, and signing the of-record bytes are Later (`ROADMAP.md`).
+CF answer (Done/Stand/Later), selected-text cites, historical-revision PDFs, hiding Manuals/Open changes behind a crew login, auditor rail UI, stationery, ForeFlight/OBDS push.

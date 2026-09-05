@@ -14,7 +14,7 @@ import type { DeskPayload } from './types.ts'
 export default function App() {
   return (
     <Routes>
-      <Route path="/manuals/:manualId/pdf" element={<ManualPdfView />} />
+      <Route path="/issues/:issueId/pdf" element={<ManualPdfView />} />
       <Route path="*" element={<DeskApp />} />
     </Routes>
   )
@@ -41,6 +41,10 @@ function DeskApp() {
   const openChanges = (desk?.changes ?? []).filter(
     (change) => change.status !== 'launched' && change.status !== 'withdrawn',
   )
+  const currentIssued = new Set(
+    (desk?.manuals ?? []).map((manual) => manual.current_issued).filter((id): id is string => Boolean(id)),
+  )
+  const issuedBooks = (desk?.issues ?? []).filter((issue) => currentIssued.has(issue.id))
 
   return (
     <div className="desk">
@@ -78,13 +82,16 @@ function DeskApp() {
         </nav>
         <nav className="rail-block">
           <h2>Issued</h2>
-          {(desk?.issues ?? []).map((issue) => (
-            <NavLink key={issue.id} to={`/issues/${issue.id}`} className={({ isActive }) => `rail-item ${isActive ? 'active' : ''}`}>
-              <span className="id">{issue.id}</span>
-              <span className="name">{issue.summary}</span>
-              <span className="rev">{issue.revision}</span>
-            </NavLink>
-          ))}
+          {issuedBooks.map((issue) => {
+            const manual = (desk?.manuals ?? []).find((item) => item.id === issue.manual)
+            return (
+              <NavLink key={issue.id} to={`/issues/${issue.id}`} className={({ isActive }) => `rail-item ${isActive ? 'active' : ''}`}>
+                <span className="id">{manual?.abbrev ?? issue.id}</span>
+                <span className="name">{manual?.title ?? issue.summary}</span>
+                <span className="rev">{issue.id}</span>
+              </NavLink>
+            )
+          })}
         </nav>
       </aside>
 
@@ -92,8 +99,8 @@ function DeskApp() {
         {error ? <div className="banner error">{error}</div> : null}
         <Routes>
           <Route path="/" element={<DeskHome desk={desk} />} />
-          <Route path="/manuals/:manualId/sections/:sectionId" element={<IssuedSection onChanged={refresh} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
+          <Route path="/issues/:issueId/sections/:sectionId" element={<IssuedSection />} />
           <Route path="/changes/:changeId" element={<ChangeView onChanged={refresh} />} />
           <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />
           <Route path="/issues/:issueId" element={<IssueView />} />

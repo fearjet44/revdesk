@@ -47,7 +47,7 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
   }
 
   if (error && !manual) return <div className="banner error">{error}</div>
-  if (!manual) return <div className="empty">Pulling the issued book…</div>
+  if (!manual) return <div className="empty">Pulling the book…</div>
 
   return (
     <>
@@ -58,14 +58,9 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           <p className="lede">
             Current {manual.current_issued ?? '(never launched)'}, next full {manual.next_revision}
             {manual.effective ? `, effective ${formatDate(manual.effective)}` : ''}. Owner:{' '}
-            {manual.owner}. Click a section for the print-only issued page. Open dirties one working
-            copy. PDF is reference only.
+            {manual.owner}. Open dirties one working copy into Print with the editor. Crew PDF and
+            findings live under Issued.
           </p>
-        </div>
-        <div className="actions">
-          <Link className="btn primary" to={`/manuals/${manual.id}/pdf`} target="_blank" rel="noreferrer">
-            PDF
-          </Link>
         </div>
       </div>
 
@@ -73,17 +68,17 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
 
       <section className="panel">
         <div className="panel-hd">
-          <span>ISSUED SECTIONS</span>
+          <span>SECTIONS</span>
           <span>{manual.current_issued}</span>
         </div>
         <div className="rows">
           {manual.sections.map((section) => (
             <div key={section.id} className="row">
               <span className="mono">{section.id}</span>
-              <Link className="section-link" to={`/manuals/${manual.id}/sections/${section.id}`}>
+              <span>
                 <div className="title">{section.title}</div>
                 <div className="meta">{section.path}</div>
-              </Link>
+              </span>
               <span className="mono">{section.rev_last_changed}</span>
               {section.open_change ? (
                 <Link className="btn ghost" to={`/changes/${section.open_change}`}>

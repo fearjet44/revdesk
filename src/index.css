@@ -391,6 +391,21 @@ h1 {
   caret-color: transparent;
 }
 
+.paper-wrap.is-crew {
+  padding: 28px 36px 48px;
+  background: var(--paper);
+}
+
+.cf-composer {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+
+.cf-composer textarea {
+  min-height: 88px;
+}
+
 .lamp {
   display: inline-flex;
   align-items: center;

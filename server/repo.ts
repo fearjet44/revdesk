@@ -38,6 +38,7 @@ import type {
   ChangeRecord,
   ChangeStatus,
   ControlClass,
+  CrewFinding,
   DeskPayload,
   Frontmatter,
   InstrumentAuthority,
@@ -226,6 +227,59 @@ export class Repo {
       manual,
       section,
     }
+  }
+
+  crewSection(issueId: string, sectionId: string) {
+    const issue = this.readIssue(issueId)
+    if (!issue.sections.some((item) => item.id === sectionId)) {
+      throw new RepoError(3, `Section ${sectionId} is not on ${issueId}.`)
+    }
+    return {
+      ...this.issuedSection(issue.manual, sectionId),
+      issue,
+      findings: this.listFindings(issueId, sectionId),
+      can_find: true,
+    }
+  }
+
+  listFindings(issueId: string, sectionId?: string): CrewFinding[] {
+    this.readIssue(issueId)
+    const dir = this.abs('control', 'findings', issueId)
+    if (!existsSync(dir)) return []
+    return readdirSync(dir)
+      .filter((name) => name.endsWith('.yaml') && !name.startsWith('.'))
+      .map((name) => parseYaml(readFileSync(path.join(dir, name), 'utf8')) as CrewFinding)
+      .filter((row) => (sectionId ? row.section === sectionId : true))
+      .sort((a, b) => b.at.localeCompare(a.at))
+  }
+
+  findingsForManual(manualId: string, sectionId: string): CrewFinding[] {
+    const manual = this.readManual(manualId)
+    if (!manual.current_issued) return []
+    return this.listFindings(manual.current_issued, sectionId)
+  }
+
+  addFinding(issueId: string, sectionId: string, body: string): CrewFinding {
+    const issue = this.readIssue(issueId)
+    if (!issue.sections.some((item) => item.id === sectionId)) {
+      throw new RepoError(3, `Section ${sectionId} is not on ${issueId}.`)
+    }
+    const text = body.trim()
+    if (!text) throw new RepoError(2, 'Finding body is required.')
+    const finding: CrewFinding = {
+      id: `cf-${randomBytes(4).toString('hex')}`,
+      issue: issueId,
+      manual: issue.manual,
+      section: sectionId,
+      author: AUTHOR,
+      at: nowIso(),
+      body: text,
+      status: 'open',
+    }
+    const dir = this.abs('control', 'findings', issueId)
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(dir, `${finding.id}.yaml`), dumpYaml(finding))
+    return finding
   }
 
   readSection(relPath: string): SectionFile {
