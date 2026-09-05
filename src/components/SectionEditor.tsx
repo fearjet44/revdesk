@@ -335,7 +335,7 @@ export function SectionEditor({
   if (!changeId || !sectionId) return null
 
   return (
-    <div className={readOnly ? undefined : 'has-write-dock'}>
+    <div>
       <div className="page-head">
         <div>
           <p className="kicker">{readOnly ? 'PRINT' : 'WORKING COPY'} · {changeId}</p>
@@ -431,6 +431,35 @@ export function SectionEditor({
       ) : null}
 
       <div className="editor-chrome">
+        {readOnly ? null : (
+          <div className="write-dock" role="region" aria-label="Write section">
+            <label className="write-mark">
+              <span className="meta">Mark</span>
+              <select
+                value={writeMark}
+                onChange={(event) => setWriteMark(event.target.value)}
+                aria-label="Write mark"
+              >
+                <option value="">Why this write…</option>
+                {markVisible.map((row) => (
+                  <option key={row.code} value={row.code}>
+                    {row.code} — {row.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input
+              type="text"
+              value={writeNote}
+              onChange={(event) => setWriteNote(event.target.value)}
+              placeholder={markRow?.needsNote ? 'Finding / letter id' : 'Note (optional)'}
+              aria-label="Write mark note"
+            />
+            <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
+              {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
+            </button>
+          </div>
+        )}
         {readOnly ? null : (
         <div className="toolbar">
           <ToolBtn
@@ -534,36 +563,6 @@ export function SectionEditor({
         ) : null}
         <EditorContent editor={editor} />
       </div>
-
-      {readOnly ? null : (
-        <div className="write-dock" role="region" aria-label="Write section">
-          <label className="write-mark">
-            <span className="meta">Mark</span>
-            <select
-              value={writeMark}
-              onChange={(event) => setWriteMark(event.target.value)}
-              aria-label="Write mark"
-            >
-              <option value="">Why this write…</option>
-              {markVisible.map((row) => (
-                <option key={row.code} value={row.code}>
-                  {row.code} — {row.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <input
-            type="text"
-            value={writeNote}
-            onChange={(event) => setWriteNote(event.target.value)}
-            placeholder={markRow?.needsNote ? 'Finding / letter id' : 'Note (optional)'}
-            aria-label="Write mark note"
-          />
-          <button className="btn primary" type="button" disabled={!canSave || busy} onClick={() => void save()}>
-            {busy ? 'Writing…' : saved ? 'Saved' : 'Write section'}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
