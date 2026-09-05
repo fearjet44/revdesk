@@ -30,13 +30,15 @@ callouts:
   warning: { ink: "#c43c32" }
 ```
 
-`nimbl`: H1 `Section N: Title`, H2 `N.N.0`, H3+ `N.N.N`. Font guess Verdana / Verdana, white paper. Do not invent `.0` on a book that does not use it.
+`nimbl`: H1 `Section N` (`5`), H2 `5.7.0` / `5.7.1` / `5.7.2`, H3 `5.7.1.1`, H4 `5.7.1.1.1`. The `.0` is the first H2 in a group, not a different depth from `5.7.1`. Decimal: H1 `5`, H2 `5.7`, H3 `5.7.1`. Font guess Verdana / Verdana, white paper. Do not invent `.0` on a decimal book.
 
 TUI rail/mast fonts stay IBM Plex. Paper only follows this file.
 
 ## Headings
 
-H1–H5 in the editor and in Markdown. H1 is the printed chapter head (not auto-numbered). H2–H5 stamp the next **stable** number into the heading text on insert, then freeze. Changing **this** heading’s level reshapes **this** stamp (`5.8.0` → H3 → `5.8.1` → H4 → `5.8.1.1` → H3 → `5.8.1`). It does not pick the previous H2’s next child. No live reflow. No sibling rewrite.
+H1–H5 stamp the next **stable** number at that level from headings **before this line**, then freeze.
+
+After `5.7.1`: H1 → `Section 5`; H2 → `5.7.2` (not `5.8.0`); H3 → `5.7.1.1`; H4 → `5.7.1.1.1`. Wrong button, same line, no Return: retarget at the new level. Already H3+: going **deeper** nests under this line (`5.7.1.1` → H4 → `5.7.1.1.1`). No live reflow. No sibling rewrite.
 
 Leaf number comes from the title (`Section 5`, `Appendix A`) when `leaf_prefix` is on. Front matter with no number starts at `1`.
 

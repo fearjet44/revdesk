@@ -39,8 +39,8 @@ check('leaf from id', leafNumberFromTitle('Administration', 'gomlep-5') === '5')
 check('no leaf from admin id', leafNumberFromTitle('Administration', 'gom-admin') === null)
 
 check('parse 5.1', JSON.stringify(parseHeadingParts('5.1 Title', 'decimal')) === JSON.stringify(['5', '1']))
-check('parse nimbl H2', JSON.stringify(parseHeadingParts('5.1.0 PIC', 'nimbl')) === JSON.stringify(['5', '1']))
-check('parse nimbl H3', JSON.stringify(parseHeadingParts('5.1.2 Extra', 'nimbl')) === JSON.stringify(['5', '1', '2']))
+check('parse nimbl H2', JSON.stringify(parseHeadingParts('5.1.0 PIC', 'nimbl')) === JSON.stringify(['5', '1', '0']))
+check('parse nimbl 5.7.1', JSON.stringify(parseHeadingParts('5.7.1 Child', 'nimbl')) === JSON.stringify(['5', '7', '1']))
 check('already numbered', headingAlreadyNumbered('5.2.0 Foo', 'nimbl'))
 check('not numbered', !headingAlreadyNumbered('Pilot duties', 'decimal'))
 
@@ -65,26 +65,61 @@ check(
   ) === '5.1.2',
 )
 check('first H2 nimbl', nextHeadingStamp(nimbl, [], 2, '5') === '5.1.0')
+check('next H2 nimbl is 5.1.1', nextHeadingStamp(nimbl, [{ level: 2, text: '5.1.0 PIC' }], 2, '5') === '5.1.1')
 check(
-  'H3 after nimbl H2',
-  nextHeadingStamp(nimbl, [{ level: 2, text: '5.1.0 PIC' }], 3, '5') === '5.1.1',
+  'H3 after 5.1.0 is 5.1.0.1',
+  nextHeadingStamp(nimbl, [{ level: 2, text: '5.1.0 PIC' }], 3, '5') === '5.1.0.1',
 )
 check(
-  'H3 from the H2 itself',
-  nextHeadingStamp(nimbl, [{ level: 2, text: '5.1.0 PIC' }], 3, '5') === '5.1.1',
+  'H2 after 5.7.1 is 5.7.2',
+  nextHeadingStamp(
+    nimbl,
+    [
+      { level: 2, text: '5.7.0 Previous' },
+      { level: 3, text: '5.7.1 Child' },
+    ],
+    2,
+    '5',
+  ) === '5.7.2',
 )
+check(
+  'H3 after 5.7.1 is 5.7.1.1',
+  nextHeadingStamp(
+    nimbl,
+    [
+      { level: 2, text: '5.7.0 Previous' },
+      { level: 3, text: '5.7.1 Child' },
+    ],
+    3,
+    '5',
+  ) === '5.7.1.1',
+)
+check(
+  'H3 after 5.7.0 is 5.7.0.1',
+  nextHeadingStamp(nimbl, [{ level: 2, text: '5.7.0 Previous' }], 3, '5') === '5.7.0.1',
+)
+check(
+  'H4 after 5.7.1 is 5.7.1.1.1',
+  nextHeadingStamp(
+    nimbl,
+    [
+      { level: 2, text: '5.7.0 Previous' },
+      { level: 3, text: '5.7.1 Child' },
+    ],
+    4,
+    '5',
+  ) === '5.7.1.1.1',
+)
+check('H1 nimbl', nextHeadingStamp(nimbl, [], 1, '5') === 'Section 5')
 check('split nimbl H2', JSON.stringify(splitHeadingText('5.1.0 PIC', 'nimbl')) === JSON.stringify({ stamp: '5.1.0', title: 'PIC' }))
 check('split decimal', JSON.stringify(splitHeadingText('5.1 Weight', 'decimal')) === JSON.stringify({ stamp: '5.1', title: 'Weight' }))
-check('split leaves Section', splitHeadingText('Section 5: Weight', 'nimbl').stamp === null)
+check('split Section', splitHeadingText('Section 5: Weight', 'nimbl').stamp === 'Section 5')
 check(
   'restamp H2 to H3',
-  replaceHeadingStamp('5.1.0 PIC', 'nimbl', '5.1.1') === '5.1.1 PIC',
+  replaceHeadingStamp('5.1.0 PIC', 'nimbl', '5.1.0.1') === '5.1.0.1 PIC',
 )
 check('restamp empty', replaceHeadingStamp('5.1.0 ', 'nimbl', '5.1.1') === '5.1.1 ')
-check('reshape H2 to H3', reshapeHeadingStamp(nimbl, '5.8.0 Accident', 3, '5') === '5.8.1')
-check('reshape H3 to H4', reshapeHeadingStamp(nimbl, '5.8.1 Accident', 4, '5') === '5.8.1.1')
-check('reshape H4 back to H3', reshapeHeadingStamp(nimbl, '5.8.1.1 Accident', 3, '5') === '5.8.1')
-check('reshape H3 back to H2', reshapeHeadingStamp(nimbl, '5.8.1 Accident', 2, '5') === '5.8.0')
+check('nest H3 to H4', reshapeHeadingStamp(nimbl, '5.7.1.1 Accident', 4, '5') === '5.7.1.1.1')
 check('no leaf prefix', nextHeadingStamp({ ...decimal, heading: { ...decimal.heading, leaf_prefix: false } }, [], 2, '5') === '1')
 check('front matter', nextHeadingStamp(decimal, [], 2, null) === '1')
 
@@ -134,14 +169,16 @@ check('custom paper', custom.color.paper === '#ffffff')
 
 function applyHeading(editor: Editor, theme: DocTheme, level: 2 | 3 | 4 | 5, leaf: string) {
   const $at = editor.state.selection.$from
-  const here = $at.parent.type.name === 'heading' ? $at.parent.textContent : ''
-  const reshaped =
-    $at.parent.type.name === 'heading' && splitHeadingText(here, theme.heading.scheme).stamp
-      ? reshapeHeadingStamp(theme, here, level, leaf)
-      : null
+  const currentLevel =
+    $at.parent.type.name === 'heading' ? Number($at.parent.attrs.level ?? 1) : 0
+  const nestUnderSelf = currentLevel >= 3 && level > currentLevel
+  const reshaped = nestUnderSelf
+    ? reshapeHeadingStamp(theme, $at.parent.textContent, level, leaf)
+    : null
+  const end = $at.parent.type.name === 'heading' ? $at.before($at.depth) : $at.pos
   const before: HeadingHit[] = []
   if (!reshaped) {
-    editor.state.doc.nodesBetween(0, $at.pos, (node) => {
+    editor.state.doc.nodesBetween(0, end, (node) => {
       if (node.type.name === 'heading') {
         before.push({ level: Number(node.attrs.level ?? 1), text: node.textContent })
       }
@@ -172,14 +209,14 @@ function applyHeading(editor: Editor, theme: DocTheme, level: 2 | 3 | 4 | 5, lea
   applyHeading(editor, nimbl, 2, '5')
   check('editor H2 stamps', serializeBody(editor.getJSON()).includes('## 5.1.0 Pilot duties'), serializeBody(editor.getJSON()))
   applyHeading(editor, nimbl, 3, '5')
-  check('editor H3 restamps from H2', serializeBody(editor.getJSON()).includes('### 5.1.1 Pilot duties'), serializeBody(editor.getJSON()))
+  check('editor H3 after H2 same line', serializeBody(editor.getJSON()).includes('### 5.1.1.1 Pilot duties'), serializeBody(editor.getJSON()))
   editor.destroy()
 }
 
 {
   const editor = new Editor({
     extensions: editorExtensions,
-    content: parseBody('## 5.7.0 Previous\n\nAccident\n'),
+    content: parseBody('## 5.7.0 Previous\n\n### 5.7.1 Child\n\nAccident\n'),
   })
   let pos = -1
   editor.state.doc.descendants((node, at) => {
@@ -187,18 +224,30 @@ function applyHeading(editor: Editor, theme: DocTheme, level: 2 | 3 | 4 | 5, lea
   })
   editor.commands.setTextSelection(pos + 1)
   applyHeading(editor, nimbl, 2, '5')
-  check('accident H2 is 5.8.0', serializeBody(editor.getJSON()).includes('## 5.8.0 Accident'), serializeBody(editor.getJSON()))
+  check('H2 after 5.7.1 is 5.7.2', serializeBody(editor.getJSON()).includes('## 5.7.2 Accident'), serializeBody(editor.getJSON()))
   applyHeading(editor, nimbl, 3, '5')
-  check('accident H3 is 5.8.1', serializeBody(editor.getJSON()).includes('### 5.8.1 Accident'), serializeBody(editor.getJSON()))
+  check('H3 after 5.7.1 is 5.7.1.1', serializeBody(editor.getJSON()).includes('### 5.7.1.1 Accident'), serializeBody(editor.getJSON()))
   applyHeading(editor, nimbl, 4, '5')
-  check('accident H4 is 5.8.1.1', serializeBody(editor.getJSON()).includes('#### 5.8.1.1 Accident'), serializeBody(editor.getJSON()))
+  check('H3 to H4 nests 5.7.1.1.1', serializeBody(editor.getJSON()).includes('#### 5.7.1.1.1 Accident'), serializeBody(editor.getJSON()))
+  applyHeading(editor, nimbl, 2, '5')
+  check('H4 back to H2 is 5.7.2', serializeBody(editor.getJSON()).includes('## 5.7.2 Accident'), serializeBody(editor.getJSON()))
+  editor.destroy()
+}
+
+{
+  const editor = new Editor({
+    extensions: editorExtensions,
+    content: parseBody('## 5.7.0 Previous\n\n### 5.7.1 Child\n\nFresh\n'),
+  })
+  let pos = -1
+  editor.state.doc.descendants((node, at) => {
+    if (pos < 0 && node.isText && node.text === 'Fresh') pos = at
+  })
+  editor.commands.setTextSelection(pos + 1)
   applyHeading(editor, nimbl, 3, '5')
-  check(
-    'accident H3 stays in 5.8',
-    serializeBody(editor.getJSON()).includes('### 5.8.1 Accident') &&
-      !serializeBody(editor.getJSON()).includes('5.7.1'),
-    serializeBody(editor.getJSON()),
-  )
+  check('first click H3 is 5.7.1.1', serializeBody(editor.getJSON()).includes('### 5.7.1.1 Fresh'), serializeBody(editor.getJSON()))
+  applyHeading(editor, nimbl, 4, '5')
+  check('H3 to H4 is 5.7.1.1.1', serializeBody(editor.getJSON()).includes('#### 5.7.1.1.1 Fresh'), serializeBody(editor.getJSON()))
   editor.destroy()
 }
 

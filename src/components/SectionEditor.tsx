@@ -19,7 +19,6 @@ import {
   paperCalloutStyle,
   replaceHeadingStamp,
   reshapeHeadingStamp,
-  splitHeadingText,
   stepMarkerCss,
   type DocTheme,
   type HeadingHit,
@@ -315,21 +314,22 @@ export function SectionEditor({
 
   function applyHeading(level: 1 | 2 | 3 | 4 | 5) {
     if (!editor) return
-    if (level === 1 || editor.isActive('heading', { level })) {
+    if (editor.isActive('heading', { level })) {
       editor.chain().focus().toggleHeading({ level }).run()
       return
     }
     const leaf = leafNumberFromTitle(meta?.title ?? '', meta?.id)
     const $at = editor.state.selection.$from
-    const here = $at.parent.type.name === 'heading' ? $at.parent.textContent : ''
-    const reshaped =
-      $at.parent.type.name === 'heading' && splitHeadingText(here, theme.heading.scheme).stamp
-        ? reshapeHeadingStamp(theme, here, level, leaf)
-        : null
+    const currentLevel =
+      $at.parent.type.name === 'heading' ? Number($at.parent.attrs.level ?? 1) : 0
+    const nestUnderSelf = currentLevel >= 3 && level > currentLevel
+    const reshaped = nestUnderSelf
+      ? reshapeHeadingStamp(theme, $at.parent.textContent, level, leaf)
+      : null
+    const end = $at.parent.type.name === 'heading' ? $at.before($at.depth) : $at.pos
     const before: HeadingHit[] = []
     if (!reshaped) {
-      const pos = $at.pos
-      editor.state.doc.nodesBetween(0, pos, (node) => {
+      editor.state.doc.nodesBetween(0, end, (node) => {
         if (node.type.name === 'heading') {
           before.push({ level: Number(node.attrs.level ?? 1), text: node.textContent })
         }

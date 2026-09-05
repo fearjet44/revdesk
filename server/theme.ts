@@ -255,15 +255,14 @@ export function parseHeadingParts(text: string, scheme: HeadingScheme): string[]
   if (section) return [section[1]]
   const token = trimmed.match(/^([A-Z]|\d+(?:\.\d+)*)(?=\s|$)/)?.[1]
   if (!token) return null
-  const parts = token.split('.')
-  if (scheme === 'nimbl' && parts.length >= 2 && parts[parts.length - 1] === '0') {
-    parts.pop()
-  }
-  return parts
+  void scheme
+  return token.split('.')
 }
 
 export function formatHeadingStamp(theme: DocTheme, level: number, parts: string[]): string {
-  if (theme.heading.scheme === 'nimbl' && level === 2) return `${parts.join('.')}.0`
+  if (theme.heading.scheme === 'nimbl' && level === 1 && parts.length === 1) {
+    return `Section ${parts[0]}`
+  }
   return parts.join('.')
 }
 
@@ -271,13 +270,17 @@ export function headingAlreadyNumbered(text: string, scheme: HeadingScheme): boo
   return parseHeadingParts(text, scheme) != null
 }
 
-/** Leading numeric stamp only (`5.1.0 Title`). Not `Section 5:`. */
+/** Leading stamp (`5.7.0 Title`, `Section 5: Title`). */
 export function splitHeadingText(
   text: string,
   scheme: HeadingScheme,
 ): { stamp: string | null; title: string } {
   const trimmed = text.trim()
   if (!trimmed) return { stamp: null, title: '' }
+  const section = trimmed.match(/^Section\s+([A-Z]|\d+):?\s*(.*)$/i)
+  if (section) {
+    return { stamp: formatHeadingStamp({ heading: { scheme } } as DocTheme, 1, [section[1]]), title: section[2].trim() }
+  }
   const match = trimmed.match(/^(\d+(?:\.\d+)*)(?:\s+|$)(.*)$/)
   if (!match) return { stamp: null, title: text }
   if (parseHeadingParts(match[1], scheme) == null) return { stamp: null, title: text }
@@ -289,17 +292,24 @@ export function replaceHeadingStamp(text: string, scheme: HeadingScheme, stamp: 
   return title ? `${stamp} ${title}` : `${stamp} `
 }
 
-/** Parts in a stamp at this heading level (`5.8.0` H2 → 2, `5.8.1.1` H4 → 4). */
+/**
+ * Nimbl: H1 `5`, H2 `5.7.0` / `5.7.1` / `5.7.2`, H3 `5.7.1.1`, H4 `5.7.1.1.1`.
+ * Decimal: H1 `5`, H2 `5.8`, H3 `5.7.2`, H4 `5.7.1.1`.
+ */
 export function headingStampLength(
   theme: DocTheme,
   level: number,
   leafNumber: string | null,
 ): number {
+  if (theme.heading.scheme === 'nimbl') {
+    if (level <= 1) return 1
+    return level + 1
+  }
   const prefix = theme.heading.leaf_prefix && leafNumber ? 1 : 0
-  return prefix + (level - 1)
+  return prefix + Math.max(0, level - 1)
 }
 
-/** Same heading, different level: keep this number's family. `5.8.1.1` → H3 → `5.8.1`, not the previous H2's next child. */
+/** Deeper on an H3+ line: `5.7.2` → H4 → `5.7.2.1`. Not the previous H3’s child. */
 export function reshapeHeadingStamp(
   theme: DocTheme,
   text: string,
@@ -322,28 +332,24 @@ export function nextHeadingStamp(
   leafNumber: string | null,
 ): string {
   const prefix = theme.heading.leaf_prefix && leafNumber ? [leafNumber] : []
-  const parsed = before.map((hit) => ({
-    level: hit.level,
-    parts: parseHeadingParts(hit.text, theme.heading.scheme),
-  }))
-  const stack: Array<string[] | undefined> = []
-  if (prefix.length) stack[1] = prefix
-  for (const hit of parsed) {
-    if (!hit.parts) continue
-    stack[hit.level] = hit.parts
-    stack.length = hit.level + 1
-  }
-  const parent = stack[level - 1] ?? prefix
-  const wantLen = parent.length + 1
-  let max = 0
-  for (const hit of parsed) {
-    if (!hit.parts || hit.parts.length !== wantLen) continue
-    if (!startsWith(hit.parts, parent)) continue
-    const last = Number(hit.parts[hit.parts.length - 1])
+  const parsed = before
+    .map((hit) => parseHeadingParts(hit.text, theme.heading.scheme))
+    .filter((parts): parts is string[] => Boolean(parts?.length))
+  const want = headingStampLength(theme, level, leafNumber)
+  if (want <= 1) return formatHeadingStamp(theme, level, prefix.length ? prefix : ['1'])
+  const parentLen = want - 1
+  let parent = prefix.slice()
+  if (parsed.length) parent = parsed[parsed.length - 1].slice(0, parentLen)
+  while (parent.length < parentLen) parent.push('1')
+  const first = theme.heading.scheme === 'nimbl' && want === 3 ? 0 : 1
+  let max = first - 1
+  for (const parts of parsed) {
+    if (parts.length !== want) continue
+    if (!startsWith(parts, parent)) continue
+    const last = Number(parts[parts.length - 1])
     if (Number.isFinite(last) && last > max) max = last
   }
-  const parts = [...parent, String(max + 1)]
-  return formatHeadingStamp(theme, level, parts)
+  return formatHeadingStamp(theme, level, [...parent, String(max + 1)])
 }
 
 export function paperCalloutStyle(theme: DocTheme): Record<string, string> {
