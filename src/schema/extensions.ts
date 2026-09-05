@@ -69,7 +69,7 @@ export const Warning = callout('warning')
 
 export const editorExtensions = [
   StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
+    heading: { levels: [1, 2, 3, 4, 5] },
     bulletList: false,
     blockquote: false,
     codeBlock: false,

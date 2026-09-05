@@ -10,6 +10,7 @@ import {
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { formatWriteMark, parseWriteMark, snapshotMarkLine } from './marks.ts'
+import { DEFAULT_THEME, parseTheme, type DocTheme } from './theme.ts'
 import { lineDiff } from './diff.ts'
 import {
   GitAdapterError,
@@ -117,6 +118,16 @@ export class Repo {
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
       .map((entry) => this.readManual(entry.name))
       .sort((a, b) => a.abbrev.localeCompare(b.abbrev))
+  }
+
+  readTheme(id: string): DocTheme {
+    const file = this.abs('manuals', id, 'theme.yaml')
+    if (!existsSync(file)) return DEFAULT_THEME
+    try {
+      return parseTheme(readFileSync(file, 'utf8'))
+    } catch {
+      return DEFAULT_THEME
+    }
   }
 
   readManual(id: string): ManualRecord {
@@ -1035,6 +1046,7 @@ export class Repo {
       notes_ref: REVIEW_NOTES_REF,
       can_comment: REVIEWER_STATUSES.has(change.status),
       can_answer: change.status === 'draft' || change.status === 'edit',
+      theme: this.readTheme(change.manual),
     }
   }
 

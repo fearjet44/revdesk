@@ -1,0 +1,21 @@
+heading:
+  levels: 5
+  scheme: nimbl
+  persist: stable
+  restart: leaf
+  leaf_prefix: true
+steps:
+  levels: 5
+  markers:
+    - 1.
+    - a.
+    - (1)
+    - (a)
+    - (i)
+callouts:
+  note:
+    ink: "#3d7ea6"
+  caution:
+    ink: "#d4891a"
+  warning:
+    ink: "#c43c32"

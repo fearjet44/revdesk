@@ -45,6 +45,7 @@ const samples: Array<[string, string]> = [
   ['underline', 'See <u>defined term</u> here.\n'],
   ['underline bold', 'See <u>**PIC**</u> here.\n'],
   ['section pilcrow', 'Per § 91.3 the PIC (¶ 2) decides.\n'],
+  ['h4 h5', '# Chapter\n\n## 1.1 Head\n\n### 1.1.1 Sub\n\n#### 1.1.1.1 Deep\n\n##### 1.1.1.1.1 Deeper\n'],
   [
     'nested steps',
     [

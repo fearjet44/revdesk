@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "server/marks.ts"]
+  "include": ["src", "server/marks.ts", "server/theme.ts"]
 }

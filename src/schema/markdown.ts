@@ -93,7 +93,7 @@ function advanceBlock(lines: string[], i: number): number {
     while (i < lines.length && lines[i].startsWith('|')) i += 1
     return i
   }
-  if (/^(#{1,3})\s+/.test(line)) return i + 1
+  if (/^(#{1,5})\s+/.test(line)) return i + 1
   if (/^\d+\.\s+/.test(line)) {
     i += 1
     while (i < lines.length) {
@@ -155,7 +155,7 @@ export function parseBody(markdown: string): JSONContent {
       continue
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/)
+    const heading = line.match(/^(#{1,5})\s+(.+)$/)
     if (heading) {
       blocks.push({
         type: 'heading',
@@ -201,7 +201,7 @@ export function serializeSection(meta: Frontmatter, doc: JSONContent): string {
 
 function isBlockStart(line: string): boolean {
   return (
-    /^(#{1,3})\s+/.test(line) ||
+    /^(#{1,5})\s+/.test(line) ||
     /^\d+\.\s+/.test(line) ||
     line.startsWith('|') ||
     /^:::(note|caution|warning)\s*$/.test(line) ||
@@ -424,7 +424,7 @@ function serializeBlock(node: JSONContent): string {
   switch (node.type) {
     case 'heading': {
       const level = Number(node.attrs?.level ?? 1)
-      return `${'#'.repeat(Math.min(Math.max(level, 1), 3))} ${serializeInline(node)}`
+      return `${'#'.repeat(Math.min(Math.max(level, 1), 5))} ${serializeInline(node)}`
     }
     case 'paragraph':
       return serializeInline(node)

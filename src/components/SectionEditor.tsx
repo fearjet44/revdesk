@@ -1,5 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
@@ -12,6 +12,16 @@ import {
 } from '../schema/markdown.ts'
 import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.ts'
 import { WRITE_MARKS, writeMarkAfterFirst } from '../../server/marks.ts'
+import {
+  DEFAULT_THEME,
+  headingAlreadyNumbered,
+  leafNumberFromTitle,
+  nextHeadingStamp,
+  paperCalloutStyle,
+  stepMarkerCss,
+  type DocTheme,
+  type HeadingHit,
+} from '../../server/theme.ts'
 import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type GutterMark = { line: number; top: number }
@@ -90,6 +100,7 @@ export function SectionEditor({
   const [writeMark, setWriteMark] = useState('')
   const [writeNote, setWriteNote] = useState('')
   const [hasPriorMark, setHasPriorMark] = useState(false)
+  const [theme, setTheme] = useState<DocTheme>(DEFAULT_THEME)
   const paperRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
@@ -126,6 +137,7 @@ export function SectionEditor({
             setComments(review.comments)
             setDiffRows(review.rows)
             setCanAnswer(review.can_answer)
+            setTheme(review.theme ?? DEFAULT_THEME)
             const touch = review.change.touched.find((item) => item.id === sectionId)
             if (touch?.mark) {
               setWriteMark(touch.mark)
@@ -299,6 +311,27 @@ export function SectionEditor({
     editor?.chain().focus().insertContent({ type, content: [{ type: 'paragraph' }] }).run()
   }
 
+  function applyHeading(level: 1 | 2 | 3 | 4 | 5) {
+    if (!editor) return
+    if (level === 1 || editor.isActive('heading', { level })) {
+      editor.chain().focus().toggleHeading({ level }).run()
+      return
+    }
+    const before: HeadingHit[] = []
+    const pos = editor.state.selection.$from.pos
+    editor.state.doc.nodesBetween(0, pos, (node) => {
+      if (node.type.name === 'heading') {
+        before.push({ level: Number(node.attrs.level ?? 1), text: node.textContent })
+      }
+    })
+    const stamp = nextHeadingStamp(theme, before, level, leafNumberFromTitle(meta?.title ?? '', meta?.id))
+    editor.chain().focus().toggleHeading({ level }).run()
+    const $from = editor.state.selection.$from
+    if ($from.parent.type.name !== 'heading') return
+    if (headingAlreadyNumbered($from.parent.textContent, theme.heading.scheme)) return
+    editor.chain().insertContentAt($from.start(), `${stamp} `).run()
+  }
+
   if (!changeId || !sectionId) return null
 
   return (
@@ -434,15 +467,16 @@ export function SectionEditor({
             onClick={() => editor?.chain().focus().insertContent('¶').run()}
           />
           <span className="toolbar-gap" />
-          <button type="button" className={editor?.isActive('heading', { level: 1 }) ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
-            H1
-          </button>
-          <button type="button" className={editor?.isActive('heading', { level: 2 }) ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
-            H2
-          </button>
-          <button type="button" className={editor?.isActive('heading', { level: 3 }) ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>
-            H3
-          </button>
+          {([1, 2, 3, 4, 5] as const).map((level) => (
+            <button
+              key={level}
+              type="button"
+              className={editor?.isActive('heading', { level }) ? 'is-on' : ''}
+              onClick={() => applyHeading(level)}
+            >
+              H{level}
+            </button>
+          ))}
           <button type="button" className={editor?.isActive('paragraph') ? 'is-on' : ''} onClick={() => editor?.chain().focus().setParagraph().run()}>
             Para
           </button>
@@ -468,7 +502,12 @@ export function SectionEditor({
         </div>
       </div>
 
-      <div className={`paper-wrap${readOnly ? ' is-readonly' : ''}`} ref={paperRef}>
+      <style>{stepMarkerCss(theme.steps.markers)}</style>
+      <div
+        className={`paper-wrap${readOnly ? ' is-readonly' : ''}`}
+        ref={paperRef}
+        style={paperCalloutStyle(theme) as CSSProperties}
+      >
         {gutterMarks.map((mark) => (
           <span
             key={`${mark.line}-${mark.top}`}

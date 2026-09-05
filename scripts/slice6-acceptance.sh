@@ -113,10 +113,19 @@ expect_ok ingest scaffold --catalog gom-lep --out "$WORK"
 expect_ok ingest scaffold --catalog tp --out "$WORK"
 test -f "$WORK/manuals/gom-lep/manual.yaml"
 test -f "$WORK/manuals/tp/manual.yaml"
+test -f "$WORK/manuals/gom-lep/theme.yaml"
+test -f "$WORK/manuals/tp/theme.yaml"
 test -f "$WORK/control/issues/GOML-R11.yaml"
 test -f "$WORK/control/issues/TP-R9.yaml"
-pass=$((pass + 4))
-echo "OK  scaffold wrote manuals + baseline issues"
+pass=$((pass + 6))
+echo "OK  scaffold wrote manuals + baseline issues + themes"
+contains "$(cat "$WORK/manuals/gom-lep/theme.yaml")" "scheme: nimbl" "GOM nimbl theme"
+contains "$(cat "$WORK/manuals/tp/theme.yaml")" "scheme: nimbl" "TP nimbl theme"
+
+echo "=== 3b scaffold does not clobber theme ==="
+printf 'heading:\n  scheme: decimal\n' > "$WORK/manuals/gom-lep/theme.yaml"
+expect_ok ingest scaffold --catalog gom-lep --out "$WORK"
+contains "$(cat "$WORK/manuals/gom-lep/theme.yaml")" "scheme: decimal" "scaffold leaves an edited theme"
 
 echo "=== 4 lorem only — no operator prose ==="
 set +e

@@ -1,3 +1,5 @@
+import type { DocTheme } from './theme.ts'
+
 export type ControlClass = 'faa-approved' | 'faa-accepted' | 'third-party' | 'internal'
 
 export type ChangeStatus =
@@ -248,6 +250,7 @@ export type SectionReview = {
   notes_ref: string
   can_comment: boolean
   can_answer: boolean
+  theme: DocTheme
 }
 
 export type LaunchedStatus = {

@@ -644,7 +644,9 @@ textarea { min-height: 88px; resize: vertical; }
 
 .ProseMirror h1,
 .ProseMirror h2,
-.ProseMirror h3 {
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5 {
   font-family: var(--font-display);
   letter-spacing: 0.02em;
   margin: 1.2em 0 0.45em;
@@ -653,6 +655,8 @@ textarea { min-height: 88px; resize: vertical; }
 .ProseMirror h1 { font-size: 22px; }
 .ProseMirror h2 { font-size: 17px; }
 .ProseMirror h3 { font-size: 15px; }
+.ProseMirror h4 { font-size: 14px; }
+.ProseMirror h5 { font-size: 13px; }
 
 .ProseMirror p { margin: 0 0 0.85em; }
 

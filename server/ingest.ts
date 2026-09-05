@@ -10,6 +10,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify as stringifyYaml } from 'yaml'
 import { RepoError } from './repo.ts'
+import { stringifyTheme, themeFromHouseStyle } from './theme.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const CATALOG_DIR = path.join(ROOT, 'fixtures', 'ingest', 'catalogs')
@@ -52,6 +53,7 @@ export type IngestClassification = {
   sections: IngestSection[]
   lep_slots: string[]
   signals: string[]
+  theme_guess: { scheme: 'decimal' | 'nimbl' }
   source: {
     filename: string
     pages: number | null
@@ -206,6 +208,7 @@ export function classifyFromText(
     sections,
     lep_slots,
     signals,
+    theme_guess: { scheme: house_style === 'nimbl-word' ? 'nimbl' : 'decimal' },
     source,
   }
 }
@@ -219,6 +222,11 @@ export function scaffoldCatalog(id: string, dataRoot: string): ScaffoldResult {
 
   writeFileSync(path.join(manualDir, 'manual.yaml'), dumpManualYaml(catalog))
   files.push(`manuals/${catalog.id}/manual.yaml`)
+  const themePath = path.join(manualDir, 'theme.yaml')
+  if (!existsSync(themePath)) {
+    writeFileSync(themePath, stringifyTheme(themeFromHouseStyle(catalog.house_style)))
+    files.push(`manuals/${catalog.id}/theme.yaml`)
+  }
 
   const prefix = idPrefix(catalog.id)
   const revLabel = `R${catalog.revision.number}`
@@ -251,6 +259,7 @@ export function formatClassification(report: IngestClassification): string {
     `lep_slots ${report.lep_slots.length}  inferred ${report.pagination.lep_inferred}`,
     `regions ${report.pagination.regions.map((r) => r.scheme).join(', ') || '—'}`,
     `signals ${report.signals.join(', ') || '—'}`,
+    `theme ${report.theme_guess.scheme}`,
     '',
     'SECTIONS',
   ]
