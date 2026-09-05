@@ -547,12 +547,19 @@ textarea { min-height: 88px; resize: vertical; }
 .toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding: 8px;
   border-bottom: 1px solid var(--line);
 }
 
+.toolbar-gap {
+  width: 8px;
+  height: 1px;
+}
+
 .toolbar button {
+  position: relative;
   border: 1px solid var(--line);
   background: #1b232e;
   padding: 5px 8px;
@@ -564,6 +571,46 @@ textarea { min-height: 88px; resize: vertical; }
 
 .toolbar button.is-on,
 .toolbar button:hover { border-color: var(--amber); color: var(--amber); }
+
+.toolbar button.mark {
+  min-width: 28px;
+  padding: 4px 8px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.toolbar button.mark-b { font-weight: 700; }
+.toolbar button.mark-i { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
+.toolbar button.mark-u { text-decoration: underline; text-underline-offset: 2px; }
+.toolbar button.mark-sym {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+}
+
+.toolbar button[data-tip]:hover::after,
+.toolbar button[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 4px 7px;
+  border: 1px solid var(--line-strong);
+  background: #0c1016;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  text-decoration: none;
+  white-space: nowrap;
+  pointer-events: none;
+}
 
 .editor-meta {
   display: flex;
@@ -608,6 +655,11 @@ textarea { min-height: 88px; resize: vertical; }
 .ProseMirror h3 { font-size: 15px; }
 
 .ProseMirror p { margin: 0 0 0.85em; }
+
+.ProseMirror u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .ProseMirror ol {
   margin: 0 0 1em;

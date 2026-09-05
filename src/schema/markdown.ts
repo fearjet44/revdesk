@@ -244,22 +244,62 @@ function padRow(cells: string[], width: number): string[] {
   return next
 }
 
+function applyMark(nodes: JSONContent[], type: string): JSONContent[] {
+  return nodes.map((node) => {
+    if (node.type !== 'text') {
+      return { ...node, content: applyMark(node.content ?? [], type) }
+    }
+    const marks = node.marks ?? []
+    if (marks.some((mark) => mark.type === type)) return node
+    return { ...node, marks: [...marks, { type }] }
+  })
+}
+
 function parseInline(text: string): JSONContent[] {
   const nodes: JSONContent[] = []
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*)/g
-  let last = 0
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(text))) {
-    if (match.index > last) nodes.push({ type: 'text', text: text.slice(last, match.index) })
-    const token = match[0]
-    if (token.startsWith('**')) {
-      nodes.push({ type: 'text', text: token.slice(2, -2), marks: [{ type: 'bold' }] })
-    } else {
-      nodes.push({ type: 'text', text: token.slice(1, -1), marks: [{ type: 'italic' }] })
+  let i = 0
+  while (i < text.length) {
+    if (text.startsWith('<u>', i)) {
+      const end = text.indexOf('</u>', i + 3)
+      if (end >= 0) {
+        nodes.push(...applyMark(parseInline(text.slice(i + 3, end)), 'underline'))
+        i = end + 4
+        continue
+      }
     }
-    last = match.index + token.length
+    if (text.startsWith('***', i)) {
+      const end = text.indexOf('***', i + 3)
+      if (end >= 0) {
+        nodes.push(...applyMark(applyMark(parseInline(text.slice(i + 3, end)), 'bold'), 'italic'))
+        i = end + 3
+        continue
+      }
+    }
+    if (text.startsWith('**', i)) {
+      const end = text.indexOf('**', i + 2)
+      if (end >= 0) {
+        nodes.push(...applyMark(parseInline(text.slice(i + 2, end)), 'bold'))
+        i = end + 2
+        continue
+      }
+    }
+    if (text[i] === '*') {
+      const end = text.indexOf('*', i + 1)
+      if (end >= 0) {
+        nodes.push(...applyMark(parseInline(text.slice(i + 1, end)), 'italic'))
+        i = end + 1
+        continue
+      }
+    }
+    let next = text.length
+    const u = text.indexOf('<u>', i)
+    const star = text.indexOf('*', i)
+    if (u >= 0) next = Math.min(next, u)
+    if (star >= 0) next = Math.min(next, star)
+    if (next === i) next = i + 1
+    nodes.push({ type: 'text', text: text.slice(i, next) })
+    i = next
   }
-  if (last < text.length) nodes.push({ type: 'text', text: text.slice(last) })
   return nodes
 }
 
@@ -322,10 +362,12 @@ function serializeInline(node: JSONContent): string {
   if (node.type === 'text') {
     const text = node.text ?? ''
     const marks = new Set((node.marks ?? []).map((mark) => mark.type))
-    if (marks.has('bold') && marks.has('italic')) return `***${text}***`
-    if (marks.has('bold')) return `**${text}**`
-    if (marks.has('italic')) return `*${text}*`
-    return text
+    let out = text
+    if (marks.has('bold') && marks.has('italic')) out = `***${out}***`
+    else if (marks.has('bold')) out = `**${out}**`
+    else if (marks.has('italic')) out = `*${out}*`
+    if (marks.has('underline')) out = `<u>${out}</u>`
+    return out
   }
   return (node.content ?? []).map(serializeInline).join('')
 }

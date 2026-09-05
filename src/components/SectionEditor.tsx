@@ -16,6 +16,39 @@ import { ViewToggle, type SectionView } from './ViewToggle.tsx'
 
 type GutterMark = { line: number; top: number }
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+function chord(letter: string, withAlt = false): string {
+  if (IS_MAC) return withAlt ? `⌘⌥${letter}` : `⌘${letter}`
+  return withAlt ? `Ctrl+Alt+${letter}` : `Ctrl+${letter}`
+}
+
+function ToolBtn({
+  label,
+  tip,
+  className,
+  active,
+  onClick,
+}: {
+  label: string
+  tip: string
+  className?: string
+  active?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`${className ?? ''}${active ? ' is-on' : ''}`.trim()}
+      aria-label={`${label} (${tip})`}
+      data-tip={tip}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  )
+}
+
 function workingLineForComment(comment: ReviewComment, rows: DiffRow[]): number {
   if (comment.side === 'new') return comment.line
   const at = rows.findIndex((row) => row.kind === 'del' && row.old_line === comment.line)
@@ -367,6 +400,40 @@ export function SectionEditor({
       <div className="editor-chrome">
         {readOnly ? null : (
         <div className="toolbar">
+          <ToolBtn
+            label="B"
+            tip={chord('B')}
+            className="mark mark-b"
+            active={editor?.isActive('bold')}
+            onClick={() => editor?.chain().focus().toggleBold().run()}
+          />
+          <ToolBtn
+            label="I"
+            tip={chord('I')}
+            className="mark mark-i"
+            active={editor?.isActive('italic')}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}
+          />
+          <ToolBtn
+            label="U"
+            tip={chord('U')}
+            className="mark mark-u"
+            active={editor?.isActive('underline')}
+            onClick={() => editor?.chain().focus().toggleUnderline().run()}
+          />
+          <ToolBtn
+            label="§"
+            tip={chord('S', true)}
+            className="mark mark-sym"
+            onClick={() => editor?.chain().focus().insertContent('§').run()}
+          />
+          <ToolBtn
+            label="¶"
+            tip={chord('P', true)}
+            className="mark mark-sym"
+            onClick={() => editor?.chain().focus().insertContent('¶').run()}
+          />
+          <span className="toolbar-gap" />
           <button type="button" className={editor?.isActive('heading', { level: 1 }) ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
             H1
           </button>
@@ -378,12 +445,6 @@ export function SectionEditor({
           </button>
           <button type="button" className={editor?.isActive('paragraph') ? 'is-on' : ''} onClick={() => editor?.chain().focus().setParagraph().run()}>
             Para
-          </button>
-          <button type="button" className={editor?.isActive('bold') ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleBold().run()}>
-            Bold
-          </button>
-          <button type="button" className={editor?.isActive('italic') ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleItalic().run()}>
-            Italic
           </button>
           <button type="button" className={editor?.isActive('orderedList') ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
             Steps

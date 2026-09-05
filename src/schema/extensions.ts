@@ -1,7 +1,19 @@
-import { Node, mergeAttributes } from '@tiptap/core'
+import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
+import Underline from '@tiptap/extension-underline'
 import StarterKit from '@tiptap/starter-kit'
+
+/** § and ¶. B/I/U are the TipTap defaults (Mod-b / Mod-i / Mod-u). */
+export const ManualKeys = Extension.create({
+  name: 'manualKeys',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Alt-s': () => this.editor.commands.insertContent('§'),
+      'Mod-Alt-p': () => this.editor.commands.insertContent('¶'),
+    }
+  },
+})
 
 const CALLOUTS = ['note', 'caution', 'warning'] as const
 
@@ -42,6 +54,8 @@ export const editorExtensions = [
     strike: false,
     link: false,
   }),
+  Underline,
+  ManualKeys,
   TableKit.configure({
     table: { resizable: false },
   }),
