@@ -14,10 +14,12 @@ import type { DiffRow, Frontmatter, ReviewComment, SectionFile } from '../types.
 import { WRITE_MARKS, writeMarkAfterFirst } from '../../server/marks.ts'
 import {
   DEFAULT_THEME,
-  headingAlreadyNumbered,
   leafNumberFromTitle,
   nextHeadingStamp,
   paperCalloutStyle,
+  replaceHeadingStamp,
+  reshapeHeadingStamp,
+  splitHeadingText,
   stepMarkerCss,
   type DocTheme,
   type HeadingHit,
@@ -317,19 +319,36 @@ export function SectionEditor({
       editor.chain().focus().toggleHeading({ level }).run()
       return
     }
+    const leaf = leafNumberFromTitle(meta?.title ?? '', meta?.id)
+    const $at = editor.state.selection.$from
+    const here = $at.parent.type.name === 'heading' ? $at.parent.textContent : ''
+    const reshaped =
+      $at.parent.type.name === 'heading' && splitHeadingText(here, theme.heading.scheme).stamp
+        ? reshapeHeadingStamp(theme, here, level, leaf)
+        : null
     const before: HeadingHit[] = []
-    const pos = editor.state.selection.$from.pos
-    editor.state.doc.nodesBetween(0, pos, (node) => {
-      if (node.type.name === 'heading') {
-        before.push({ level: Number(node.attrs.level ?? 1), text: node.textContent })
-      }
-    })
-    const stamp = nextHeadingStamp(theme, before, level, leafNumberFromTitle(meta?.title ?? '', meta?.id))
-    editor.chain().focus().toggleHeading({ level }).run()
-    const $from = editor.state.selection.$from
-    if ($from.parent.type.name !== 'heading') return
-    if (headingAlreadyNumbered($from.parent.textContent, theme.heading.scheme)) return
-    editor.chain().insertContentAt($from.start(), `${stamp} `).run()
+    if (!reshaped) {
+      const pos = $at.pos
+      editor.state.doc.nodesBetween(0, pos, (node) => {
+        if (node.type.name === 'heading') {
+          before.push({ level: Number(node.attrs.level ?? 1), text: node.textContent })
+        }
+      })
+    }
+    const stamp = reshaped ?? nextHeadingStamp(theme, before, level, leaf)
+    editor
+      .chain()
+      .focus()
+      .toggleHeading({ level })
+      .command(({ tr }) => {
+        const $now = tr.selection.$from
+        if ($now.parent.type.name !== 'heading') return false
+        const next = replaceHeadingStamp($now.parent.textContent, theme.heading.scheme, stamp)
+        if (next === $now.parent.textContent) return true
+        tr.insertText(next, $now.start(), $now.end())
+        return true
+      })
+      .run()
   }
 
   if (!changeId || !sectionId) return null

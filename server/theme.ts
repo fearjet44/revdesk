@@ -271,6 +271,50 @@ export function headingAlreadyNumbered(text: string, scheme: HeadingScheme): boo
   return parseHeadingParts(text, scheme) != null
 }
 
+/** Leading numeric stamp only (`5.1.0 Title`). Not `Section 5:`. */
+export function splitHeadingText(
+  text: string,
+  scheme: HeadingScheme,
+): { stamp: string | null; title: string } {
+  const trimmed = text.trim()
+  if (!trimmed) return { stamp: null, title: '' }
+  const match = trimmed.match(/^(\d+(?:\.\d+)*)(?:\s+|$)(.*)$/)
+  if (!match) return { stamp: null, title: text }
+  if (parseHeadingParts(match[1], scheme) == null) return { stamp: null, title: text }
+  return { stamp: match[1], title: match[2].trim() }
+}
+
+export function replaceHeadingStamp(text: string, scheme: HeadingScheme, stamp: string): string {
+  const { title } = splitHeadingText(text, scheme)
+  return title ? `${stamp} ${title}` : `${stamp} `
+}
+
+/** Parts in a stamp at this heading level (`5.8.0` H2 → 2, `5.8.1.1` H4 → 4). */
+export function headingStampLength(
+  theme: DocTheme,
+  level: number,
+  leafNumber: string | null,
+): number {
+  const prefix = theme.heading.leaf_prefix && leafNumber ? 1 : 0
+  return prefix + (level - 1)
+}
+
+/** Same heading, different level: keep this number's family. `5.8.1.1` → H3 → `5.8.1`, not the previous H2's next child. */
+export function reshapeHeadingStamp(
+  theme: DocTheme,
+  text: string,
+  level: number,
+  leafNumber: string | null,
+): string | null {
+  const parts = parseHeadingParts(text, theme.heading.scheme)
+  if (!parts?.length) return null
+  const want = headingStampLength(theme, level, leafNumber)
+  if (want < 1) return null
+  const next = parts.slice(0, want)
+  while (next.length < want) next.push('1')
+  return formatHeadingStamp(theme, level, next)
+}
+
 export function nextHeadingStamp(
   theme: DocTheme,
   before: HeadingHit[],

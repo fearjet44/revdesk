@@ -36,7 +36,7 @@ TUI rail/mast fonts stay IBM Plex. Paper only follows this file.
 
 ## Headings
 
-H1–H5 in the editor and in Markdown. H1 is the printed chapter head (not auto-numbered). H2–H5 stamp the next **stable** number into the heading text on insert, then freeze. No live reflow. No sibling rewrite on promote/demote.
+H1–H5 in the editor and in Markdown. H1 is the printed chapter head (not auto-numbered). H2–H5 stamp the next **stable** number into the heading text on insert, then freeze. Changing **this** heading’s level reshapes **this** stamp (`5.8.0` → H3 → `5.8.1` → H4 → `5.8.1.1` → H3 → `5.8.1`). It does not pick the previous H2’s next child. No live reflow. No sibling rewrite.
 
 Leaf number comes from the title (`Section 5`, `Appendix A`) when `leaf_prefix` is on. Front matter with no number starts at `1`.
 
