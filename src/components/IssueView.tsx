@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { formatDate } from '../status.ts'
 import type { IssueRecord } from '../types.ts'
@@ -67,7 +67,9 @@ export function IssueView() {
           {issue.sections.map((section) => (
             <div key={section.id} className="row">
               <span className="mono">{section.id}</span>
-              <span className="title">{section.title}</span>
+              <Link className="section-link" to={`/manuals/${issue.manual}/sections/${section.id}`}>
+                <span className="title">{section.title}</span>
+              </Link>
               <span className="mono">{section.rev_last_changed}</span>
               <span />
             </div>

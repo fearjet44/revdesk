@@ -5,6 +5,7 @@ import type {
   InstrumentRecord,
   IssueRecord,
   LaunchedStatus,
+  IssuedSectionFile,
   ManualDetail,
   ManualRecord,
   ReviewComment,
@@ -32,7 +33,17 @@ export const api = {
   manuals: () => request<ManualRecord[]>('/api/manuals'),
   manual: (id: string) => request<ManualDetail>(`/api/manuals/${id}`),
   issuedSection: (manualId: string, sectionId: string) =>
-    request<SectionFile>(`/api/manuals/${manualId}/sections/${sectionId}`),
+    request<IssuedSectionFile>(`/api/manuals/${manualId}/sections/${sectionId}`),
+  pdfUrl: (
+    manualId: string,
+    opts?: { kind?: 'reference' | 'regulator'; download?: boolean },
+  ) => {
+    const query = new URLSearchParams()
+    if (opts?.kind) query.set('kind', opts.kind)
+    if (opts?.download) query.set('download', '1')
+    const qs = query.toString()
+    return `/api/manuals/${manualId}/pdf${qs ? `?${qs}` : ''}`
+  },
   changes: () => request<ChangeRecord[]>('/api/changes'),
   change: (id: string) => request<ChangeRecord>(`/api/changes/${id}`),
   startChange: (body: {

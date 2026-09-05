@@ -192,6 +192,12 @@ export type SectionFile = {
   body: string
 }
 
+export type IssuedSectionFile = SectionFile & {
+  theme: DocTheme
+  manual: ManualDetail
+  section: SectionSummary
+}
+
 export type ChangePreview = {
   change: ChangeRecord
   manual: ManualRecord

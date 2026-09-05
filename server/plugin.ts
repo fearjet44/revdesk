@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
+import { renderIssuedPdf, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
 
@@ -65,11 +66,21 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'pdf' && parts.length === 3) {
+    const kind: PdfKind = url.searchParams.get('kind') === 'regulator' ? 'regulator' : 'reference'
+    const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
+    const pdf = await renderIssuedPdf(repo.issuedBook(parts[1]), { kind, downloadedAt: new Date() })
+    sendPdf(res, pdf.bytes, pdf.filename, download)
+    return
+  }
+
+  if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'theme' && parts.length === 3) {
+    sendJson(res, 200, repo.readTheme(parts[1]))
+    return
+  }
+
   if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'sections' && parts[3]) {
-    const manual = repo.getManual(parts[1])
-    const section = manual.sections.find((item) => item.id === parts[3])
-    if (!section) throw new RepoError(3, `Section ${parts[3]} not found.`)
-    sendJson(res, 200, repo.readSection(section.path))
+    sendJson(res, 200, repo.issuedSection(parts[1], parts[3]))
     return
   }
 
@@ -281,6 +292,16 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Cache-Control', 'no-store')
   res.end(payload)
+}
+
+function sendPdf(res: ServerResponse, bytes: Buffer, filename: string, download: boolean): void {
+  const disposition = download ? 'attachment' : 'inline'
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`)
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Content-Length', String(bytes.length))
+  res.end(bytes)
 }
 
 async function readJson<T>(req: IncomingMessage): Promise<T> {

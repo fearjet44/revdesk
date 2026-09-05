@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import type { ManualDetail } from '../types.ts'
-import { StartChangeDialog } from './StartChangeDialog.tsx'
 import { formatDate } from '../status.ts'
 
 export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
   const { manualId } = useParams()
   const navigate = useNavigate()
   const [manual, setManual] = useState<ManualDetail | null>(null)
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -60,14 +58,14 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           <p className="lede">
             Current {manual.current_issued ?? '(never launched)'}, next full {manual.next_revision}
             {manual.effective ? `, effective ${formatDate(manual.effective)}` : ''}. Owner:{' '}
-            {manual.owner}. Open a page to dirty a working copy. Review names it a TR or a full
-            revision.
+            {manual.owner}. Click a section for the print-only issued page. Open dirties one working
+            copy. PDF is reference only.
           </p>
         </div>
         <div className="actions">
-          <button className="btn" type="button" onClick={() => setOpen(true)}>
-            Open several pages
-          </button>
+          <Link className="btn primary" to={`/manuals/${manual.id}/pdf`} target="_blank" rel="noreferrer">
+            PDF
+          </Link>
         </div>
       </div>
 
@@ -82,10 +80,10 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           {manual.sections.map((section) => (
             <div key={section.id} className="row">
               <span className="mono">{section.id}</span>
-              <span>
+              <Link className="section-link" to={`/manuals/${manual.id}/sections/${section.id}`}>
                 <div className="title">{section.title}</div>
                 <div className="meta">{section.path}</div>
-              </span>
+              </Link>
               <span className="mono">{section.rev_last_changed}</span>
               {section.open_change ? (
                 <Link className="btn ghost" to={`/changes/${section.open_change}`}>
@@ -105,17 +103,6 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           ))}
         </div>
       </section>
-
-      {open ? (
-        <StartChangeDialog
-          manual={manual}
-          onClose={() => setOpen(false)}
-          onCreated={async (id) => {
-            await onChanged()
-            navigate(`/changes/${id}`)
-          }}
-        />
-      ) : null}
     </>
   )
 }

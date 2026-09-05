@@ -3,13 +3,24 @@ import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-route
 import { api } from './api.ts'
 import { ChangeView } from './components/ChangeView.tsx'
 import { DeskHome } from './components/DeskHome.tsx'
+import { IssuedSection } from './components/IssuedSection.tsx'
 import { IssueView } from './components/IssueView.tsx'
+import { ManualPdfView } from './components/ManualPdfView.tsx'
 import { ManualView } from './components/ManualView.tsx'
 import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
 import type { DeskPayload } from './types.ts'
 
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/manuals/:manualId/pdf" element={<ManualPdfView />} />
+      <Route path="*" element={<DeskApp />} />
+    </Routes>
+  )
+}
+
+function DeskApp() {
   const location = useLocation()
   const [desk, setDesk] = useState<DeskPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -81,6 +92,7 @@ export default function App() {
         {error ? <div className="banner error">{error}</div> : null}
         <Routes>
           <Route path="/" element={<DeskHome desk={desk} />} />
+          <Route path="/manuals/:manualId/sections/:sectionId" element={<IssuedSection onChanged={refresh} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
           <Route path="/changes/:changeId" element={<ChangeView onChanged={refresh} />} />
           <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />

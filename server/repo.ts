@@ -208,6 +208,26 @@ export class Repo {
     return section
   }
 
+  issuedBook(id: string): { manual: ManualDetail; theme: DocTheme; files: SectionFile[] } {
+    const manual = this.getManual(id)
+    return {
+      manual,
+      theme: this.readTheme(id),
+      files: manual.sections.map((section) => this.readSection(section.path)),
+    }
+  }
+
+  issuedSection(manualId: string, sectionId: string) {
+    const manual = this.getManual(manualId)
+    const section = this.findSection(manualId, sectionId)
+    return {
+      ...this.readSection(section.path),
+      theme: this.readTheme(manualId),
+      manual,
+      section,
+    }
+  }
+
   readSection(relPath: string): SectionFile {
     const abs = this.abs(relPath)
     if (!existsSync(abs)) throw new RepoError(3, `Section ${relPath} not found.`)
