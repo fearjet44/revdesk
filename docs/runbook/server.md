@@ -4,28 +4,31 @@ The Revdesk “server” is the Vite dev process. It serves the React desk and m
 
 ## Start
 
-From the repo root:
+On this box the desk is a systemd user unit. Do not also `npm run dev` in a terminal — that fights the unit for the port.
 
 ```sh
-npm install
-npm run dev
+systemctl --user start revdesk
+systemctl --user restart revdesk
+systemctl --user stop revdesk
+systemctl --user status revdesk
+journalctl --user -u revdesk -f
 ```
 
-That runs `vite`. Open **http://127.0.0.1:5173**.
+That runs `vite`. Open **http://127.0.0.1:5173**. Restart the unit after a debug change that needs a full Vite process (not just HMR).
 
 Vite **binds loopback only** (`127.0.0.1:5173`, `strictPort: true`). Do not pass `--host` or bind the Tailscale IP. Remote access is Tailscale Serve in front of loopback:
 
 ```sh
-sudo tailscale serve --bg --https=5173 http://127.0.0.1:5173
+tailscale serve --bg --https=5173 http://127.0.0.1:5173
 ```
 
-Then the desk is also at `https://<magicdns>:5173` on the tailnet. Serve occupies the tailnet `:5173`; Vite still owns localhost. `strictPort` stops Vite from walking 5174/5175 when it sees that.
+Then the desk is also at `https://<magicdns>:5173` on the tailnet. Serve occupies the tailnet `:5173`; Vite still owns localhost. `strictPort` stops Vite from walking 5174 — Ready for Duty owns **:5175**.
 
-If localhost:5173 is dead but Serve is still up, the magicdns URL will 400/fail — restart `npm run dev`, not Serve.
+If localhost:5173 is dead but Serve is still up, the magicdns URL will 400/fail — `systemctl --user restart revdesk`, not Serve.
 
 First-time install needs Node **20.19+** or **22.12+** (Vite 8). The CLI additionally uses `--experimental-strip-types` (Node 22 is the comfortable target).
 
-Stop Vite with `Ctrl-C`. Leave Serve in place unless you mean to drop remote access.
+Leave Serve in place unless you mean to drop remote access. Without systemd, `npm run dev` from the repo root is the fallback — stop the unit first.
 
 ### What this starts
 
@@ -173,8 +176,8 @@ launched ↛ withdrawn
 
 | Symptom | Check |
 |---|---|
-| Page loads, masthead error about the library | Process is not `npm run dev`, or `data/` is missing |
-| Port already in use | Vite will try 5174, … — use the URL it prints |
+| Page loads, masthead error about the library | Process is not the `revdesk` unit / `npm run dev`, or `data/` is missing |
+| Port already in use | Vite **exits**. Stop the other process (usually a leftover `npm run dev`). Do not walk onto 5175 (RFD) |
 | CLI changes do not appear in the UI | CLI used `REVDESK_DATA`; UI always reads `data/` |
 | `npm run preview` 404s `/api/desk` | Expected. Use `npm run dev` |
 | Launch from the UI fails with validation | Same rules as the CLI: instrument, status, TR one-section |

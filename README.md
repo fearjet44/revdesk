@@ -4,10 +4,14 @@ Local editor for controlled manuals. The author desk never mentions Git. The rev
 
 ## Run (UI)
 
+On this box the desk is a systemd user unit (`revdesk.service`). Ready for Duty is `:5175`.
+
 ```sh
-npm install
-npm run dev
+systemctl --user start revdesk
+systemctl --user restart revdesk
 ```
+
+From the repo root without systemd: `npm install && npm run dev`. Stop the unit first so the two do not fight over `:5173`.
 
 ## CLI
 
