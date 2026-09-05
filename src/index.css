@@ -662,11 +662,53 @@ textarea { min-height: 88px; resize: vertical; }
 }
 
 .ProseMirror ol {
+  list-style: none;
   margin: 0 0 1em;
-  padding-left: 1.4em;
+  padding-left: 1.85em;
+  counter-reset: step;
 }
 
-.ProseMirror li { margin: 0.2em 0; }
+.ProseMirror ol ol { margin: 0.15em 0 0.35em; }
+
+.ProseMirror li {
+  position: relative;
+  margin: 0.25em 0;
+  counter-increment: step;
+}
+
+.ProseMirror li > p { margin: 0 0 0.35em; }
+.ProseMirror li > p:last-child { margin-bottom: 0; }
+
+.ProseMirror ol > li::before {
+  content: counter(step) ".";
+  position: absolute;
+  left: -1.85em;
+  width: 1.7em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ProseMirror ol ol > li::before {
+  content: counter(step, lower-alpha) ".";
+}
+
+.ProseMirror ol ol ol > li::before {
+  content: "(" counter(step) ")";
+  left: -2.15em;
+  width: 2em;
+}
+
+.ProseMirror ol ol ol ol > li::before {
+  content: "(" counter(step, lower-alpha) ")";
+  left: -2.15em;
+  width: 2em;
+}
+
+.ProseMirror ol ol ol ol ol > li::before {
+  content: "(" counter(step, lower-roman) ")";
+  left: -2.35em;
+  width: 2.2em;
+}
 
 .ProseMirror table {
   border-collapse: collapse;

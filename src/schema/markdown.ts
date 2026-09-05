@@ -95,7 +95,22 @@ function advanceBlock(lines: string[], i: number): number {
   }
   if (/^(#{1,3})\s+/.test(line)) return i + 1
   if (/^\d+\.\s+/.test(line)) {
-    while (i < lines.length && /^\d+\.\s+/.test(lines[i])) i += 1
+    i += 1
+    while (i < lines.length) {
+      if (!lines[i].trim()) {
+        const next = nextNonBlank(lines, i + 1)
+        if (next < lines.length && (isStepAt(lines[next], 0) || leadingSpaces(lines[next]) > 0)) {
+          i = next
+          continue
+        }
+        break
+      }
+      if (isStepAt(lines[i], 0) || leadingSpaces(lines[i]) > 0) {
+        i += 1
+        continue
+      }
+      break
+    }
     return i
   }
   i += 1
@@ -151,19 +166,10 @@ export function parseBody(markdown: string): JSONContent {
       continue
     }
 
-    const step = line.match(/^(\d+)\.\s+(.*)$/)
-    if (step) {
-      const items: JSONContent[] = []
-      while (i < lines.length) {
-        const item = lines[i].match(/^\d+\.\s+(.*)$/)
-        if (!item) break
-        items.push({
-          type: 'listItem',
-          content: [{ type: 'paragraph', content: parseInline(item[1]) }],
-        })
-        i += 1
-      }
-      blocks.push({ type: 'orderedList', attrs: { start: 1 }, content: items })
+    if (isStepAt(line, 0)) {
+      const parsed = parseOrderedList(lines, i, 0, 1)
+      blocks.push(parsed.node)
+      i = parsed.next
       continue
     }
 
@@ -201,6 +207,117 @@ function isBlockStart(line: string): boolean {
     /^:::(note|caution|warning)\s*$/.test(line) ||
     line.trim() === ':::'
   )
+}
+
+const STEP_INDENT = 3
+const STEP_MAX_DEPTH = 5
+
+function nextNonBlank(lines: string[], i: number): number {
+  while (i < lines.length && !lines[i].trim()) i += 1
+  return i
+}
+
+function leadingSpaces(line: string): number {
+  let n = 0
+  while (n < line.length && line[n] === ' ') n += 1
+  return n
+}
+
+function isStepAt(line: string, indent: number): boolean {
+  return matchStep(line, indent) != null
+}
+
+function matchStep(line: string, indent: number): string | null {
+  if (leadingSpaces(line) !== indent) return null
+  const match = line.slice(indent).match(/^(\d+)\.\s+(.*)$/)
+  return match ? match[2] : null
+}
+
+function stripItemPrefix(line: string, indent: number): string {
+  const need = indent + STEP_INDENT
+  if (line.startsWith(' '.repeat(need))) return line.slice(need)
+  return line.slice(indent).replace(/^\s+/, '')
+}
+
+function parseOrderedList(
+  lines: string[],
+  i: number,
+  indent: number,
+  depth: number,
+): { node: JSONContent; next: number } {
+  const items: JSONContent[] = []
+  while (i < lines.length) {
+    if (!lines[i].trim()) {
+      const next = nextNonBlank(lines, i + 1)
+      if (next < lines.length && (isStepAt(lines[next], indent) || leadingSpaces(lines[next]) > indent)) {
+        i = next
+        continue
+      }
+      break
+    }
+    const text = matchStep(lines[i], indent)
+    if (text == null) break
+    i += 1
+    const content: JSONContent[] = [{ type: 'paragraph', content: parseInline(text) }]
+    const nestedIndent = indent + STEP_INDENT
+    while (i < lines.length) {
+      if (!lines[i].trim()) {
+        const next = nextNonBlank(lines, i + 1)
+        if (next < lines.length && isStepAt(lines[next], indent)) break
+        if (next < lines.length && leadingSpaces(lines[next]) > indent) {
+          i = next
+          continue
+        }
+        break
+      }
+      if (isStepAt(lines[i], indent)) break
+      if (depth < STEP_MAX_DEPTH && isStepAt(lines[i], nestedIndent)) {
+        const nested = parseOrderedList(lines, i, nestedIndent, depth + 1)
+        content.push(nested.node)
+        i = nested.next
+        continue
+      }
+      if (leadingSpaces(lines[i]) > indent) {
+        content.push({ type: 'paragraph', content: parseInline(stripItemPrefix(lines[i], indent)) })
+        i += 1
+        continue
+      }
+      break
+    }
+    items.push({ type: 'listItem', content })
+  }
+  return {
+    node: { type: 'orderedList', attrs: { start: 1 }, content: items },
+    next: i,
+  }
+}
+
+function serializeOrderedList(node: JSONContent, indent: number): string {
+  const pad = ' '.repeat(indent)
+  const hanging = ' '.repeat(indent + STEP_INDENT)
+  return (node.content ?? [])
+    .map((item, index) => {
+      const chunks: string[] = []
+      let marked = false
+      for (const child of item.content ?? []) {
+        if (child.type === 'orderedList') {
+          chunks.push(serializeOrderedList(child, indent + STEP_INDENT))
+          continue
+        }
+        const text = child.type === 'paragraph' ? serializeInline(child) : serializeBlock(child)
+        const lines = text.split('\n')
+        if (!marked) {
+          chunks.push(`${pad}${index + 1}. ${lines[0] ?? ''}`)
+          for (const line of lines.slice(1)) chunks.push(line ? `${hanging}${line}` : '')
+          marked = true
+        } else {
+          for (const line of lines) chunks.push(line ? `${hanging}${line}` : hanging)
+        }
+      }
+      if (!marked) chunks.push(`${pad}${index + 1}. `)
+      return chunks.join('\n')
+    })
+    .join('\n')
 }
 
 function parseTable(lines: string[]): JSONContent | null {
@@ -316,15 +433,7 @@ function serializeBlock(node: JSONContent): string {
     case 'warning':
       return `:::${node.type}\n${(node.content ?? []).map(serializeBlock).join('\n\n')}\n:::`
     case 'orderedList':
-      return (node.content ?? [])
-        .map((item, index) => {
-          const inner = (item.content ?? []).map(serializeBlock).join('\n\n')
-          const [first, ...rest] = inner.split('\n')
-          const head = `${index + 1}. ${first}`
-          const tail = rest.map((line) => (line ? `   ${line}` : '')).join('\n')
-          return tail ? `${head}\n${tail}` : head
-        })
-        .join('\n')
+      return serializeOrderedList(node, 0)
     case 'bulletList':
       return (node.content ?? [])
         .map((item) => `- ${serializeInline(item.content?.[0] ?? item)}`)

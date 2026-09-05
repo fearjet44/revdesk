@@ -45,6 +45,19 @@ const samples: Array<[string, string]> = [
   ['underline', 'See <u>defined term</u> here.\n'],
   ['underline bold', 'See <u>**PIC**</u> here.\n'],
   ['section pilcrow', 'Per § 91.3 the PIC (¶ 2) decides.\n'],
+  [
+    'nested steps',
+    [
+      '1. Taxi',
+      '   Continue on the same step.',
+      '   1. Hold short',
+      '      1. Contact ground',
+      '         1. Read back',
+      '            1. Switch tower',
+      '2. Takeoff',
+      '',
+    ].join('\n'),
+  ],
 ]
 for (const [label, body] of samples) {
   const raw = withFrontmatter({ id: 'x', title: 't', rev_last_changed: 'R1' }, body)

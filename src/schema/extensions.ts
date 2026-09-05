@@ -1,16 +1,40 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
-import Underline from '@tiptap/extension-underline'
 import StarterKit from '@tiptap/starter-kit'
 
-/** § and ¶. B/I/U are the TipTap defaults (Mod-b / Mod-i / Mod-u). */
+const STEP_MAX_DEPTH = 5
+
+function orderedListDepth(editor: { state: { selection: { $from: { depth: number; node: (d: number) => { type: { name: string } } } } } }): number {
+  const { $from } = editor.state.selection
+  let depth = 0
+  for (let d = $from.depth; d > 0; d -= 1) {
+    if ($from.node(d).type.name === 'orderedList') depth += 1
+  }
+  return depth
+}
+
+/** § ¶, nested steps, and Shift-Enter continuation paras. B/I/U are TipTap defaults. */
 export const ManualKeys = Extension.create({
   name: 'manualKeys',
+  priority: 1000,
   addKeyboardShortcuts() {
     return {
       'Mod-Alt-s': () => this.editor.commands.insertContent('§'),
       'Mod-Alt-p': () => this.editor.commands.insertContent('¶'),
+      Tab: () => {
+        if (!this.editor.isActive('listItem')) return false
+        if (orderedListDepth(this.editor) >= STEP_MAX_DEPTH) return true
+        return this.editor.commands.sinkListItem('listItem') || true
+      },
+      'Shift-Tab': () => {
+        if (!this.editor.isActive('listItem')) return false
+        return this.editor.commands.liftListItem('listItem') || true
+      },
+      'Shift-Enter': () => {
+        if (!this.editor.isActive('listItem')) return false
+        return this.editor.commands.splitBlock()
+      },
     }
   },
 })
@@ -53,8 +77,8 @@ export const editorExtensions = [
     horizontalRule: false,
     strike: false,
     link: false,
+    hardBreak: false,
   }),
-  Underline,
   ManualKeys,
   TableKit.configure({
     table: { resizable: false },

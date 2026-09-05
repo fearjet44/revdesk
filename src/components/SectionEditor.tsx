@@ -446,9 +446,12 @@ export function SectionEditor({
           <button type="button" className={editor?.isActive('paragraph') ? 'is-on' : ''} onClick={() => editor?.chain().focus().setParagraph().run()}>
             Para
           </button>
-          <button type="button" className={editor?.isActive('orderedList') ? 'is-on' : ''} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
-            Steps
-          </button>
+          <ToolBtn
+            label="Steps"
+            tip={IS_MAC ? '⇥ nest · ⇧⇥ out · ⇧↩ para' : 'Tab nest · Shift+Tab out · Shift+Enter para'}
+            active={editor?.isActive('orderedList')}
+            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+          />
           <button type="button" onClick={() => insertCallout('note')}>Note</button>
           <button type="button" onClick={() => insertCallout('caution')}>Caution</button>
           <button type="button" onClick={() => insertCallout('warning')}>Warning</button>
