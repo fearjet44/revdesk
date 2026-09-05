@@ -44,6 +44,7 @@ for (const [id, file] of cases) {
     revision: { number: number }
     pagination: { regions: Array<{ scheme: string }> }
     sections: Array<{ kind: string; title: string }>
+    theme_guess: { scheme: string; font: { body: string; heading: string } }
   }
   const check = (label: string, ok: boolean) => {
     if (ok) console.log(`OK  corpus ${id} ${label}`)
@@ -69,6 +70,7 @@ for (const [id, file] of cases) {
   const apps = (got.sections ?? []).filter((row) => row.kind === 'appendix').length
   check(`section_count>=${expected.section_count_min}`, body >= expected.section_count_min)
   check(`appendix_count>=${expected.appendix_count_min}`, apps >= expected.appendix_count_min)
+  check('theme font Verdana', got.theme_guess?.font?.body === 'Verdana')
 }
 
 process.exit(fail ? 1 : 0)

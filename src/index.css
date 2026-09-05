@@ -501,12 +501,13 @@ textarea { min-height: 88px; resize: vertical; }
   position: relative;
   background:
     linear-gradient(90deg, transparent 47px, #e3b8b4 47px, #e3b8b4 48px, transparent 48px),
-    repeating-linear-gradient(180deg, var(--paper) 0 31px, #efe8d7 31px 32px);
+    repeating-linear-gradient(180deg, var(--paper) 0 31px, var(--paper-stripe, #efe8d7) 31px 32px);
   color: var(--paper-ink);
-  border: 1px solid #b9b19e;
+  border: 1px solid var(--paper-edge, #b9b19e);
   min-height: 640px;
   padding: 28px 36px 48px 64px;
   box-shadow: var(--shadow);
+  font-family: var(--paper-body, var(--font-ui));
 }
 
 .print-gutter-ln {
@@ -628,7 +629,7 @@ textarea { min-height: 88px; resize: vertical; }
   border: 0;
   border-bottom: 1px solid var(--paper-rule);
   color: var(--paper-ink);
-  font-family: var(--font-display);
+  font-family: var(--paper-heading, var(--font-display));
   font-size: 22px;
   padding: 0 0 8px;
   margin-bottom: 18px;
@@ -638,6 +639,7 @@ textarea { min-height: 88px; resize: vertical; }
   outline: none;
   min-height: 520px;
   color: var(--paper-ink);
+  font-family: var(--paper-body, var(--font-ui));
   font-size: 15.5px;
   line-height: 1.55;
 }
@@ -647,7 +649,7 @@ textarea { min-height: 88px; resize: vertical; }
 .ProseMirror h3,
 .ProseMirror h4,
 .ProseMirror h5 {
-  font-family: var(--font-display);
+  font-family: var(--paper-heading, var(--font-display));
   letter-spacing: 0.02em;
   margin: 1.2em 0 0.45em;
 }

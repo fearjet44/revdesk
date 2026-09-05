@@ -12,6 +12,12 @@ steps:
     - (1)
     - (a)
     - (i)
+font:
+  body: Verdana
+  heading: Verdana
+color:
+  paper: "#ffffff"
+  ink: "#1c1a14"
 callouts:
   note:
     ink: "#3d7ea6"

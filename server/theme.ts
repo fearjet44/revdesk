@@ -14,6 +14,14 @@ export type DocTheme = {
     levels: number
     markers: string[]
   }
+  font: {
+    body: string
+    heading: string
+  }
+  color: {
+    paper: string
+    ink: string
+  }
   callouts: {
     note: { ink: string }
     caution: { ink: string }
@@ -34,6 +42,8 @@ export const DEFAULT_THEME: DocTheme = {
     leaf_prefix: true,
   },
   steps: { levels: 5, markers: [...DEFAULT_MARKERS] },
+  font: { body: 'IBM Plex Sans', heading: 'IBM Plex Sans Condensed' },
+  color: { paper: '#f3eee2', ink: '#1c1a14' },
   callouts: {
     note: { ink: '#3d7ea6' },
     caution: { ink: '#d4891a' },
@@ -41,31 +51,84 @@ export const DEFAULT_THEME: DocTheme = {
   },
 }
 
+/** Nimbl Word/PDFMaker books in the corpus are Verdana on white, not Times. */
+const NIMBL_FONT = { body: 'Verdana', heading: 'Verdana' }
+const PRINT_COLOR = { paper: '#ffffff', ink: '#1c1a14' }
+
+const SKIP_FONTS = /^(symbol|zapfdingbats|wingdings|webdings|marlett|mt-extra|barcode|ocr)/i
+
+const FAMILY_ALIASES: Record<string, string> = {
+  timesnewromanpsmt: 'Times New Roman',
+  timesnewroman: 'Times New Roman',
+  times: 'Times New Roman',
+  arialmt: 'Arial',
+  arial: 'Arial',
+  verdana: 'Verdana',
+  calibri: 'Calibri',
+  cambria: 'Cambria',
+  georgia: 'Georgia',
+  tahoma: 'Tahoma',
+  trebuchetms: 'Trebuchet MS',
+  helvetica: 'Helvetica',
+  helveticaneue: 'Helvetica',
+  palatino: 'Palatino',
+  palatinolinotype: 'Palatino',
+  garamond: 'Garamond',
+  couriernew: 'Courier New',
+  courier: 'Courier New',
+  ibmplexsans: 'IBM Plex Sans',
+  ibmplexsanscondensed: 'IBM Plex Sans Condensed',
+}
+
+const OPEN_FALLBACKS: Record<string, string[]> = {
+  'Times New Roman': ['Liberation Serif', 'Tinos', 'Times'],
+  Arial: ['Liberation Sans', 'Arimo', 'Helvetica'],
+  Verdana: ['DejaVu Sans', 'Liberation Sans'],
+  Calibri: ['Carlito', 'Liberation Sans'],
+  Cambria: ['Caladea', 'Liberation Serif'],
+  Georgia: ['Liberation Serif', 'Nimbus Roman'],
+  Tahoma: ['DejaVu Sans', 'Liberation Sans'],
+  'Trebuchet MS': ['Liberation Sans', 'DejaVu Sans'],
+  Helvetica: ['Nimbus Sans', 'Liberation Sans', 'Arial'],
+  Palatino: ['TeX Gyre Pagella', 'Liberation Serif'],
+  Garamond: ['EB Garamond', 'Liberation Serif'],
+  'IBM Plex Sans': ['Segoe UI'],
+  'IBM Plex Sans Condensed': ['IBM Plex Sans', 'Segoe UI'],
+}
+
+const SERIF = new Set([
+  'Times New Roman',
+  'Georgia',
+  'Cambria',
+  'Palatino',
+  'Garamond',
+  'Liberation Serif',
+])
+
+const HEADING_SANS = new Set(['Arial', 'Calibri', 'Helvetica', 'Tahoma', 'Trebuchet MS'])
+
 export function themeFromHouseStyle(style: string): DocTheme {
+  const theme = structuredClone(DEFAULT_THEME)
   if (style === 'nimbl-word') {
-    return {
-      ...DEFAULT_THEME,
-      heading: { ...DEFAULT_THEME.heading, scheme: 'nimbl' },
-      steps: { ...DEFAULT_THEME.steps, markers: [...DEFAULT_THEME.steps.markers] },
-      callouts: {
-        note: { ...DEFAULT_THEME.callouts.note },
-        caution: { ...DEFAULT_THEME.callouts.caution },
-        warning: { ...DEFAULT_THEME.callouts.warning },
-      },
-    }
+    theme.heading.scheme = 'nimbl'
+    theme.font = { ...NIMBL_FONT }
+    theme.color = { ...PRINT_COLOR }
   }
-  return structuredClone(DEFAULT_THEME)
+  return theme
 }
 
 export function parseTheme(raw: string): DocTheme {
   const data = (parseYaml(raw) ?? {}) as Record<string, unknown>
   const heading = asMap(data.heading)
   const steps = asMap(data.steps)
+  const font = asMap(data.font)
+  const color = asMap(data.color)
   const callouts = asMap(data.callouts)
   const markers = Array.isArray(steps.markers)
     ? steps.markers.map((item) => String(item)).filter(Boolean)
     : DEFAULT_THEME.steps.markers
   const scheme = heading.scheme === 'nimbl' ? 'nimbl' : 'decimal'
+  const body = fontName(font.body, DEFAULT_THEME.font.body)
   return {
     heading: {
       levels: clampInt(heading.levels, 1, 5, 5),
@@ -77,6 +140,14 @@ export function parseTheme(raw: string): DocTheme {
     steps: {
       levels: clampInt(steps.levels, 1, 5, 5),
       markers: markers.length ? markers.slice(0, 5) : [...DEFAULT_MARKERS],
+    },
+    font: {
+      body,
+      heading: fontName(font.heading, body),
+    },
+    color: {
+      paper: inkOf(color.paper, DEFAULT_THEME.color.paper),
+      ink: inkOf(color.ink, DEFAULT_THEME.color.ink),
     },
     callouts: {
       note: { ink: inkOf(asMap(callouts.note).ink, DEFAULT_THEME.callouts.note.ink) },
@@ -91,10 +162,81 @@ export function stringifyTheme(theme: DocTheme): string {
     {
       heading: theme.heading,
       steps: theme.steps,
+      font: theme.font,
+      color: theme.color,
       callouts: theme.callouts,
     },
     { lineWidth: 88 },
   )
+}
+
+export function parsePdfFontNames(raw: string): string[] {
+  const names: string[] = []
+  let started = false
+  for (const line of raw.split('\n')) {
+    if (/^-{10,}/.test(line)) {
+      started = true
+      continue
+    }
+    if (!started) continue
+    const name = line.trim().split(/\s+/)[0]
+    if (name) names.push(name)
+  }
+  return names
+}
+
+export function canonicalFontName(raw: string): string | null {
+  let name = raw.trim().replace(/^[A-Z]{6}\+/, '')
+  if (!name || SKIP_FONTS.test(name)) return null
+  let key = name.replace(/[-_]/g, '')
+  const style = /(bolditalic|boldoblique|italic|oblique|bold|regular|medium|light|black|condensed)$/i
+  const cut = /(psmt|ps|mt)$/i
+  for (let i = 0; i < 4; i += 1) {
+    const next = key.replace(style, '').replace(cut, '')
+    if (next === key) break
+    key = next
+  }
+  key = key.toLowerCase()
+  if (!key || SKIP_FONTS.test(key)) return null
+  if (FAMILY_ALIASES[key]) return FAMILY_ALIASES[key]
+  const spaced = name
+    .replace(/[-_](BoldItalic|BoldOblique|Italic|Oblique|Bold|Regular|Medium|Light|Black|Condensed)$/i, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return spaced || null
+}
+
+export function guessPaperFonts(pdfNames: string[]): { body: string; heading: string } {
+  const votes = new Map<string, number>()
+  for (const raw of pdfNames) {
+    const family = canonicalFontName(raw)
+    if (!family || family === 'Courier New') continue
+    votes.set(family, (votes.get(family) ?? 0) + 1)
+  }
+  const ranked = [...votes.entries()].sort((a, b) => b[1] - a[1])
+  if (!ranked.length) return { ...DEFAULT_THEME.font }
+  const body = ranked[0][0]
+  if (SERIF.has(body)) {
+    const sans = ranked.find(([name]) => HEADING_SANS.has(name))
+    if (sans) return { body, heading: sans[0] }
+  }
+  return { body, heading: body }
+}
+
+export function fontStack(name: string): string {
+  const extras = OPEN_FALLBACKS[name] ?? []
+  const generic = SERIF.has(name) ? 'serif' : 'sans-serif'
+  const seen = new Set<string>()
+  const parts: string[] = []
+  for (const face of [name, ...extras]) {
+    if (seen.has(face)) continue
+    seen.add(face)
+    parts.push(cssQuote(face))
+  }
+  parts.push(generic)
+  return parts.join(', ')
 }
 
 export function leafNumberFromTitle(title: string, id?: string): string | null {
@@ -165,6 +307,13 @@ export function paperCalloutStyle(theme: DocTheme): Record<string, string> {
     '--note': theme.callouts.note.ink,
     '--caution': theme.callouts.caution.ink,
     '--alert': theme.callouts.warning.ink,
+    '--paper': theme.color.paper,
+    '--paper-ink': theme.color.ink,
+    '--paper-rule': ruleFor(theme.color.paper),
+    '--paper-stripe': stripeFor(theme.color.paper),
+    '--paper-edge': edgeFor(theme.color.paper),
+    '--paper-body': fontStack(theme.font.body),
+    '--paper-heading': fontStack(theme.font.heading),
   }
 }
 
@@ -207,6 +356,48 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 function inkOf(value: unknown, fallback: string): string {
   const text = String(value ?? '').trim()
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(text) ? text : fallback
+}
+
+function fontName(value: unknown, fallback: string): string {
+  const text = String(value ?? '').replace(/[\n\r]/g, ' ').trim()
+  if (!text || text.length > 80) return fallback
+  return text
+}
+
+function cssQuote(name: string): string {
+  if (/^[a-zA-Z][-a-zA-Z0-9]*$/.test(name)) return name
+  return `"${name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
+
+function stripeFor(paper: string): string {
+  if (paper.toLowerCase() === DEFAULT_THEME.color.paper) return '#efe8d7'
+  return mixHex(paper, '#000000', 0.08)
+}
+
+function ruleFor(paper: string): string {
+  if (paper.toLowerCase() === DEFAULT_THEME.color.paper) return '#d7d0bf'
+  return mixHex(paper, '#000000', 0.14)
+}
+
+function edgeFor(paper: string): string {
+  if (paper.toLowerCase() === DEFAULT_THEME.color.paper) return '#b9b19e'
+  return mixHex(paper, '#000000', 0.22)
+}
+
+function mixHex(a: string, b: string, t: number): string {
+  const pa = hexRgb(a)
+  const pb = hexRgb(b)
+  if (!pa || !pb) return a
+  const ch = (i: number) => Math.round(pa[i] + (pb[i] - pa[i]) * t)
+  return `#${[ch(0), ch(1), ch(2)].map((n) => n.toString(16).padStart(2, '0')).join('')}`
+}
+
+function hexRgb(hex: string): [number, number, number] | null {
+  const text = hex.replace('#', '')
+  const full = text.length === 3 ? text.split('').map((c) => c + c).join('') : text
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return null
+  const n = Number.parseInt(full, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
 function startsWith(parts: string[], prefix: string[]): boolean {

@@ -24,7 +24,7 @@ The desk people sit at. Git never appears.
 
 **Done enough when:** an author opens a packet, edits one or many sections, submits; a reviewer attaches or composes the right letter and launches; `revdesk launched` tells the truth.
 
-**Where we are:** Slices 0–2, 4, write marks, nested steps, and document theme are on main. Kind is named at review (`deferred-kind-and-wip.md`). Theme is `manuals/<id>/theme.yaml` (stable H1–H5, not LEP). The reviewer still pastes a server-local path to attach an instrument.
+**Where we are:** Slices 0–2, 4, write marks, nested steps, and document theme are on main. Kind is named at review (`deferred-kind-and-wip.md`). Theme is `manuals/<id>/theme.yaml` (stable H1–H5, paper font + color, not LEP). The reviewer still pastes a server-local path to attach an instrument.
 
 **Still inside this pillar:**
 
@@ -68,6 +68,7 @@ How a living GOM / FOTM / MEL becomes Revdesk sections instead of a toy fixture.
 
 ## Later (not a fourth pillar yet)
 
+- Admin: if a guessed paper font is not installed, suggest an open alternative (`document-theme.md`)
 - Stationery: render composed memo / request on company letterhead (`correspondence.md`)
 - Digital forms + sign, AC 120-78B-shaped, optional webhook-out (`forms.md`)
 - Required-read / read receipts (VOCUS-shaped)

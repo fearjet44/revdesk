@@ -120,7 +120,9 @@ test -f "$WORK/control/issues/TP-R9.yaml"
 pass=$((pass + 6))
 echo "OK  scaffold wrote manuals + baseline issues + themes"
 contains "$(cat "$WORK/manuals/gom-lep/theme.yaml")" "scheme: nimbl" "GOM nimbl theme"
+contains "$(cat "$WORK/manuals/gom-lep/theme.yaml")" "body: Verdana" "GOM Verdana body"
 contains "$(cat "$WORK/manuals/tp/theme.yaml")" "scheme: nimbl" "TP nimbl theme"
+contains "$(cat "$WORK/manuals/tp/theme.yaml")" "paper: \"#ffffff\"" "TP white paper"
 
 echo "=== 3b scaffold does not clobber theme ==="
 printf 'heading:\n  scheme: decimal\n' > "$WORK/manuals/gom-lep/theme.yaml"

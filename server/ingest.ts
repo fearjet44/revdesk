@@ -10,7 +10,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify as stringifyYaml } from 'yaml'
 import { RepoError } from './repo.ts'
-import { stringifyTheme, themeFromHouseStyle } from './theme.ts'
+import {
+  guessPaperFonts,
+  parsePdfFontNames,
+  stringifyTheme,
+  themeFromHouseStyle,
+} from './theme.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const CATALOG_DIR = path.join(ROOT, 'fixtures', 'ingest', 'catalogs')
@@ -53,7 +58,11 @@ export type IngestClassification = {
   sections: IngestSection[]
   lep_slots: string[]
   signals: string[]
-  theme_guess: { scheme: 'decimal' | 'nimbl' }
+  theme_guess: {
+    scheme: 'decimal' | 'nimbl'
+    font: { body: string; heading: string }
+    color: { paper: string; ink: string }
+  }
   source: {
     filename: string
     pages: number | null
@@ -148,17 +157,22 @@ export function classifyPdf(file: string): IngestClassification {
   if (!existsSync(abs)) throw new RepoError(3, `Source ${file} not found.`)
   const text = pdfToText(abs)
   const info = pdfInfo(abs)
-  return classifyFromText(text, {
-    filename: path.basename(abs),
-    pages: info.pages,
-    creator: info.creator,
-    producer: info.producer,
-  })
+  return classifyFromText(
+    text,
+    {
+      filename: path.basename(abs),
+      pages: info.pages,
+      creator: info.creator,
+      producer: info.producer,
+    },
+    pdfFonts(abs),
+  )
 }
 
 export function classifyFromText(
   text: string,
   source: IngestClassification['source'],
+  pdfNames: string[] = [],
 ): IngestClassification {
   const signals: string[] = []
   const hasLep = hasHeading(text, 'List of Effective Pages')
@@ -178,6 +192,7 @@ export function classifyFromText(
   if (hasSectionOne) signals.push('section-n-titles')
   if (hasRevFooter) signals.push('revision-date-footer')
   if (pdfMaker) signals.push('word-pdfmaker')
+  if (pdfNames.length) signals.push('fonts-from-pdf')
 
   let control_surface: ControlSurface = 'rev-only'
   if (hasLep) control_surface = 'lep'
@@ -208,8 +223,21 @@ export function classifyFromText(
     sections,
     lep_slots,
     signals,
-    theme_guess: { scheme: house_style === 'nimbl-word' ? 'nimbl' : 'decimal' },
+    theme_guess: guessTheme(house_style, pdfNames),
     source,
+  }
+}
+
+function guessTheme(
+  house_style: HouseStyle,
+  pdfNames: string[],
+): IngestClassification['theme_guess'] {
+  const base = themeFromHouseStyle(house_style)
+  const fromPdf = pdfNames.length > 0
+  return {
+    scheme: base.heading.scheme,
+    font: fromPdf ? guessPaperFonts(pdfNames) : { ...base.font },
+    color: fromPdf || house_style === 'nimbl-word' ? { paper: '#ffffff', ink: '#1c1a14' } : { ...base.color },
   }
 }
 
@@ -259,7 +287,7 @@ export function formatClassification(report: IngestClassification): string {
     `lep_slots ${report.lep_slots.length}  inferred ${report.pagination.lep_inferred}`,
     `regions ${report.pagination.regions.map((r) => r.scheme).join(', ') || '—'}`,
     `signals ${report.signals.join(', ') || '—'}`,
-    `theme ${report.theme_guess.scheme}`,
+    `theme ${report.theme_guess.scheme}  ${report.theme_guess.font.body} / ${report.theme_guess.font.heading}  ${report.theme_guess.color.paper}`,
     '',
     'SECTIONS',
   ]
@@ -474,6 +502,18 @@ function pdfToText(file: string): string {
     const msg = err instanceof Error ? err.message : String(err)
     if (msg.includes('ENOENT')) throw new RepoError(5, 'pdftotext is required for ingest classify.')
     throw new RepoError(5, `pdftotext failed: ${msg}`)
+  }
+}
+
+function pdfFonts(file: string): string[] {
+  try {
+    const raw = execFileSync('pdffonts', [file], {
+      encoding: 'utf8',
+      maxBuffer: 2 * 1024 * 1024,
+    })
+    return parsePdfFontNames(raw)
+  } catch {
+    return []
   }
 }
 
