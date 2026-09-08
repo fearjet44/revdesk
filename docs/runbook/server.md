@@ -12,9 +12,36 @@ systemctl --user restart revdesk
 systemctl --user stop revdesk
 systemctl --user status revdesk
 journalctl --user -u revdesk -f
+./bin/revdesk desk status
+./bin/revdesk desk deploy --pr 2
+./bin/revdesk desk origin
 ```
 
 That runs `vite`. Open **http://127.0.0.1:5173**. Restart the unit after a debug change that needs a full Vite process (not just HMR).
+
+### Deploy a PR from a worktree
+
+`origin/main` is the source of truth. `~/Work/revdesk` is the default live desk (fast-forward only from origin). It is **not** a merge target. Cloud and local agents both land via GitHub PR.
+
+To test a branch without merging it:
+
+```sh
+./bin/revdesk desk deploy --pr 2
+./bin/revdesk desk deploy --branch feat/ingest
+./bin/revdesk desk deploy --tree ~/Work/revdesk/.worktrees/feat-ingest
+```
+
+Worktrees live at `.worktrees/<job>` inside the repo (gitignored), not under `~/Work/.worktrees`. Same layout on Ready for Duty and other desks. `deploy --pr` / `--branch` creates them there.
+
+That writes `~/.config/systemd/user/revdesk.service.d/tree.conf` (`WorkingDirectory=` the worktree), `daemon-reload`, and restarts the unit. One desk, one port, one tree. Do not `npm run dev`.
+
+```sh
+./bin/revdesk desk origin
+```
+
+Deletes the drop-in, `git pull --ff-only` in the primary checkout, and restarts. Refuses if primary is dirty — commit or discard; do not stash as part of deploy.
+
+The library is `<tree>/data`. Switching trees switches the sample library with the code. Do not pin `data/` outside the tree yet. Local smoke CHGs on primary will not appear on a PR worktree.
 
 Vite **binds loopback only** (`127.0.0.1:5173`, `strictPort: true`). Do not pass `--host` or bind the Tailscale IP. Remote access is Tailscale Serve in front of loopback:
 
@@ -182,6 +209,8 @@ launched ↛ withdrawn
 | `npm run preview` 404s `/api/desk` | Expected. Use `npm run dev` |
 | Launch from the UI fails with validation | Same rules as the CLI: instrument, status, TR one-section |
 | Git words in the UI | Bug. Git stays in `server/git.ts` + `revdesk git status` |
+| `revdesk desk origin` exit 2, primary is dirty | Commit or discard. Do not stash as part of deploy |
+| `revdesk desk deploy` — Vite did not answer | `journalctl --user -u revdesk -n 80`. Do not `npm run dev` |
 
 ## Tests that exercise the same code
 
@@ -190,6 +219,7 @@ npm run test:md       # markdown roundtrip
 npm run test:slice2   # launch / TR YAML (temp copy of fixtures/tiny-gom)
 npm run test:slice3   # git adapter (throwaway repo in $TMPDIR)
 npm run test:slice6   # ingest classify + lorem Nimbl sample books
+npm run test:desk     # desk deploy drop-in / worktree (no systemd)
 ```
 
 Those scripts call the CLI, not Vite. They do not require the server to be running.

@@ -9,6 +9,9 @@ From the repo root:
 ```sh
 ./bin/revdesk help
 ./bin/revdesk status
+./bin/revdesk desk status
+./bin/revdesk desk deploy --pr 2
+./bin/revdesk desk origin
 ```
 
 `bin/revdesk` is a bash wrapper:
@@ -62,6 +65,9 @@ Acceptance scripts copy `fixtures/tiny-gom` to a temp dir and set `REVDESK_DATA`
 
 ```text
 revdesk status [--json]
+revdesk desk status
+revdesk desk deploy --pr <n> | --branch <name> | --tree <path>
+revdesk desk origin
 revdesk launched <manual-id>
 revdesk manual list | show <id>
 
@@ -112,6 +118,26 @@ git show change/CHG-2026-003
 ```
 
 `ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`.
+
+## Desk deploy (host)
+
+`revdesk desk` is the systemd unit, not the control library. It always prints JSON. `revdesk status` is still the library.
+
+`origin/main` is the source of truth. `~/Work/revdesk` is the default live desk (fast-forward only from origin), not a merge target. To test a PR without merging it:
+
+```sh
+./bin/revdesk desk deploy --pr 2
+./bin/revdesk desk deploy --branch feat/ingest
+./bin/revdesk desk deploy --tree ~/Work/revdesk/.worktrees/feat-ingest
+```
+
+That writes `~/.config/systemd/user/revdesk.service.d/tree.conf` (`WorkingDirectory=` the worktree) and restarts the unit. Worktrees live at `.worktrees/<job>` inside the repo (gitignored).
+
+```sh
+./bin/revdesk desk origin
+```
+
+Deletes the drop-in, `git pull --ff-only` in the primary checkout, and restarts. Refuses if primary is dirty — commit or discard; do not stash as part of deploy. Prompt: `docs/handoffs/multi-agent-on-local-disk.md`.
 
 ## Launch model
 
@@ -294,6 +320,7 @@ npm run test:md
 npm run test:slice2    # fixtures/tiny-gom copy; launch + TR YAML
 npm run test:slice3    # throwaway git repo in $TMPDIR; does not tag this checkout
 npm run test:slice6    # ingest classify + lorem Nimbl sample books
+npm run test:desk      # desk deploy drop-in / worktree (no systemd)
 ```
 
 Both slice scripts invoke `node --experimental-strip-types cli/revdesk.ts` with `REVDESK_DATA` set to a temp tree.

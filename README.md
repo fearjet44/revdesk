@@ -9,7 +9,12 @@ On this box the desk is a systemd user unit (`revdesk.service`). Ready for Duty 
 ```sh
 systemctl --user start revdesk
 systemctl --user restart revdesk
+./bin/revdesk desk status
+./bin/revdesk desk deploy --pr 2
+./bin/revdesk desk origin
 ```
+
+`origin/main` is the source of truth. The primary checkout is fast-forward only, not a merge target. Test a PR with `revdesk desk deploy` (worktree + systemd drop-in). Details: [docs/runbook/server.md](docs/runbook/server.md).
 
 From the repo root without systemd: `npm install && npm run dev`. Stop the unit first so the two do not fight over `:5173`.
 
