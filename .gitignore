@@ -1,3 +1,6 @@
+# Per-repo agent/deploy worktrees. Same layout on ready-for-duty and other desks.
+.worktrees/
+
 # Logs
 logs
 *.log

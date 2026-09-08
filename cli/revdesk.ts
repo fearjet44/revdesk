@@ -10,6 +10,7 @@ import {
   loadCatalog,
   scaffoldCatalog,
 } from '../server/ingest.ts'
+import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
 import { Repo, RepoError } from '../server/repo.ts'
 import type {
   ChangeRecord,
@@ -30,16 +31,23 @@ const DATA = process.env.REVDESK_DATA
 async function main(argv: string[]): Promise<number> {
   const args = [...argv]
   const json = takeFlag(args, '--json')
+
+  if (args.length === 0 || args[0] === 'help' || args[0] === '--help' || args[0] === '-h') {
+    printHelp()
+    return 0
+  }
+
+  const [cmd, sub, ...rest] = args
+
+  if (cmd === 'desk') {
+    const out = await runDesk(parseDeskArgs(sub, rest))
+    console.log(JSON.stringify(out.json, null, 2))
+    return out.exitCode
+  }
+
   const repo = new Repo(DATA)
 
   try {
-    if (args.length === 0 || args[0] === 'help' || args[0] === '--help' || args[0] === '-h') {
-      printHelp()
-      return 0
-    }
-
-    const [cmd, sub, ...rest] = args
-
     if (cmd === 'status') {
       return emit(json, cmdStatus(repo), formatStatus)
     }
@@ -651,6 +659,7 @@ function printHelp(): void {
 
 Usage:
   revdesk status [--json]
+  revdesk desk status | deploy --pr <n> | deploy --branch <name> | deploy --tree <path> | origin
   revdesk launched <manual-id>
   revdesk manual list | show <id>
 
