@@ -85,6 +85,22 @@ export type InstrumentRecord = {
   reference?: string
 }
 
+export type CorrespondenceKind = 'memo' | 'request'
+
+export type CorrespondenceRecord = {
+  kind: CorrespondenceKind
+  to: string
+  from: string
+  dated: string
+  subject: string
+  authority: string
+  change: string
+  file: string
+  sha256: string
+  /** Hydrated from the stored Markdown on read; not written to change YAML. */
+  body?: string
+}
+
 export type ChangeRecord = {
   id: string
   manual: string
@@ -99,6 +115,7 @@ export type ChangeRecord = {
   target_revision: string | null
   supersedes?: string | null
   instrument?: InstrumentRecord | null
+  correspondence?: CorrespondenceRecord | null
   launch_kind?: 'full' | 'temporary' | null
   launch_id?: string | null
   touched: TouchedSection[]

@@ -89,6 +89,8 @@ revdesk change answer   <CHG> --comment rc-… --status done|stand|later [--reas
 revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
                                 [--reference TEXT]
 revdesk instrument show   <CHG>
+revdesk compose <CHG> --to "..." --from "..." --dated YYYY-MM-DD --subject "..." --authority <who>
+                      --body-file <path> | --body "..." [--as tr|rev]
 
 revdesk section get <section-id> --change <CHG> [--out <path>]
 revdesk section put <section-id> --change <CHG> --file <path> --mark RF|GS|SE|… [--note "…"]
@@ -97,7 +99,7 @@ revdesk preview <CHG>
 revdesk issue <CHG> --effective YYYY-MM-DD
 revdesk issue show <GOM-Rn>
 
-revdesk tr issue <CHG> --parent <GOM-Rn> --authority <who> --file <letter> [--expires YYYY-MM-DD]
+revdesk tr issue <CHG> --parent <GOM-Rn> --authority <who> [--file <letter>] [--expires YYYY-MM-DD]
 revdesk tr list [--manual gom]
 revdesk tr show <GOM-Rn-TRk>
 
@@ -245,6 +247,18 @@ data/letters/chief-pilot-tr.txt   # TR internal letter
 ```
 
 Attach copies live under `control/instruments/`. Do not edit those; edit the sources in `data/letters/`. The desk uploads bytes; CLI still takes `--file`.
+
+Compose writes Markdown plus a YAML envelope (`to`, `from`, `dated`, `subject`, `authority`, `change`). `--as tr` is always a memo (used by `tr issue` if `--file` is omitted). `--as rev` (default) is a memo on `internal` manuals — that file *is* the instrument — and a **request** on `faa-accepted` / `faa-approved` / `third-party`. A composed request does not satisfy `issue`.
+
+```sh
+./bin/revdesk compose CHG-2026-003 \
+  --to "Principal Operations Inspector" \
+  --from "Chief Pilot" \
+  --dated 2026-09-08 \
+  --subject "Request for acceptance" \
+  --authority poi \
+  --body-file /tmp/request.md
+```
 
 `issue` of N+1 marks active TRs on N as `incorporated` (default: all active TRs).
 

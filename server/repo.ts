@@ -38,6 +38,8 @@ import type {
   ChangeRecord,
   ChangeStatus,
   ControlClass,
+  CorrespondenceKind,
+  CorrespondenceRecord,
   CrewFinding,
   DeskPayload,
   Frontmatter,
@@ -340,6 +342,7 @@ export class Repo {
       target_revision: raw.target_revision == null ? null : String(raw.target_revision),
       supersedes: raw.supersedes == null ? null : String(raw.supersedes),
       instrument: (raw.instrument as InstrumentRecord | null | undefined) ?? null,
+      correspondence: this.hydrateCorrespondence(raw.correspondence),
       launch_kind: (raw.launch_kind as ChangeRecord['launch_kind']) ?? null,
       launch_id: raw.launch_id == null ? null : String(raw.launch_id),
       touched,
@@ -360,6 +363,7 @@ export class Repo {
       target_revision: change.target_revision,
       supersedes: change.supersedes ?? null,
       instrument: change.instrument ?? null,
+      correspondence: correspondenceOnDisk(change.correspondence),
       launch_kind: change.launch_kind ?? null,
       launch_id: change.launch_id ?? null,
       touched: change.touched.map(({ id, source, working, action, mark, mark_note }) => ({
@@ -441,6 +445,7 @@ export class Repo {
       target_revision: null,
       supersedes: input.supersedes ?? null,
       instrument: null,
+      correspondence: null,
       launch_kind: null,
       launch_id: null,
       touched,
@@ -703,6 +708,118 @@ export class Repo {
     return change.instrument
   }
 
+  /**
+   * Store a composed letter. Internal full-rev memos *are* the instrument.
+   * Regulator/third-party requests are not — issue still waits for an inbound attach.
+   * TR compose is always a memo and is consumed by `issueTr` if no file is given.
+   */
+  composeLetter(
+    changeId: string,
+    input: {
+      to: string
+      from: string
+      dated: string
+      subject: string
+      authority: string
+      body: string
+      as?: 'tr' | 'rev'
+    },
+  ): ChangeRecord {
+    const change = this.readChange(changeId)
+    if (change.status === 'launched') {
+      throw new RepoError(2, `${changeId} is already launched; cannot compose a letter.`)
+    }
+    if (change.status === 'withdrawn') {
+      throw new RepoError(2, `${changeId} is withdrawn; cannot compose a letter.`)
+    }
+    if (!['approved', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
+      throw new RepoError(2, `${changeId} is ${change.status}; cannot compose a letter.`)
+    }
+
+    const to = input.to.trim()
+    const from = input.from.trim()
+    const subject = input.subject.trim()
+    const authority = input.authority.trim()
+    const dated = input.dated.trim()
+    const body = input.body.replace(/\s+$/, '')
+    if (!to) throw new RepoError(2, 'Compose requires --to.')
+    if (!from) throw new RepoError(2, 'Compose requires --from.')
+    if (!subject) throw new RepoError(2, 'Compose requires --subject.')
+    if (!authority) throw new RepoError(2, 'Compose requires --authority.')
+    if (!body) throw new RepoError(2, 'Compose requires a Markdown body.')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dated)) {
+      throw new RepoError(2, `Letter date must be YYYY-MM-DD (got ${dated}).`)
+    }
+
+    const as = input.as === 'tr' ? 'tr' : 'rev'
+    if (as === 'tr' && !TR_AUTHORITIES.has(authority.toLowerCase())) {
+      throw new RepoError(
+        2,
+        `TR authority must be one of chief-pilot | ae | ceo | do (got ${input.authority}).`,
+      )
+    }
+
+    const manual = this.readManual(change.manual)
+    const kind: CorrespondenceKind =
+      as === 'tr' || manual.control_class === 'internal' ? 'memo' : 'request'
+
+    const source = renderComposedLetter({
+      to,
+      from,
+      dated,
+      subject,
+      authority,
+      change: change.id,
+      kind,
+    }, body)
+    const bytes = Buffer.from(source, 'utf8')
+    if (bytes.length > INSTRUMENT_MAX_BYTES) {
+      throw new RepoError(2, 'Composed letter is too large (max 8 MiB).')
+    }
+    const sha256 = sha256Hex(bytes)
+    const destRel =
+      kind === 'memo' && as === 'rev'
+        ? `control/instruments/${change.id}-memo.md`
+        : `control/correspondence/${change.id}-${kind}.md`
+    mkdirSync(this.abs(path.dirname(destRel)), { recursive: true })
+    writeFileSync(this.abs(destRel), bytes)
+
+    const correspondence: CorrespondenceRecord = {
+      kind,
+      to,
+      from,
+      dated,
+      subject,
+      authority,
+      change: change.id,
+      file: destRel,
+      sha256,
+    }
+    change.correspondence = correspondence
+    if (kind === 'memo' && as === 'rev') {
+      change.instrument = {
+        type: 'internal-letter',
+        authority,
+        file: destRel,
+        sha256,
+        dated,
+      }
+      if (change.status === 'approved' || change.status === 'ready-to-launch') {
+        change.status = 'ready-to-launch'
+      }
+    }
+    change.history.push({
+      at: nowIso(),
+      action: 'compose',
+      note:
+        kind === 'request'
+          ? `Composed request (${authority}) ${destRel} — not the launch instrument`
+          : `Composed memo (${authority}) ${destRel}`,
+    })
+    this.writeChange(change)
+    return this.readChange(changeId)
+  }
+
   returnToEdit(changeId: string): ChangeRecord {
     const change = this.readChange(changeId)
     if (change.status === 'launched') {
@@ -757,6 +874,7 @@ export class Repo {
         `${changeId} has no attached instrument. Attach a letter with \`instrument attach\`, or issue a temporary revision with \`tr issue\`.`,
       )
     }
+    this.assertInstrumentNotRequest(change)
     if (change.status !== 'ready-to-launch' && change.status !== 'approved') {
       throw new RepoError(
         2,
@@ -945,7 +1063,7 @@ export class Repo {
       )
     }
 
-    const letter = instrumentSource(input)
+    const letter = this.trLetterSource(change, input)
 
     let expires: string | null = null
     if (input.expires?.trim()) {
@@ -956,6 +1074,10 @@ export class Repo {
     }
 
     const sha256 = sha256Hex(letter.bytes)
+    const dated =
+      !input.bytes && !input.file && change.correspondence?.kind === 'memo'
+        ? change.correspondence.dated
+        : todayDate()
     const seq = this.nextTrSeq(parent.id)
     const trId = `${parent.id}-TR${seq}`
     const cfg = loadGitConfig(this.root)
@@ -980,7 +1102,7 @@ export class Repo {
       authority,
       file: destRel,
       sha256,
-      dated: todayDate(),
+      dated,
     }
 
     // Operating content: apply working copies; keep section rev_last_changed at parent label
@@ -1428,6 +1550,50 @@ export class Repo {
     return max + 1
   }
 
+  private trLetterSource(
+    change: ChangeRecord,
+    input: { file?: string; bytes?: Buffer; filename?: string },
+  ): { bytes: Buffer; filename: string } {
+    if (input.bytes || (input.file ?? '').trim()) {
+      return instrumentSource(input)
+    }
+    const stored = change.correspondence
+    if (stored?.kind !== 'memo') {
+      throw new RepoError(
+        2,
+        `${change.id} has no TR letter. Compose a memo or attach a file.`,
+      )
+    }
+    const abs = this.abs(stored.file)
+    if (!existsSync(abs)) {
+      throw new RepoError(3, `Composed memo not found: ${stored.file}`)
+    }
+    const bytes = readFileSync(abs)
+    if (!bytes.length) throw new RepoError(2, 'Composed memo is empty.')
+    return { bytes, filename: stored.file }
+  }
+
+  private assertInstrumentNotRequest(change: ChangeRecord): void {
+    const file = change.instrument?.file ?? ''
+    const requestFile =
+      change.correspondence?.kind === 'request' ? change.correspondence.file : null
+    if (file.startsWith('control/correspondence/') || (requestFile && file === requestFile)) {
+      throw new RepoError(
+        2,
+        `${change.id} stored a request letter; that is not the launch instrument. Attach the inbound reply.`,
+      )
+    }
+  }
+
+  private hydrateCorrespondence(raw: unknown): CorrespondenceRecord | null {
+    if (!raw || typeof raw !== 'object') return null
+    const rec = raw as CorrespondenceRecord
+    if (!rec.kind || !rec.file) return rec
+    const abs = this.abs(rec.file)
+    if (!existsSync(abs)) return rec
+    return { ...rec, body: splitComposedBody(readFileSync(abs, 'utf8')) }
+  }
+
   private readFrontmatter(absPath: string): Frontmatter {
     return splitFrontmatter(readFileSync(absPath, 'utf8')).meta
   }
@@ -1559,6 +1725,54 @@ function assertInstrumentFile(src: string): void {
       `Instrument file must be .eml, .txt, or .pdf (got ${ext || 'no extension'}).`,
     )
   }
+}
+
+function correspondenceOnDisk(row: CorrespondenceRecord | null | undefined): CorrespondenceRecord | null {
+  if (!row) return null
+  return {
+    kind: row.kind,
+    to: row.to,
+    from: row.from,
+    dated: row.dated,
+    subject: row.subject,
+    authority: row.authority,
+    change: row.change,
+    file: row.file,
+    sha256: row.sha256,
+  }
+}
+
+function splitComposedBody(markdown: string): string {
+  const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
+  const body = match ? match[2] : markdown
+  return body.replace(/^\n+/, '').replace(/\s+$/, '')
+}
+
+function renderComposedLetter(
+  envelope: {
+    to: string
+    from: string
+    dated: string
+    subject: string
+    authority: string
+    change: string
+    kind: CorrespondenceKind
+  },
+  body: string,
+): string {
+  const yaml = stringifyYaml(
+    {
+      to: envelope.to,
+      from: envelope.from,
+      dated: envelope.dated,
+      subject: envelope.subject,
+      authority: envelope.authority,
+      change: envelope.change,
+      kind: envelope.kind,
+    },
+    { lineWidth: 0 },
+  ).trimEnd()
+  return `---\n${yaml}\n---\n\n${body.replace(/^\n+/, '')}`.replace(/\s*$/, '\n')
 }
 
 function instrumentSource(input: { file?: string; bytes?: Buffer; filename?: string }): {

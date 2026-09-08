@@ -137,6 +137,40 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
     return
   }
 
+  if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'compose') {
+    const body = await readJson<{
+      file?: string
+      to?: string
+      from?: string
+      dated?: string
+      subject?: string
+      authority?: string
+      body?: string
+      as?: string
+    }>(req)
+    if (body.file?.trim()) {
+      throw new RepoError(
+        2,
+        'The desk types the letter; it does not take a server path. CLI compose still uses --body-file.',
+      )
+    }
+    const as = body.as === 'tr' || body.as === 'rev' ? body.as : undefined
+    sendJson(
+      res,
+      200,
+      repo.composeLetter(parts[1], {
+        to: body.to ?? '',
+        from: body.from ?? '',
+        dated: body.dated ?? '',
+        subject: body.subject ?? '',
+        authority: body.authority ?? '',
+        body: body.body ?? '',
+        as,
+      }),
+    )
+    return
+  }
+
   if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'instrument') {
     const body = await readJson<{
       file?: string
@@ -261,15 +295,21 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
       content?: string
       expires?: string
     }>(req)
-    const letter = uploadedLetter(body)
+    if (body.file?.trim()) {
+      throw new RepoError(
+        2,
+        'The desk uploads the letter; it does not take a server path. CLI still uses --file.',
+      )
+    }
+    const hasUpload = Boolean((body.filename ?? '').trim() || body.content)
+    const letter = hasUpload ? uploadedLetter(body) : null
     sendJson(
       res,
       200,
       repo.issueTr(parts[1], {
         parent: body.parent ?? '',
         authority: body.authority ?? '',
-        bytes: letter.bytes,
-        filename: letter.filename,
+        ...(letter ? { bytes: letter.bytes, filename: letter.filename } : {}),
         expires: body.expires,
       }),
     )

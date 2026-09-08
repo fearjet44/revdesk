@@ -540,6 +540,38 @@ label.field.invalid select,
   color: #f0c2be;
 }
 
+.letter-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.compose {
+  display: grid;
+  gap: 12px;
+}
+
+.compose-role {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.compose .field input,
+.compose .field select,
+.compose .letter-body {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.compose-body .letter-body {
+  min-height: 180px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .stamp-kind {
   display: inline-block;
   margin-right: 8px;
