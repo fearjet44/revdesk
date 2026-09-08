@@ -236,7 +236,7 @@ TR instrument authorities: `chief-pilot | ae | ceo | do`. File is hashed and sto
 
 Instrument `--type`: `approval-letter | acceptance-letter | third-party-letter | internal-letter`. Third-party may be a saved `.eml` or PDF; empty `issued/` is not a launch.
 
-Smoke files for the live desk (paste these paths in LAUNCH CONTROLS):
+Smoke files for the live desk (choose these in LAUNCH CONTROLS — no path field):
 
 ```text
 data/letters/poi-approval.txt     # POI letter  (.txt)
@@ -244,7 +244,7 @@ data/letters/poi-approval.eml     # POI email   (.eml)
 data/letters/chief-pilot-tr.txt   # TR internal letter
 ```
 
-Attach copies live under `control/instruments/`. Do not edit those; edit the sources in `data/letters/`. The UI path is resolved from the process cwd (repo root when you `npm run dev`).
+Attach copies live under `control/instruments/`. Do not edit those; edit the sources in `data/letters/`. The desk uploads bytes; CLI still takes `--file`.
 
 `issue` of N+1 marks active TRs on N as `incorporated` (default: all active TRs).
 

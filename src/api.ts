@@ -106,7 +106,7 @@ export const api = {
     }),
   attachInstrument: (
     changeId: string,
-    body: { file: string; type: string; authority: string; dated: string; reference?: string },
+    body: { filename: string; content: string; type: string; authority: string; dated: string; reference?: string },
   ) =>
     request<ChangeRecord>(`/api/changes/${changeId}/instrument`, {
       method: 'POST',
@@ -119,7 +119,7 @@ export const api = {
     }),
   issueTr: (
     changeId: string,
-    body: { parent: string; authority: string; file: string; expires?: string },
+    body: { parent: string; authority: string; filename: string; content: string; expires?: string },
   ) =>
     request<TrRecord>(`/api/changes/${changeId}/tr`, {
       method: 'POST',
@@ -139,4 +139,21 @@ export const api = {
   instrument: (_changeId: string): Promise<InstrumentRecord> => {
     throw new Error('Use change.instrument')
   },
+}
+
+export function encodeLetterFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = String(reader.result ?? '')
+      const comma = dataUrl.indexOf(',')
+      if (comma < 0) {
+        reject(new Error('Failed to encode letter.'))
+        return
+      }
+      resolve(dataUrl.slice(comma + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read letter.'))
+    reader.readAsDataURL(file)
+  })
 }

@@ -94,7 +94,7 @@ Always `<repo>/data` for the server:
 data/
   manuals/<id>/manual.yaml
   manuals/<id>/sections/*.md
-  letters/…                    # sample POI letter + .eml; paste path at launch
+  letters/…                    # sample POI letter + .eml; choose in the launch picker
   control/changes/CHG-*.yaml
   control/working/CHG-*/…
   control/instruments/…
@@ -134,7 +134,7 @@ Repo status → HTTP:
 | POST | `/api/changes` | `revdesk change start` |
 | GET | `/api/changes/:id` | `revdesk change show` |
 | POST | `/api/changes/:id/touch` | `revdesk change touch` |
-| POST | `/api/changes/:id/instrument` | `revdesk instrument attach` |
+| POST | `/api/changes/:id/instrument` | `revdesk instrument attach` (desk: `filename` + base64 `content`; no server path) |
 | POST | `/api/changes/:id/return-to-edit` | `revdesk change return-to-edit` |
 | POST | `/api/changes/:id/withdraw` | `revdesk change withdraw` |
 | GET | `/api/changes/:id/preview` | `revdesk preview` |
@@ -146,7 +146,7 @@ Repo status → HTTP:
 | PUT | `/api/changes/:id/sections/:section` | `revdesk section put` (body `{ "markdown", "mark", "note" }`) |
 | POST | `/api/changes/:id/transition` | `submit` / `approve` |
 | POST | `/api/changes/:id/issue` | `revdesk issue` |
-| POST | `/api/changes/:id/tr` | `revdesk tr issue` |
+| POST | `/api/changes/:id/tr` | `revdesk tr issue` (desk: `filename` + base64 `content`; no server path) |
 | GET | `/api/issues` | — |
 | GET | `/api/issues/:id` | `revdesk issue show` |
 | GET | `/api/trs` | `revdesk tr list` (`?manual=`) |
@@ -171,7 +171,7 @@ Repo status → HTTP:
 
 `POST /api/changes/:id/transition` body: `{ "action": "submit" | "approve", "role": "…" }`.
 
-Instrument attach copies `--file` into `control/instruments/` and records sha256. `issue` / `tr` require a stored instrument; there is no “posted without letter” path.
+Instrument attach copies the letter into `control/instruments/` and records sha256. The HTTP desk sends `filename` + base64 `content` (no server path). CLI still uses `--file`. `issue` / `tr` require a stored instrument; there is no “posted without letter” path.
 
 ## Shared state with the CLI
 
@@ -209,6 +209,7 @@ launched ↛ withdrawn
 | `npm run preview` 404s `/api/desk` | Expected. Use `npm run dev` |
 | Launch from the UI fails with validation | Same rules as the CLI: instrument, status, TR one-section |
 | Git words in the UI | Bug. Git stays in `server/git.ts` + `revdesk git status` |
+| Desk attach still asks for a path | Old tree. `revdesk desk origin` or deploy this branch. HTTP body is `filename` + `content`, not `file` |
 | `revdesk desk origin` exit 2, primary is dirty | Commit or discard. Do not stash as part of deploy |
 | `revdesk desk deploy` — Vite did not answer | `journalctl --user -u revdesk -n 80`. Do not `npm run dev` |
 
