@@ -698,7 +698,7 @@ function printHelp(): void {
 
 Usage:
   revdesk status [--json]
-  revdesk desk status | deploy --pr <n> | deploy --branch <name> | deploy --tree <path> | origin
+  revdesk desk status | deploy --pr <n> | deploy --branch <name> | deploy --tree <path> | origin | public-demo on | off
   revdesk launched <manual-id>
   revdesk manual list | show <id>
 
