@@ -12,6 +12,8 @@ systemctl --user restart revdesk
 ./bin/revdesk desk status
 ./bin/revdesk desk deploy --pr 2
 ./bin/revdesk desk origin
+./bin/revdesk desk public-demo on
+./bin/revdesk desk public-demo off
 ```
 
 `origin/main` is the source of truth. The primary checkout is fast-forward only, not a merge target. Test a PR with `revdesk desk deploy` (worktree + systemd drop-in). Details: [docs/runbook/server.md](docs/runbook/server.md).

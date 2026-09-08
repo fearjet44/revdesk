@@ -15,6 +15,8 @@ journalctl --user -u revdesk -f
 ./bin/revdesk desk deploy --branch feat/ingest
 ./bin/revdesk desk deploy --tree ~/Work/revdesk/.worktrees/feat-ingest
 ./bin/revdesk desk origin
+./bin/revdesk desk public-demo on
+./bin/revdesk desk public-demo off
 ```
 
 The unit’s default `WorkingDirectory` is `~/Work/revdesk`. That folder tracks `origin/main` (fast-forward only). It is **not** a merge target. Agent worktrees live at `.worktrees/<job>` inside the repo (gitignored). To test a PR, `revdesk desk deploy` writes a systemd drop-in and restarts the unit at that worktree. `revdesk desk origin` returns to the primary checkout and refuses if that tree is dirty.
@@ -22,7 +24,7 @@ The unit’s default `WorkingDirectory` is `~/Work/revdesk`. That folder tracks 
 **Do not** also `npm run dev` in a terminal. That fights the unit for `:5173`.
 Do not merge a job branch into primary to “run it.”
 
-Vite binds **loopback only** (`127.0.0.1:5173`, `strictPort: true`). Ready for Duty owns **:5175**. Remote access is Tailscale Serve in front of loopback — if localhost is dead, restart **revdesk**, not Serve.
+Vite binds **loopback only** (`127.0.0.1:5173`, `strictPort: true`). Ready for Duty owns **:5175**. Remote access is Tailscale Serve in front of loopback — if localhost is dead, restart **revdesk**, not Serve. A colleague on the tailnet uses `https://<magicdns>:5173`. For a public demo (no Tailscale on their side), `revdesk desk public-demo on` Funnels **:8443** → loopback :5173. That never touches **:443** (Bitwarden) or **:5175** (RFD). One public demo at a time — if RFD already owns :8443, this refuses. Turn it off after: `revdesk desk public-demo off`. Chrome secure DNS: Google, not Cloudflare `1.1.1.1` (Funnel A records NXDOMAIN there).
 
 HMR covers most UI. Restart the unit after a **plugin / control API** change (`server/plugin.ts` and friends): `configureServer` does not hot-reload.
 

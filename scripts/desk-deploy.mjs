@@ -11,6 +11,7 @@
  *   ./bin/revdesk desk deploy --branch feat/ingest
  *   ./bin/revdesk desk deploy --tree ~/Work/revdesk/.worktrees/feat-ingest
  *   ./bin/revdesk desk origin
+ *   ./bin/revdesk desk public-demo on | off
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -19,9 +20,14 @@ import { isAbsolute, join, resolve } from "node:path";
 
 export const UNIT = "revdesk";
 export const DESK_PORT = 5173;
+/** Funnel public listener. Never 443 (Bitwarden), 5173 (tailnet Serve), or 5175 (RFD). */
+export const PUBLIC_DEMO_PORT = 8443;
+export const FUNNEL_PUBLIC_PORTS = new Set([8443, 10000]);
+export const FORBIDDEN_PUBLIC_PORTS = new Set([443, 5173, 5175]);
 
 const USAGE =
-  "usage: revdesk desk status | revdesk desk deploy --pr <n> | --branch <name> | --tree <path> | revdesk desk origin";
+  "usage: revdesk desk status | revdesk desk deploy --pr <n> | --branch <name> | --tree <path> | revdesk desk origin | revdesk desk public-demo on | off";
+const PUBLIC_DEMO_USAGE = "usage: revdesk desk public-demo on | off";
 
 export function defaultPaths(env = process.env, home = homedir()) {
   const dropinDir = join(home, ".config/systemd/user", `${UNIT}.service.d`);
@@ -34,6 +40,7 @@ export function defaultPaths(env = process.env, home = homedir()) {
     dropin: join(dropinDir, "tree.conf"),
     unit: UNIT,
     port: Number(env.REVDESK_DESK_PORT) || DESK_PORT,
+    publicDemoPort: Number(env.REVDESK_PUBLIC_DEMO_PORT) || PUBLIC_DEMO_PORT,
   };
 }
 
@@ -49,6 +56,14 @@ export function parseDeskArgs(sub, rest = []) {
   if (verb === "origin") {
     if (rest.length) return { error: "usage: revdesk desk origin" };
     return { cmd: "desk", sub: "origin" };
+  }
+  if (verb === "public-demo") {
+    const action = (rest[0] || "status").toLowerCase();
+    if (rest.length > 1) return { error: PUBLIC_DEMO_USAGE };
+    if (action !== "on" && action !== "off" && action !== "status") {
+      return { error: PUBLIC_DEMO_USAGE };
+    }
+    return { cmd: "desk", sub: "public-demo", action };
   }
   if (verb !== "deploy") return { error: USAGE };
 
@@ -120,6 +135,70 @@ export function expandPath(p, home) {
   if (p === "~") return home;
   if (p.startsWith("~/")) return join(home, p.slice(2));
   return isAbsolute(p) ? p : resolve(p);
+}
+
+export function stripDnsDot(name) {
+  return String(name || "").replace(/\.$/, "");
+}
+
+export function publicDemoTarget(deskPort = DESK_PORT) {
+  return `http://127.0.0.1:${deskPort}`;
+}
+
+export function assertSafePublicDemoPort(port) {
+  const n = Number(port);
+  if (n === 443) throw new Error("public-demo refuses :443 (existing Serve / Bitwarden)");
+  if (n === 5173) throw new Error("Funnel cannot use :5173; tailnet Serve stays private");
+  if (n === 5175) throw new Error("public-demo refuses :5175 (Ready for Duty)");
+  if (!FUNNEL_PUBLIC_PORTS.has(n)) {
+    throw new Error("Funnel public ports are 8443 or 10000 (never 443)");
+  }
+  return n;
+}
+
+export function parseWebPort(hostKey) {
+  const s = String(hostKey || "");
+  const i = s.lastIndexOf(":");
+  if (i < 0) return 443;
+  const n = Number(s.slice(i + 1));
+  return Number.isFinite(n) ? n : 443;
+}
+
+function handlerProxy(webEntry) {
+  return webEntry?.Handlers?.["/"]?.Proxy || null;
+}
+
+/**
+ * Read Tailscale `serve status --json` and decide whether public-demo is on.
+ * On = Funnel AllowFunnel on the demo port AND proxy is this desk's loopback.
+ * Occupied = something else (usually Ready for Duty on :5175) already owns :8443.
+ */
+export function publicDemoFromServe(status, dnsName, opts = {}) {
+  const port = Number(opts.port) || PUBLIC_DEMO_PORT;
+  const deskPort = Number(opts.deskPort) || DESK_PORT;
+  const target = publicDemoTarget(deskPort);
+  const host = stripDnsDot(dnsName);
+  const web = status?.Web && typeof status.Web === "object" ? status.Web : {};
+  const allow = status?.AllowFunnel && typeof status.AllowFunnel === "object" ? status.AllowFunnel : {};
+  const preferred = host ? `${host}:${port}` : null;
+  const foundKey =
+    (preferred && web[preferred] ? preferred : null) ||
+    Object.keys(web).find((k) => parseWebPort(k) === port) ||
+    null;
+  const proxy = foundKey ? handlerProxy(web[foundKey]) : null;
+  const funnel = Object.entries(allow).some(([k, v]) => v === true && parseWebPort(k) === port);
+  const ours = proxy === target;
+  return {
+    on: Boolean(funnel && ours),
+    port,
+    host: host || null,
+    url: host ? `https://${host}:${port}` : null,
+    target,
+    proxy,
+    funnel: Boolean(funnel),
+    ours,
+    occupied: Boolean(proxy) && !ours,
+  };
 }
 
 function defaultRun(cmd, args, opts = {}) {
@@ -358,6 +437,66 @@ function ensureNodeModules(ops, tree) {
   return { installed: true };
 }
 
+function parseJsonOrThrow(stdout, label) {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    throw new Error(`${label} did not return JSON`);
+  }
+}
+
+function tailscaleDnsName(ops) {
+  const r = ops.run("tailscale", ["status", "--json"]);
+  if (r.status !== 0) {
+    throw new Error((r.stderr || r.stdout || "tailscale status failed").trim());
+  }
+  const j = parseJsonOrThrow(r.stdout, "tailscale status --json");
+  const name = stripDnsDot(j?.Self?.DNSName);
+  if (!name) throw new Error("tailscale status has no DNSName");
+  return name;
+}
+
+function tailscaleServeStatus(ops) {
+  const r = ops.run("tailscale", ["serve", "status", "--json"]);
+  if (r.status !== 0 && !String(r.stdout || "").trim()) {
+    return { Web: {}, AllowFunnel: {} };
+  }
+  if (r.status !== 0) {
+    throw new Error((r.stderr || r.stdout || "tailscale serve status failed").trim());
+  }
+  return parseJsonOrThrow(r.stdout, "tailscale serve status --json");
+}
+
+function readPublicDemo(ops) {
+  const port = assertSafePublicDemoPort(ops.paths.publicDemoPort || PUBLIC_DEMO_PORT);
+  const dns = tailscaleDnsName(ops);
+  const serve = tailscaleServeStatus(ops);
+  return publicDemoFromServe(serve, dns, { port, deskPort: ops.paths.port });
+}
+
+function tryPublicDemo(ops) {
+  try {
+    return readPublicDemo(ops);
+  } catch (err) {
+    return { on: false, error: err?.message || String(err) };
+  }
+}
+
+function tailscaleOrThrow(ops, args) {
+  const r = ops.run("tailscale", args);
+  if (r.status !== 0) {
+    throw new Error((r.stderr || r.stdout || `tailscale ${args.join(" ")}`).trim());
+  }
+  return r;
+}
+
+function occupiedHint(proxy) {
+  if (String(proxy || "").includes(":5175")) {
+    return "one public-demo at a time; Ready for Duty owns :8443 — rfd desk public-demo off first";
+  }
+  return "one public-demo at a time; will not steal :8443";
+}
+
 async function collectStatus(ops) {
   const unit = unitShow(ops);
   const dropin = readDropin(ops);
@@ -387,7 +526,107 @@ async function collectStatus(ops) {
     git: gitState,
     pr,
     health: { ...health, url: `http://127.0.0.1:${ops.paths.port}/` },
+    public_demo: tryPublicDemo(ops),
   };
+}
+
+function publicDemoJson(state, extra = {}) {
+  return {
+    public_demo: state.on === true,
+    on: state.on === true,
+    url: state.url || null,
+    port: state.port || PUBLIC_DEMO_PORT,
+    target: state.target || publicDemoTarget(),
+    ...extra,
+  };
+}
+
+async function runPublicDemo(ops, action) {
+  const port = assertSafePublicDemoPort(ops.paths.publicDemoPort || PUBLIC_DEMO_PORT);
+
+  if (action === "status") {
+    const state = readPublicDemo(ops);
+    return {
+      exitCode: 0,
+      json: publicDemoJson(state, { ok: true }),
+    };
+  }
+
+  if (action === "on") {
+    const health = await ops.health(`http://127.0.0.1:${ops.paths.port}/`);
+    if (!health.ok) {
+      return {
+        exitCode: 1,
+        json: {
+          error: `desk is not answering http://127.0.0.1:${ops.paths.port}/; start revdesk first`,
+          health,
+        },
+      };
+    }
+    const state = readPublicDemo(ops);
+    if (state.occupied) {
+      return {
+        exitCode: 2,
+        json: {
+          error: `:${port} already proxies ${state.proxy}; will not steal it`,
+          hint: occupiedHint(state.proxy),
+          ...publicDemoJson(state),
+        },
+      };
+    }
+    if (!state.on) {
+      tailscaleOrThrow(ops, [
+        "funnel",
+        "--bg",
+        "--yes",
+        `--https=${port}`,
+        publicDemoTarget(ops.paths.port),
+      ]);
+    }
+    const next = readPublicDemo(ops);
+    return {
+      exitCode: next.on ? 0 : 1,
+      json: publicDemoJson(next, {
+        ok: next.on,
+        hint: next.on
+          ? "public internet until revdesk desk public-demo off. Chrome secure DNS: use Google, not Cloudflare 1.1.1.1"
+          : "funnel ran but AllowFunnel is not on; check tailscale funnel status",
+      }),
+    };
+  }
+
+  if (action === "off") {
+    const state = readPublicDemo(ops);
+    if (state.occupied) {
+      return {
+        exitCode: 2,
+        json: {
+          error: `:${port} proxies ${state.proxy}, not this desk; will not turn it off`,
+          hint: occupiedHint(state.proxy),
+          ...publicDemoJson(state),
+        },
+      };
+    }
+    if (state.on || state.ours || state.funnel) {
+      const funnelOff = ops.run("tailscale", ["funnel", "--yes", `--https=${port}`, "off"]);
+      const serveOff = ops.run("tailscale", ["serve", "--yes", `--https=${port}`, "off"]);
+      if (funnelOff.status !== 0 && serveOff.status !== 0) {
+        throw new Error(
+          (funnelOff.stderr || serveOff.stderr || `tailscale off :${port} failed`).trim(),
+        );
+      }
+    }
+    const next = readPublicDemo(ops);
+    return {
+      exitCode: next.on ? 1 : 0,
+      json: publicDemoJson(next, {
+        ok: !next.on,
+        hint: next.on ? "still public; check tailscale funnel status" : "public-demo off",
+      }),
+    };
+  }
+
+  return { exitCode: 2, json: { error: PUBLIC_DEMO_USAGE } };
 }
 
 async function deployTree(ops, tree, extra = {}) {
@@ -440,6 +679,7 @@ export async function runDesk(args, io = {}) {
           "revdesk desk deploy --branch <name>",
           "revdesk desk deploy --tree <path>",
           "revdesk desk origin",
+          "revdesk desk public-demo on | off",
         ],
         notes: [
           "Points the systemd unit at a worktree so a PR can be tested.",
@@ -447,6 +687,7 @@ export async function runDesk(args, io = {}) {
           "origin/main is the source of truth. Do not merge into the primary checkout.",
           "revdesk desk origin returns the unit to the primary tree (ff-only from origin).",
           "Do not npm run dev — the unit owns :5173.",
+          "public-demo Funnel is :8443 → loopback :5173. Never :443 (Bitwarden) or :5175 (RFD). One public demo at a time.",
         ],
       },
     };
@@ -455,6 +696,10 @@ export async function runDesk(args, io = {}) {
   try {
     if (args.sub === "status") {
       return { exitCode: 0, json: await collectStatus(ops) };
+    }
+
+    if (args.sub === "public-demo") {
+      return await runPublicDemo(ops, args.action || "status");
     }
 
     if (args.sub === "origin") {

@@ -15,6 +15,8 @@ journalctl --user -u revdesk -f
 ./bin/revdesk desk status
 ./bin/revdesk desk deploy --pr 2
 ./bin/revdesk desk origin
+./bin/revdesk desk public-demo on
+./bin/revdesk desk public-demo off
 ```
 
 That runs `vite`. Open **http://127.0.0.1:5173**. Restart the unit after a debug change that needs a full Vite process (not just HMR).
@@ -50,6 +52,19 @@ tailscale serve --bg --https=5173 http://127.0.0.1:5173
 ```
 
 Then the desk is also at `https://<magicdns>:5173` on the tailnet. Serve occupies the tailnet `:5173`; Vite still owns localhost. `strictPort` stops Vite from walking 5174 — Ready for Duty owns **:5175**.
+
+A colleague **on the tailnet** uses that `:5173` URL. For a public demo (no Tailscale client on their side):
+
+```sh
+./bin/revdesk desk public-demo on
+./bin/revdesk desk public-demo off
+```
+
+That is Tailscale Funnel on **:8443** → `http://127.0.0.1:5173`. Funnel cannot use `:5173` (public listeners are 443 / 8443 / 10000). It **refuses :443** (Bitwarden on `127.0.0.1:8222`) and **:5175** (RFD). One public demo at a time: if Ready for Duty already Funnels `:8443`, this exits 2 until `rfd desk public-demo off`. It never runs `tailscale serve reset`. URL:
+
+`https://brendanthenavigator.mole-bushmaster.ts.net:8443`
+
+Chrome **Use secure DNS** must be Google (or off). Cloudflare `1.1.1.1` NXDOMAINs the Funnel A record.
 
 If localhost:5173 is dead but Serve is still up, the magicdns URL will 400/fail — `systemctl --user restart revdesk`, not Serve.
 
@@ -212,6 +227,9 @@ launched ↛ withdrawn
 | Desk attach still asks for a path | Old tree. `revdesk desk origin` or deploy this branch. HTTP body is `filename` + `content`, not `file` |
 | `revdesk desk origin` exit 2, primary is dirty | Commit or discard. Do not stash as part of deploy |
 | `revdesk desk deploy` — Vite did not answer | `journalctl --user -u revdesk -n 80`. Do not `npm run dev` |
+| DNS_PROBE_FINISHED_NXDOMAIN | Wrong hostname (`ready-for-duty…` is not this machine). Off-tailnet needs `public-demo on` and **:8443**. Chrome secure DNS: Google, not 1.1.1.1 |
+| `public-demo on` exit 2, already proxies :5175 | RFD owns Funnel :8443. `rfd desk public-demo off` first |
+| Public demo 404/timeout | Funnel is off, or you hit `:5173` from the open internet. `:5173` is tailnet-only |
 
 ## Tests that exercise the same code
 

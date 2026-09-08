@@ -12,6 +12,8 @@ From the repo root:
 ./bin/revdesk desk status
 ./bin/revdesk desk deploy --pr 2
 ./bin/revdesk desk origin
+./bin/revdesk desk public-demo on
+./bin/revdesk desk public-demo off
 ```
 
 `bin/revdesk` is a bash wrapper:
@@ -68,6 +70,7 @@ revdesk status [--json]
 revdesk desk status
 revdesk desk deploy --pr <n> | --branch <name> | --tree <path>
 revdesk desk origin
+revdesk desk public-demo on | off
 revdesk launched <manual-id>
 revdesk manual list | show <id>
 
@@ -121,7 +124,7 @@ git show change/CHG-2026-003
 
 ## Desk deploy (host)
 
-`revdesk desk` is the systemd unit, not the control library. It always prints JSON. `revdesk status` is still the library.
+`revdesk desk` is the systemd unit, not the control library. It always prints JSON. `revdesk status` is still the library. `desk public-demo` Funnels `:8443` → loopback `:5173` (one public demo at a time with RFD).
 
 `origin/main` is the source of truth. `~/Work/revdesk` is the default live desk (fast-forward only from origin), not a merge target. To test a PR without merging it:
 
