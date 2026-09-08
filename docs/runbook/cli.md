@@ -79,6 +79,7 @@ revdesk change show <CHG>
 revdesk change touch <CHG> --section <id> [--action amend]
 revdesk change submit <CHG>
 revdesk change approve <CHG> [--role <who>]
+revdesk change open-letter <CHG>
 revdesk change withdraw <CHG> --why "..."
 revdesk change return-to-edit <CHG>
 revdesk change diff     <CHG> [--section <id>]
@@ -151,11 +152,12 @@ Deletes the drop-in, `git pull --ff-only` in the primary checkout, and restarts.
 
 ```text
 draft → review → approved → ready-to-launch → launched
+                    ↘ approval-requested
                               ↘ edit
 launched ↛ withdrawn
 ```
 
-`ready-to-launch` = reviews done **and** a valid instrument attached.
+`approval-requested` = internal approve done and the request letter desk is open (FAA / third-party). It is **not** a launch. `ready-to-launch` = reviews done **and** a valid instrument attached.
 
 `revdesk launched gom` is the answer to “did it actually launch?”
 

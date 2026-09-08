@@ -80,11 +80,19 @@ const OPEN_STATUSES = new Set<ChangeStatus>([
   'draft',
   'review',
   'approved',
+  'approval-requested',
   'ready-to-launch',
   'edit',
 ])
 
-const REVIEWER_STATUSES = new Set<ChangeStatus>(['review', 'approved', 'ready-to-launch'])
+const REVIEWER_STATUSES = new Set<ChangeStatus>([
+  'review',
+  'approved',
+  'approval-requested',
+  'ready-to-launch',
+])
+
+const POST_REVIEW = new Set<ChangeStatus>(['approved', 'approval-requested', 'ready-to-launch'])
 
 /** Exit codes per Slice 2: 2 validation, 3 not found, 4 not allowed, 5 pipeline */
 export class RepoError extends Error {
@@ -482,8 +490,11 @@ export class Repo {
         throw new RepoError(2, `${changeId} is ${change.status}; touch requires an open draft/edit/review.`)
       }
     }
-    if (change.status === 'ready-to-launch') {
-      throw new RepoError(2, `${changeId} is ready-to-launch; return-to-edit before touching sections.`)
+    if (change.status === 'ready-to-launch' || change.status === 'approval-requested') {
+      throw new RepoError(
+        2,
+        `${changeId} is ${change.status}; return-to-edit before touching sections.`,
+      )
     }
     if (!['draft', 'edit', 'review', 'approved'].includes(change.status)) {
       throw new RepoError(2, `${changeId} is ${change.status}; cannot touch.`)
@@ -531,8 +542,8 @@ export class Repo {
     if (change.status === 'launched' || change.status === 'withdrawn') {
       throw new RepoError(2, `A ${change.status} change cannot be edited.`)
     }
-    if (change.status === 'ready-to-launch') {
-      throw new RepoError(2, `${changeId} is ready-to-launch; return-to-edit before editing.`)
+    if (change.status === 'ready-to-launch' || change.status === 'approval-requested') {
+      throw new RepoError(2, `${changeId} is ${change.status}; return-to-edit before editing.`)
     }
     const touched = change.touched.find((item) => item.id === sectionId)
     if (!touched) throw new RepoError(3, `Section ${sectionId} is not on ${changeId}.`)
@@ -628,6 +639,37 @@ export class Repo {
       return this.readChange(changeId)
     }
 
+    if (action === 'open-letter') {
+      if (change.status === 'approval-requested') return this.readChange(changeId)
+      if (change.status !== 'approved') {
+        throw new RepoError(
+          2,
+          `${changeId} is ${change.status}; open-letter requires approved.`,
+        )
+      }
+      if (change.kind === 'tr') {
+        throw new RepoError(
+          2,
+          `${changeId} is a temporary revision; compose a memo, do not request approval.`,
+        )
+      }
+      const manual = this.readManual(change.manual)
+      if (manual.control_class === 'internal') {
+        throw new RepoError(
+          2,
+          `${changeId} is internal; compose a memo rather than request approval.`,
+        )
+      }
+      change.status = 'approval-requested'
+      change.history.push({
+        at: nowIso(),
+        action: 'approval-requested',
+        note: 'Opened the request letter',
+      })
+      this.writeChange(change)
+      return this.readChange(changeId)
+    }
+
     throw new RepoError(2, `Unknown action ${action}.`)
   }
 
@@ -650,7 +692,7 @@ export class Repo {
     if (change.status === 'withdrawn') {
       throw new RepoError(2, `${changeId} is withdrawn; cannot attach an instrument.`)
     }
-    if (!['approved', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
+    if (!['approved', 'approval-requested', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
       throw new RepoError(2, `${changeId} is ${change.status}; cannot attach an instrument.`)
     }
 
@@ -688,7 +730,7 @@ export class Repo {
       reference: input.reference?.trim() || undefined,
     }
     change.instrument = instrument
-    if (change.status === 'approved' || change.status === 'ready-to-launch') {
+    if (POST_REVIEW.has(change.status)) {
       change.status = 'ready-to-launch'
     }
     change.history.push({
@@ -732,7 +774,7 @@ export class Repo {
     if (change.status === 'withdrawn') {
       throw new RepoError(2, `${changeId} is withdrawn; cannot compose a letter.`)
     }
-    if (!['approved', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
+    if (!['approved', 'approval-requested', 'ready-to-launch', 'review', 'draft', 'edit'].includes(change.status)) {
       throw new RepoError(2, `${changeId} is ${change.status}; cannot compose a letter.`)
     }
 
@@ -804,9 +846,11 @@ export class Repo {
         sha256,
         dated,
       }
-      if (change.status === 'approved' || change.status === 'ready-to-launch') {
+      if (POST_REVIEW.has(change.status)) {
         change.status = 'ready-to-launch'
       }
+    } else if (kind === 'request' && (change.status === 'approved' || change.status === 'approval-requested')) {
+      change.status = 'approval-requested'
     }
     change.history.push({
       at: nowIso(),
@@ -828,10 +872,10 @@ export class Repo {
     if (change.status === 'withdrawn') {
       throw new RepoError(2, `${changeId} is withdrawn; return-to-edit is only for pre-launch kickback.`)
     }
-    if (!['review', 'approved', 'ready-to-launch'].includes(change.status)) {
+    if (!['review', 'approved', 'approval-requested', 'ready-to-launch'].includes(change.status)) {
       throw new RepoError(
         2,
-        `${changeId} is ${change.status}; return-to-edit requires review, approved, or ready-to-launch.`,
+        `${changeId} is ${change.status}; return-to-edit requires review, approved, approval-requested, or ready-to-launch.`,
       )
     }
     change.status = 'edit'
@@ -875,14 +919,13 @@ export class Repo {
       )
     }
     this.assertInstrumentNotRequest(change)
-    if (change.status !== 'ready-to-launch' && change.status !== 'approved') {
+    if (!POST_REVIEW.has(change.status)) {
       throw new RepoError(
         2,
         `${changeId} is ${change.status}; full issue requires approved reviews and an instrument (ready-to-launch).`,
       )
     }
-    // approved + instrument should already be ready-to-launch; tolerate approved if instrument present
-    if (change.status === 'approved' && change.instrument) {
+    if (change.instrument && change.status !== 'ready-to-launch') {
       change.status = 'ready-to-launch'
     }
     if (change.kind === 'tr') {
@@ -1018,7 +1061,7 @@ export class Repo {
     if (change.status === 'withdrawn') {
       throw new RepoError(2, `${changeId} is withdrawn.`)
     }
-    if (change.status !== 'approved' && change.status !== 'ready-to-launch') {
+    if (!POST_REVIEW.has(change.status)) {
       throw new RepoError(
         2,
         `${changeId} is ${change.status}; tr issue requires approved (internal reviews done).`,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, encodeLetterFile } from '../api.ts'
 import { NEXT_ACTION, formatDate } from '../status.ts'
 import type {
@@ -70,8 +70,17 @@ function emptyDraft(today: string): ComposeDraft {
   }
 }
 
+function deskStep(pathname: string): 'packet' | 'letter' | 'launch' {
+  if (pathname.endsWith('/letter')) return 'letter'
+  if (pathname.endsWith('/launch')) return 'launch'
+  return 'packet'
+}
+
 export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const { changeId } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const desk = deskStep(location.pathname)
   const [change, setChange] = useState<ChangeRecord | null>(null)
   const [launched, setLaunched] = useState<LaunchedStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -122,6 +131,27 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
     }
   }, [changeId])
 
+  useEffect(() => {
+    if (desk !== 'letter' || !changeId) return
+    let cancelled = false
+    void (async () => {
+      const row = await api.change(changeId)
+      const board = await api.launched(row.manual)
+      if (cancelled) return
+      if (row.kind === 'tr' || board.control_class === 'internal') return
+      if (row.status !== 'approved') return
+      const next = await api.transition(changeId, 'open-letter')
+      if (cancelled) return
+      setChange(next)
+      await onChanged()
+    })().catch((err: unknown) => {
+      if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to open the letter.')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [desk, changeId])
+
   async function run(fn: () => Promise<void>) {
     setBusy(true)
     setError(null)
@@ -143,8 +173,14 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
 
   const next = NEXT_ACTION[change.status]
   const canKickback =
-    change.status === 'review' || change.status === 'approved' || change.status === 'ready-to-launch'
-  const showLaunchPanel = change.status === 'approved' || change.status === 'ready-to-launch'
+    change.status === 'review' ||
+    change.status === 'approved' ||
+    change.status === 'approval-requested' ||
+    change.status === 'ready-to-launch'
+  const postReview =
+    change.status === 'approved' ||
+    change.status === 'approval-requested' ||
+    change.status === 'ready-to-launch'
   const isClosed = change.status === 'launched' || change.status === 'withdrawn'
   const manyTouches = change.touched.length !== 1
   const namedKind: PackageKind | null =
@@ -156,9 +192,17 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const storedMemo = change.correspondence?.kind === 'memo'
   const launchDocEmpty = isTr ? !trFile && !storedMemo : !hasInstrument && !instrumentFile
   const canIssue =
-    (change.status === 'approved' || change.status === 'ready-to-launch') &&
+    postReview &&
     namedKind != null &&
     (isTr ? Boolean((trFile || storedMemo) && launched?.full) : hasInstrument)
+  const stampTitle =
+    desk === 'letter' && role === 'request'
+      ? 'APPROVAL REQUESTED'
+      : desk === 'letter'
+        ? 'LETTER'
+        : desk === 'launch'
+          ? 'LAUNCH'
+          : 'CHANGE PACKET'
   const seedKey = `${change.id}:${isTr ? 'tr' : 'rev'}`
   if (seedKey !== composeFor) {
     setComposeFor(seedKey)
@@ -188,6 +232,133 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
     })
   }
 
+  function attachInbound() {
+    void run(async () => {
+      if (!instrumentFile) return
+      const content = await encodeLetterFile(instrumentFile)
+      setChange(
+        await api.attachInstrument(packet.id, {
+          filename: instrumentFile.name,
+          content,
+          type: instrumentType,
+          authority: instrumentAuthority,
+          dated: instrumentDated,
+        }),
+      )
+      setInstrumentFile(null)
+    })
+  }
+
+  const letterForm = isTr ? (
+    <>
+      <div className="letter-mode">
+        <label className="check">
+          <input
+            type="radio"
+            name="letter-mode"
+            checked={letterMode === 'pick'}
+            onChange={() => setLetterMode('pick')}
+          />
+          <span>Choose letter</span>
+        </label>
+        <label className="check">
+          <input
+            type="radio"
+            name="letter-mode"
+            checked={letterMode === 'write'}
+            onChange={() => setLetterMode('write')}
+          />
+          <span>Write letter</span>
+        </label>
+      </div>
+      {letterMode === 'write' ? (
+        <LetterCompose
+          kind="memo"
+          draft={compose}
+          stored={change.correspondence?.kind === 'memo' ? change.correspondence : null}
+          busy={busy}
+          onChange={setCompose}
+          onStore={storeCompose}
+        />
+      ) : (
+        <>
+          <LetterPicker
+            label="TR letter"
+            file={trFile}
+            invalid={launchDocEmpty}
+            disabled={busy}
+            onChange={setTrFile}
+          />
+          <label className="field">
+            TR authority
+            <select value={trAuthority} onChange={(e) => setTrAuthority(e.target.value)}>
+              <option value="chief-pilot">chief-pilot</option>
+              <option value="ae">ae</option>
+              <option value="ceo">ceo</option>
+              <option value="do">do</option>
+            </select>
+          </label>
+        </>
+      )}
+    </>
+  ) : role === 'memo' ? (
+    <>
+      <div className="letter-mode">
+        <label className="check">
+          <input
+            type="radio"
+            name="letter-mode"
+            checked={letterMode === 'pick'}
+            onChange={() => setLetterMode('pick')}
+          />
+          <span>Choose letter</span>
+        </label>
+        <label className="check">
+          <input
+            type="radio"
+            name="letter-mode"
+            checked={letterMode === 'write'}
+            onChange={() => setLetterMode('write')}
+          />
+          <span>Write letter</span>
+        </label>
+      </div>
+      {letterMode === 'write' ? (
+        <LetterCompose
+          kind="memo"
+          draft={compose}
+          stored={change.correspondence?.kind === 'memo' ? change.correspondence : null}
+          busy={busy}
+          onChange={setCompose}
+          onStore={storeCompose}
+        />
+      ) : (
+        <InboundAttach
+          file={instrumentFile}
+          invalid={launchDocEmpty}
+          busy={busy}
+          instrumentType={instrumentType}
+          instrumentAuthority={instrumentAuthority}
+          instrumentDated={instrumentDated}
+          onFile={setInstrumentFile}
+          onType={setInstrumentType}
+          onAuthority={setInstrumentAuthority}
+          onDated={setInstrumentDated}
+          onAttach={attachInbound}
+        />
+      )}
+    </>
+  ) : (
+    <LetterCompose
+      kind="request"
+      draft={compose}
+      stored={change.correspondence?.kind === 'request' ? change.correspondence : null}
+      busy={busy}
+      onChange={setCompose}
+      onStore={storeCompose}
+    />
+  )
+
   return (
     <>
       <div className="page-head">
@@ -197,7 +368,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
           <p className="lede">{change.reason}</p>
         </div>
         <div className="stamp-block">
-          <strong>CHANGE PACKET</strong>
+          <strong>{stampTitle}</strong>
           <span className="stamp-kind">{kindLabel}</span>
           <StatusLamp status={change.status} />
           <br />
@@ -230,7 +401,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
 
       {!isClosed ? (
         <div className="actions packet-actions">
-          {next ? (
+          {desk === 'packet' && next ? (
             <button
               className="btn"
               type="button"
@@ -244,6 +415,42 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
             >
               {next.label}
             </button>
+          ) : null}
+
+          {desk === 'packet' && postReview ? (
+            <button
+              className="btn primary"
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  if (role === 'request' && change.status === 'approved') {
+                    setChange(await api.transition(change.id, 'open-letter'))
+                  }
+                  navigate(`/changes/${change.id}/letter`)
+                })
+              }
+            >
+              Open letter
+            </button>
+          ) : null}
+
+          {desk === 'packet' && postReview ? (
+            <Link className="btn" to={`/changes/${change.id}/launch`}>
+              Launch
+            </Link>
+          ) : null}
+
+          {desk === 'letter' ? (
+            <Link className="btn primary" to={`/changes/${change.id}/launch`}>
+              Continue to launch
+            </Link>
+          ) : null}
+
+          {desk !== 'packet' ? (
+            <Link className="btn ghost" to={`/changes/${change.id}`}>
+              Back to packet
+            </Link>
           ) : null}
 
           {canKickback ? (
@@ -310,11 +517,59 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
         </div>
       ) : null}
 
-      {showLaunchPanel ? (
+      {postReview ? (
+        <nav className="desk-steps" aria-label="Reviewer steps">
+          <Link
+            className={`desk-step ${desk === 'packet' ? 'current' : 'done'}`}
+            to={`/changes/${change.id}`}
+          >
+            1 · Packet
+            <strong>Approved</strong>
+          </Link>
+          <Link
+            className={`desk-step ${
+              desk === 'letter'
+                ? 'current'
+                : change.status === 'approval-requested' || change.status === 'ready-to-launch'
+                  ? 'done'
+                  : ''
+            }`}
+            to={`/changes/${change.id}/letter`}
+          >
+            2 · Letter
+            <strong>{role === 'request' ? 'Approval requested' : 'Memo'}</strong>
+          </Link>
+          <Link
+            className={`desk-step ${
+              desk === 'launch' ? 'current' : change.status === 'ready-to-launch' ? 'done' : ''
+            }`}
+            to={`/changes/${change.id}/launch`}
+          >
+            3 · Launch
+            <strong>Inbound / issue</strong>
+          </Link>
+        </nav>
+      ) : null}
+
+      {desk === 'letter' && postReview ? (
         <section className="panel" style={{ marginBottom: 16 }}>
-          <div className="panel-hd">LAUNCH CONTROLS</div>
+          <div className="panel-hd">{role === 'request' ? 'REQUEST LETTER' : 'MEMO'}</div>
           <div className="form-grid" style={{ padding: 14 }}>
-            <p className="meta">Not required until you launch. Kind is named here, not when the page was opened.</p>
+            <p className="meta">
+              {role === 'request'
+                ? 'Internal review is done. This letter asks the authority to accept the revision. Launch waits for the inbound reply.'
+                : 'Write or attach the memo. That file is the launch instrument.'}
+            </p>
+            {letterForm}
+          </div>
+        </section>
+      ) : null}
+
+      {desk === 'launch' && postReview ? (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-hd">LAUNCH</div>
+          <div className="form-grid" style={{ padding: 14 }}>
+            <p className="meta">Kind is named here, not when the page was opened.</p>
             {change.kind === 'wip' ? (
               <div className="field">
                 Issue as
@@ -354,57 +609,15 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
             ) : null}
 
             {isTr ? (
-              <>
-                <div className="letter-mode">
-                  <label className="check">
-                    <input
-                      type="radio"
-                      name="letter-mode"
-                      checked={letterMode === 'pick'}
-                      onChange={() => setLetterMode('pick')}
-                    />
-                    <span>Choose letter</span>
-                  </label>
-                  <label className="check">
-                    <input
-                      type="radio"
-                      name="letter-mode"
-                      checked={letterMode === 'write'}
-                      onChange={() => setLetterMode('write')}
-                    />
-                    <span>Write letter</span>
-                  </label>
-                </div>
-                {letterMode === 'write' ? (
-                  <LetterCompose
-                    kind="memo"
-                    draft={compose}
-                    stored={change.correspondence?.kind === 'memo' ? change.correspondence : null}
-                    busy={busy}
-                    onChange={setCompose}
-                    onStore={storeCompose}
-                  />
-                ) : (
-                  <>
-                    <LetterPicker
-                      label="TR letter"
-                      file={trFile}
-                      invalid={launchDocEmpty}
-                      disabled={busy}
-                      onChange={setTrFile}
-                    />
-                    <label className="field">
-                      TR authority
-                      <select value={trAuthority} onChange={(e) => setTrAuthority(e.target.value)}>
-                        <option value="chief-pilot">chief-pilot</option>
-                        <option value="ae">ae</option>
-                        <option value="ceo">ceo</option>
-                        <option value="do">do</option>
-                      </select>
-                    </label>
-                  </>
-                )}
-              </>
+              storedMemo ? (
+                <p className="meta">
+                  TR memo on file · {change.correspondence!.file}
+                  <br />
+                  sha256 {change.correspondence!.sha256}
+                </p>
+              ) : (
+                letterForm
+              )
             ) : hasInstrument ? (
               <p className="meta">
                 Instrument {change.instrument!.type} · {change.instrument!.authority} ·{' '}
@@ -412,78 +625,20 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
                 <br />
                 sha256 {change.instrument!.sha256}
               </p>
-            ) : role === 'memo' ? (
+            ) : role === 'request' ? (
               <>
-                <div className="letter-mode">
-                  <label className="check">
-                    <input
-                      type="radio"
-                      name="letter-mode"
-                      checked={letterMode === 'pick'}
-                      onChange={() => setLetterMode('pick')}
-                    />
-                    <span>Choose letter</span>
-                  </label>
-                  <label className="check">
-                    <input
-                      type="radio"
-                      name="letter-mode"
-                      checked={letterMode === 'write'}
-                      onChange={() => setLetterMode('write')}
-                    />
-                    <span>Write letter</span>
-                  </label>
-                </div>
-                {letterMode === 'write' ? (
-                  <LetterCompose
-                    kind="memo"
-                    draft={compose}
-                    stored={change.correspondence?.kind === 'memo' ? change.correspondence : null}
-                    busy={busy}
-                    onChange={setCompose}
-                    onStore={storeCompose}
-                  />
+                {change.correspondence?.kind === 'request' ? (
+                  <p className="meta">
+                    Request on file · {change.correspondence.file}
+                    <br />
+                    That letter is not the launch instrument. Attach the inbound reply.
+                  </p>
                 ) : (
-                  <InboundAttach
-                    file={instrumentFile}
-                    invalid={launchDocEmpty}
-                    busy={busy}
-                    instrumentType={instrumentType}
-                    instrumentAuthority={instrumentAuthority}
-                    instrumentDated={instrumentDated}
-                    onFile={setInstrumentFile}
-                    onType={setInstrumentType}
-                    onAuthority={setInstrumentAuthority}
-                    onDated={setInstrumentDated}
-                    onAttach={() =>
-                      void run(async () => {
-                        if (!instrumentFile) return
-                        const content = await encodeLetterFile(instrumentFile)
-                        setChange(
-                          await api.attachInstrument(change.id, {
-                            filename: instrumentFile.name,
-                            content,
-                            type: instrumentType,
-                            authority: instrumentAuthority,
-                            dated: instrumentDated,
-                          }),
-                        )
-                        setInstrumentFile(null)
-                      })
-                    }
-                  />
+                  <p className="meta">
+                    No request on file. You can still attach an inbound reply, or{' '}
+                    <Link to={`/changes/${change.id}/letter`}>open the letter</Link> first.
+                  </p>
                 )}
-              </>
-            ) : (
-              <>
-                <LetterCompose
-                  kind="request"
-                  draft={compose}
-                  stored={change.correspondence?.kind === 'request' ? change.correspondence : null}
-                  busy={busy}
-                  onChange={setCompose}
-                  onStore={storeCompose}
-                />
                 <InboundAttach
                   file={instrumentFile}
                   invalid={launchDocEmpty}
@@ -495,24 +650,14 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
                   onType={setInstrumentType}
                   onAuthority={setInstrumentAuthority}
                   onDated={setInstrumentDated}
-                  onAttach={() =>
-                    void run(async () => {
-                      if (!instrumentFile) return
-                      const content = await encodeLetterFile(instrumentFile)
-                      setChange(
-                        await api.attachInstrument(change.id, {
-                          filename: instrumentFile.name,
-                          content,
-                          type: instrumentType,
-                          authority: instrumentAuthority,
-                          dated: instrumentDated,
-                        }),
-                      )
-                      setInstrumentFile(null)
-                    })
-                  }
+                  onAttach={attachInbound}
                 />
               </>
+            ) : (
+              <p className="meta">
+                Open the letter and store the memo before launch.{' '}
+                <Link to={`/changes/${change.id}/letter`}>Open letter</Link>
+              </p>
             )}
 
             <div className="actions">
@@ -554,6 +699,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
         </section>
       ) : null}
 
+      {desk === 'packet' ? (
       <div className="grid-2">
         <section className="panel">
           <div className="panel-hd">TOUCHED SECTIONS</div>
@@ -589,6 +735,7 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
           </ol>
         </section>
       </div>
+      ) : null}
     </>
   )
 }

@@ -30,6 +30,8 @@ Do not let a composed request satisfy `issue`. That is the Slice 2 hole.
 
 Both sit on the same reviewer desk: pick a file **or** write here. TR is always a memo (compose-or-pick), never a POI request.
 
+After internal **Approve**, Open letter is a **separate desk**. For a request, that step is `approval-requested` (the packet asked the authority; it is not launched). Launch (inbound reply + issue) is a third desk.
+
 `change approve` stays a status verb. This lock does not add a second artifact called “review acceptance.” If Approve itself needs a document, that is a later packet: internal sign-off, then inbound launch letter.
 
 ## Store

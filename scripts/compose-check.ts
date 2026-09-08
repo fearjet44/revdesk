@@ -47,7 +47,7 @@ withCopy((repo, dir) => {
   })
   check('request kind', composed.correspondence?.kind === 'request')
   check('request does not set instrument', composed.instrument == null)
-  check('request stays approved', composed.status === 'approved')
+  check('request is approval-requested', composed.status === 'approval-requested')
   check(
     'request lives under correspondence',
     composed.correspondence?.file === 'control/correspondence/CHG-014-request.md',
@@ -99,6 +99,14 @@ withCopy((repo, dir) => {
   check('inbound launch after request', issued.id === 'GOM-R14')
 })
 
+withCopy((repo) => {
+  const opened = repo.transition('CHG-014', 'open-letter')
+  check('open-letter sets approval-requested', opened.status === 'approval-requested')
+  check('open-letter does not attach instrument', opened.instrument == null)
+  const again = repo.transition('CHG-014', 'open-letter')
+  check('open-letter is idempotent', again.status === 'approval-requested')
+})
+
 withCopy((repo, dir) => {
   const composed = repo.composeLetter('CHG-014', {
     to: 'File',
@@ -111,6 +119,7 @@ withCopy((repo, dir) => {
   })
   check('tr compose is memo', composed.correspondence?.kind === 'memo')
   check('tr compose does not attach full instrument', composed.instrument == null)
+  check('tr compose stays approved', composed.status === 'approved')
   check(
     'tr memo under correspondence',
     composed.correspondence?.file === 'control/correspondence/CHG-014-memo.md',

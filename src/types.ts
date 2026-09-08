@@ -6,12 +6,13 @@ export type ChangeStatus =
   | 'draft'
   | 'review'
   | 'approved'
+  | 'approval-requested'
   | 'ready-to-launch'
   | 'edit'
   | 'launched'
   | 'withdrawn'
 
-export type ChangeAction = 'submit' | 'approve'
+export type ChangeAction = 'submit' | 'approve' | 'open-letter'
 export type TouchAction = 'amend' | 'add' | 'delete'
 /** tr/rev are named at review/launch. wip = dirty pages, unclassified. */
 export type PackageKind = 'tr' | 'rev' | 'wip'

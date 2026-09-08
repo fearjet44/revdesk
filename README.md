@@ -39,6 +39,7 @@ npm run test:review   # reviewer diff + git-notes comments
 
 ```text
 draft → review → approved → ready-to-launch → launched
+                    ↘ approval-requested
                               ↘ edit
 ```
 

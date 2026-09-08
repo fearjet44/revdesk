@@ -195,6 +195,11 @@ async function main(argv: string[]): Promise<number> {
       return emit(json, repo.transition(id, 'approve', { role: opts.role }), formatChange)
     }
 
+    if (cmd === 'change' && sub === 'open-letter') {
+      const id = requirePositional(rest, 0, 'change id')
+      return emit(json, repo.transition(id, 'open-letter'), formatChange)
+    }
+
     if (cmd === 'change' && sub === 'withdraw') {
       const id = requirePositional(rest, 0, 'change id')
       const opts = parseOpts(rest.slice(1))
@@ -701,7 +706,7 @@ Usage:
   revdesk change start  --manual <id> --title "..." --section <id>
                         [--section <id> ...] [--kind tr|rev] [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
-  revdesk change show | touch | submit | approve | withdraw | return-to-edit
+  revdesk change show | touch | submit | approve | open-letter | withdraw | return-to-edit
   revdesk change diff     <CHG> [--section <id>]
   revdesk change comments <CHG>
   revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."

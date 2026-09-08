@@ -146,7 +146,7 @@ Repo status → HTTP:
 | POST | `/api/changes/:id/comments/:id/answer` | `revdesk change answer` |
 | GET | `/api/changes/:id/sections/:section` | `revdesk section get` |
 | PUT | `/api/changes/:id/sections/:section` | `revdesk section put` (body `{ "markdown", "mark", "note" }`) |
-| POST | `/api/changes/:id/transition` | `submit` / `approve` |
+| POST | `/api/changes/:id/transition` | `submit` / `approve` / `open-letter` |
 | POST | `/api/changes/:id/issue` | `revdesk issue` |
 | POST | `/api/changes/:id/tr` | `revdesk tr issue` (desk: `filename` + base64 `content`; no server path) |
 | GET | `/api/issues` | — |
@@ -195,11 +195,12 @@ States:
 
 ```text
 draft → review → approved → ready-to-launch → launched
+                    ↘ approval-requested
                               ↘ edit
 launched ↛ withdrawn
 ```
 
-`ready-to-launch` = internal reviews done **and** a valid instrument attached. After full or TR launch, withdraw is refused.
+`approval-requested` = the request letter desk is open (not a launch). `ready-to-launch` = internal reviews done **and** a valid instrument attached. After full or TR launch, withdraw is refused.
 
 ## Troubleshooting
 

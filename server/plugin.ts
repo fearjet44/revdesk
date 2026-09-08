@@ -5,7 +5,7 @@ import { renderIssuedPdf, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
 
-const ACTIONS = new Set<ChangeAction>(['submit', 'approve'])
+const ACTIONS = new Set<ChangeAction>(['submit', 'approve', 'open-letter'])
 
 export function controlDeskPlugin(dataRoot: string): Plugin {
   const repo = new Repo(dataRoot)
@@ -275,7 +275,7 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
   if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'transition') {
     const body = await readJson<{ action?: string; role?: string }>(req)
     const action = body.action as ChangeAction
-    if (!ACTIONS.has(action)) throw new RepoError(2, 'action must be submit or approve.')
+    if (!ACTIONS.has(action)) throw new RepoError(2, 'action must be submit, approve, or open-letter.')
     sendJson(res, 200, repo.transition(parts[1], action, { role: body.role }))
     return
   }

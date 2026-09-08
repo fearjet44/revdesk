@@ -426,6 +426,7 @@ h1 {
 .lamp.review { color: var(--steel); }
 .lamp.in_review { color: var(--steel); }
 .lamp.approved { color: var(--ok); }
+.lamp.approval-requested { color: var(--caution); }
 .lamp.ready-to-launch { color: var(--ok); }
 .lamp.edit { color: var(--amber); }
 .lamp.launched { color: #cfc6b4; }
@@ -538,6 +539,48 @@ label.field.invalid select,
   letter-spacing: 0;
   text-transform: none;
   color: #f0c2be;
+}
+
+.desk-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.desk-step {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.desk-step strong {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.desk-step.current {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.desk-step.current strong {
+  color: var(--amber);
+}
+
+.desk-step.done {
+  border-color: #2a4a3a;
+}
+
+.desk-step.done strong {
+  color: var(--ok);
 }
 
 .letter-mode {

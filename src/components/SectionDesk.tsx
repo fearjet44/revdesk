@@ -6,7 +6,7 @@ import { ReviewSection } from './ReviewSection.tsx'
 import { SectionEditor } from './SectionEditor.tsx'
 import type { SectionView } from './ViewToggle.tsx'
 
-const REVIEWER = new Set(['review', 'approved', 'ready-to-launch'])
+const REVIEWER = new Set(['review', 'approved', 'approval-requested', 'ready-to-launch'])
 
 export function SectionDesk({ onChanged }: { onChanged: () => Promise<void> }) {
   const { changeId } = useParams()

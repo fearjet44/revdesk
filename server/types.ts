@@ -6,13 +6,14 @@ export type ChangeStatus =
   | 'draft'
   | 'review'
   | 'approved'
+  | 'approval-requested'
   | 'ready-to-launch'
   | 'edit'
   | 'launched'
   | 'withdrawn'
 
 /** Lifecycle verbs (not including launch / TR / withdraw / return-to-edit). */
-export type ChangeAction = 'submit' | 'approve'
+export type ChangeAction = 'submit' | 'approve' | 'open-letter'
 
 export type TouchAction = 'amend' | 'add' | 'delete'
 

@@ -4,6 +4,7 @@ export const STATUS_LABEL: Record<ChangeStatus, string> = {
   draft: 'DRAFT',
   review: 'REVIEW',
   approved: 'APPROVED',
+  'approval-requested': 'APPROVAL REQUESTED',
   'ready-to-launch': 'READY',
   edit: 'EDIT',
   launched: 'LAUNCHED',

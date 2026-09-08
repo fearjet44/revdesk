@@ -102,6 +102,8 @@ function DeskApp() {
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
           <Route path="/issues/:issueId/sections/:sectionId" element={<IssuedSection />} />
           <Route path="/changes/:changeId" element={<ChangeView onChanged={refresh} />} />
+          <Route path="/changes/:changeId/letter" element={<ChangeView onChanged={refresh} />} />
+          <Route path="/changes/:changeId/launch" element={<ChangeView onChanged={refresh} />} />
           <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />
           <Route path="/issues/:issueId" element={<IssueView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
