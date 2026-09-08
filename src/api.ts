@@ -104,6 +104,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ action }),
     }),
+  composeLetter: (
+    changeId: string,
+    body: {
+      to: string
+      from: string
+      dated: string
+      subject: string
+      authority: string
+      body: string
+      as?: 'tr' | 'rev'
+    },
+  ) =>
+    request<ChangeRecord>(`/api/changes/${changeId}/compose`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   attachInstrument: (
     changeId: string,
     body: { filename: string; content: string; type: string; authority: string; dated: string; reference?: string },
@@ -119,7 +135,7 @@ export const api = {
     }),
   issueTr: (
     changeId: string,
-    body: { parent: string; authority: string; filename: string; content: string; expires?: string },
+    body: { parent: string; authority: string; filename?: string; content?: string; expires?: string },
   ) =>
     request<TrRecord>(`/api/changes/${changeId}/tr`, {
       method: 'POST',

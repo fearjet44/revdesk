@@ -39,6 +39,7 @@ npm run test:review   # reviewer diff + git-notes comments
 
 ```text
 draft → review → approved → ready-to-launch → launched
+                    ↘ approval-requested
                               ↘ edit
 ```
 
@@ -47,11 +48,13 @@ draft → review → approved → ready-to-launch → launched
 ```text
 revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
 revdesk instrument show   <CHG>
+revdesk compose <CHG> --to "..." --from "..." --dated YYYY-MM-DD --subject "..." --authority <who>
+                      --body-file <path> | --body "..." [--as tr|rev]
 
 revdesk issue <CHG> --effective YYYY-MM-DD
 revdesk issue show <GOM-R14>
 
-revdesk tr issue <CHG> --parent <GOM-R13> --authority <who> --file <letter> [--expires YYYY-MM-DD]
+revdesk tr issue <CHG> --parent <GOM-R13> --authority <who> [--file <letter>] [--expires YYYY-MM-DD]
 revdesk tr list [--manual gom]
 revdesk tr show <GOM-R13-TR1>
 
@@ -73,6 +76,7 @@ data/
   control/changes/CHG-*.yaml
   control/working/CHG-*/…
   control/instruments/…        # hashed copies after attach; do not edit
+  control/correspondence/…     # composed request (and TR memo before issue)
   control/issues/<MANUAL>-R<n>.yaml
   control/trs/<MANUAL>-R<n>-TR<k>.yaml
   artifacts/…                  # placeholder PDF this slice

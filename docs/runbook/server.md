@@ -98,6 +98,7 @@ data/
   control/changes/CHG-*.yaml
   control/working/CHG-*/…
   control/instruments/…
+  control/correspondence/…     # composed request (and TR memo before issue)
   control/issues/<MANUAL>-R<n>.yaml
   control/trs/<MANUAL>-R<n>-TR<k>.yaml
   artifacts/…
@@ -135,6 +136,7 @@ Repo status → HTTP:
 | GET | `/api/changes/:id` | `revdesk change show` |
 | POST | `/api/changes/:id/touch` | `revdesk change touch` |
 | POST | `/api/changes/:id/instrument` | `revdesk instrument attach` (desk: `filename` + base64 `content`; no server path) |
+| POST | `/api/changes/:id/compose` | `revdesk compose` (Markdown + envelope; no server path) |
 | POST | `/api/changes/:id/return-to-edit` | `revdesk change return-to-edit` |
 | POST | `/api/changes/:id/withdraw` | `revdesk change withdraw` |
 | GET | `/api/changes/:id/preview` | `revdesk preview` |
@@ -144,7 +146,7 @@ Repo status → HTTP:
 | POST | `/api/changes/:id/comments/:id/answer` | `revdesk change answer` |
 | GET | `/api/changes/:id/sections/:section` | `revdesk section get` |
 | PUT | `/api/changes/:id/sections/:section` | `revdesk section put` (body `{ "markdown", "mark", "note" }`) |
-| POST | `/api/changes/:id/transition` | `submit` / `approve` |
+| POST | `/api/changes/:id/transition` | `submit` / `approve` / `open-letter` |
 | POST | `/api/changes/:id/issue` | `revdesk issue` |
 | POST | `/api/changes/:id/tr` | `revdesk tr issue` (desk: `filename` + base64 `content`; no server path) |
 | GET | `/api/issues` | — |
@@ -171,7 +173,7 @@ Repo status → HTTP:
 
 `POST /api/changes/:id/transition` body: `{ "action": "submit" | "approve", "role": "…" }`.
 
-Instrument attach copies the letter into `control/instruments/` and records sha256. The HTTP desk sends `filename` + base64 `content` (no server path). CLI still uses `--file`. `issue` / `tr` require a stored instrument; there is no “posted without letter” path.
+Instrument attach copies the letter into `control/instruments/` and records sha256. The HTTP desk sends `filename` + base64 `content` (no server path). CLI still uses `--file`. Compose stores Markdown plus a YAML envelope. An **internal memo** (and a TR memo) is the instrument; a **request** to POI/CAA/vendor is not — `issue` still waits for the inbound reply. `issue` / `tr` require a stored instrument; there is no “posted without letter” path.
 
 ## Shared state with the CLI
 
@@ -186,18 +188,19 @@ Git tags (when a manuals repo is discovered) are cut only by `issue` / `tr issue
 1. Open http://localhost:5173.
 2. Home lists manuals, open changes, issued revs.
 3. Author opens a TR or rev, edits working copies under `control/working/<CHG>/`, submits.
-4. Reviewer attaches an instrument and launches (full `issue` or `tr issue`).
+4. Reviewer attaches or composes the right letter and launches (full `issue` or `tr issue`). A composed request is not enough.
 5. Confirm with `revdesk launched gom` or `GET /api/launched/gom`.
 
 States:
 
 ```text
 draft → review → approved → ready-to-launch → launched
+                    ↘ approval-requested
                               ↘ edit
 launched ↛ withdrawn
 ```
 
-`ready-to-launch` = internal reviews done **and** a valid instrument attached. After full or TR launch, withdraw is refused.
+`approval-requested` = the request letter desk is open (not a launch). `ready-to-launch` = internal reviews done **and** a valid instrument attached. After full or TR launch, withdraw is refused.
 
 ## Troubleshooting
 
@@ -210,13 +213,15 @@ launched ↛ withdrawn
 | Launch from the UI fails with validation | Same rules as the CLI: instrument, status, TR one-section |
 | Git words in the UI | Bug. Git stays in `server/git.ts` + `revdesk git status` |
 | Desk attach still asks for a path | Old tree. `revdesk desk origin` or deploy this branch. HTTP body is `filename` + `content`, not `file` |
+| Composed request launches a full rev | Bug. Only an inbound attach (or an internal memo) is the instrument |
 | `revdesk desk origin` exit 2, primary is dirty | Commit or discard. Do not stash as part of deploy |
 | `revdesk desk deploy` — Vite did not answer | `journalctl --user -u revdesk -n 80`. Do not `npm run dev` |
 
 ## Tests that exercise the same code
 
 ```sh
-npm run test:md       # markdown roundtrip
+npm run test:md       # markdown roundtrip + instrument bytes + compose
+npm run test:compose  # memo vs request; request cannot satisfy issue
 npm run test:slice2   # launch / TR YAML (temp copy of fixtures/tiny-gom)
 npm run test:slice3   # git adapter (throwaway repo in $TMPDIR)
 npm run test:slice6   # ingest classify + lorem Nimbl sample books

@@ -16,8 +16,8 @@ export function DeskHome({ desk }: { desk: DeskPayload | null }) {
           <p className="kicker">Control desk</p>
           <h1>Launched books on the board</h1>
           <p className="lede">
-            Open a page, save a working copy, submit. Review names it a TR or a full revision
-            and attaches the launch letter.
+            Open a page, save a working copy, submit. Review approves, opens the letter, then
+            launches.
           </p>
         </div>
         {issued ? (

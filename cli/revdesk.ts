@@ -195,6 +195,11 @@ async function main(argv: string[]): Promise<number> {
       return emit(json, repo.transition(id, 'approve', { role: opts.role }), formatChange)
     }
 
+    if (cmd === 'change' && sub === 'open-letter') {
+      const id = requirePositional(rest, 0, 'change id')
+      return emit(json, repo.transition(id, 'open-letter'), formatChange)
+    }
+
     if (cmd === 'change' && sub === 'withdraw') {
       const id = requirePositional(rest, 0, 'change id')
       const opts = parseOpts(rest.slice(1))
@@ -264,6 +269,30 @@ async function main(argv: string[]): Promise<number> {
       return emit(json, repo.showInstrument(id), formatInstrument)
     }
 
+    if (cmd === 'compose') {
+      const id = requirePositional(sub ? [sub, ...rest] : rest, 0, 'change id')
+      const opts = parseOpts(sub ? rest : rest.slice(1))
+      const as = opts.as === 'tr' || opts.as === 'rev' ? opts.as : undefined
+      let body = opts.body ?? ''
+      if (opts['body-file']) {
+        const src = path.resolve(opts['body-file'])
+        body = readFileSync(src, 'utf8')
+      }
+      return emit(
+        json,
+        repo.composeLetter(id, {
+          to: requireOpt(opts, 'to'),
+          from: requireOpt(opts, 'from'),
+          dated: requireOpt(opts, 'dated'),
+          subject: requireOpt(opts, 'subject'),
+          authority: requireOpt(opts, 'authority'),
+          body,
+          as,
+        }),
+        formatChange,
+      )
+    }
+
     if (cmd === 'section' && sub === 'get') {
       const sectionId = requirePositional(rest, 0, 'section id')
       const opts = parseOpts(rest.slice(1))
@@ -316,7 +345,7 @@ async function main(argv: string[]): Promise<number> {
         repo.issueTr(id, {
           parent: requireOpt(opts, 'parent'),
           authority: requireOpt(opts, 'authority'),
-          file: requireOpt(opts, 'file'),
+          file: opts.file,
           expires: opts.expires,
         }),
         formatTr,
@@ -459,6 +488,16 @@ function formatChange(change: ChangeRecord): string {
     lines.push(`  sha256 ${change.instrument.sha256}`)
   } else {
     lines.push('instrument (none)')
+  }
+  if (change.correspondence) {
+    const letter = change.correspondence
+    lines.push(
+      `correspondence ${letter.kind}  ${letter.authority}  ${letter.file}${
+        letter.kind === 'request' ? '  (not the launch instrument)' : ''
+      }`,
+    )
+    lines.push(`  ${letter.subject}`)
+    lines.push(`  sha256 ${letter.sha256}`)
   }
   lines.push('', 'TOUCHED')
   if (!change.touched.length) lines.push('  (none)')
@@ -667,7 +706,7 @@ Usage:
   revdesk change start  --manual <id> --title "..." --section <id>
                         [--section <id> ...] [--kind tr|rev] [--reason "..."] [--reason-type <type>] [--ref <ref>]
                         [--supersedes GOM-Rn]
-  revdesk change show | touch | submit | approve | withdraw | return-to-edit
+  revdesk change show | touch | submit | approve | open-letter | withdraw | return-to-edit
   revdesk change diff     <CHG> [--section <id>]
   revdesk change comments <CHG>
   revdesk change comment  <CHG> --section <id> --line N [--side new|old] --body "..."
@@ -675,6 +714,8 @@ Usage:
 
   revdesk instrument attach <CHG> --file <path> --type <type> --authority <who> --dated YYYY-MM-DD
   revdesk instrument show   <CHG>
+  revdesk compose <CHG> --to "..." --from "..." --dated YYYY-MM-DD --subject "..." --authority <who>
+                        --body-file <path> | --body "..." [--as tr|rev]
 
   revdesk section get <id> --change <CHG> [--out file]
   revdesk section put <id> --change <CHG> --file <path> --mark RF|GS|SE|… [--note "…"]
@@ -683,7 +724,7 @@ Usage:
   revdesk issue <CHG> --effective YYYY-MM-DD
   revdesk issue show <GOM-Rn>
 
-  revdesk tr issue <CHG> --parent <GOM-Rn> --authority <who> --file <letter> [--expires YYYY-MM-DD]
+  revdesk tr issue <CHG> --parent <GOM-Rn> --authority <who> [--file <letter>] [--expires YYYY-MM-DD]
   revdesk tr list [--manual gom]
   revdesk tr show <GOM-Rn-TRk>
 
