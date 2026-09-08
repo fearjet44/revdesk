@@ -629,7 +629,9 @@ export class Repo {
   attachInstrument(
     changeId: string,
     input: {
-      file: string
+      file?: string
+      bytes?: Buffer
+      filename?: string
       type: string
       authority: string
       dated: string
@@ -663,18 +665,14 @@ export class Repo {
       throw new RepoError(2, `Unknown instrument type ${type}.`)
     }
 
-    const src = path.resolve(input.file)
-    if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
-    assertInstrumentFile(src)
-
-    const bytes = readFileSync(src)
-    const sha256 = sha256Hex(bytes)
-    const ext = path.extname(src) || '.bin'
+    const letter = instrumentSource(input)
+    const sha256 = sha256Hex(letter.bytes)
+    const ext = path.extname(letter.filename) || '.bin'
     const authority = input.authority.trim()
     const destName = `${change.id}-${authority.replace(/\s+/g, '-').toLowerCase()}${ext}`
     const destRel = `control/instruments/${destName}`
     mkdirSync(this.abs('control', 'instruments'), { recursive: true })
-    writeFileSync(this.abs(destRel), bytes)
+    writeFileSync(this.abs(destRel), letter.bytes)
 
     const instrument: InstrumentRecord = {
       type,
@@ -889,7 +887,9 @@ export class Repo {
     input: {
       parent: string
       authority: string
-      file: string
+      file?: string
+      bytes?: Buffer
+      filename?: string
       expires?: string
     },
   ): TrRecord {
@@ -945,9 +945,7 @@ export class Repo {
       )
     }
 
-    const src = path.resolve(input.file)
-    if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
-    assertInstrumentFile(src)
+    const letter = instrumentSource(input)
 
     let expires: string | null = null
     if (input.expires?.trim()) {
@@ -957,8 +955,7 @@ export class Repo {
       }
     }
 
-    const bytes = readFileSync(src)
-    const sha256 = sha256Hex(bytes)
+    const sha256 = sha256Hex(letter.bytes)
     const seq = this.nextTrSeq(parent.id)
     const trId = `${parent.id}-TR${seq}`
     const cfg = loadGitConfig(this.root)
@@ -973,10 +970,10 @@ export class Repo {
       throwGit(error)
     }
 
-    const ext = path.extname(src) || '.bin'
+    const ext = path.extname(letter.filename) || '.bin'
     const destRel = `control/instruments/${trId}-${authority}${ext}`
     mkdirSync(this.abs('control', 'instruments'), { recursive: true })
-    writeFileSync(this.abs(destRel), bytes)
+    writeFileSync(this.abs(destRel), letter.bytes)
 
     const instrument: InstrumentRecord = {
       type: 'internal-letter',
@@ -1552,6 +1549,7 @@ function issuedTagGuess(abbrev: string, revision: number): string {
 }
 
 const INSTRUMENT_EXTS = new Set(['.eml', '.txt', '.pdf'])
+const INSTRUMENT_MAX_BYTES = 8 * 1024 * 1024
 
 function assertInstrumentFile(src: string): void {
   const ext = path.extname(src).toLowerCase()
@@ -1561,6 +1559,28 @@ function assertInstrumentFile(src: string): void {
       `Instrument file must be .eml, .txt, or .pdf (got ${ext || 'no extension'}).`,
     )
   }
+}
+
+function instrumentSource(input: { file?: string; bytes?: Buffer; filename?: string }): {
+  bytes: Buffer
+  filename: string
+} {
+  if (input.bytes) {
+    const filename = path.basename((input.filename ?? '').trim())
+    if (!filename) throw new RepoError(2, 'Instrument filename is required.')
+    assertInstrumentFile(filename)
+    if (!input.bytes.length) throw new RepoError(2, 'Instrument file is empty.')
+    if (input.bytes.length > INSTRUMENT_MAX_BYTES) {
+      throw new RepoError(2, 'Instrument file is too large (max 8 MiB).')
+    }
+    return { bytes: Buffer.from(input.bytes), filename }
+  }
+  const file = (input.file ?? '').trim()
+  if (!file) throw new RepoError(2, 'Instrument file required.')
+  const src = path.resolve(file)
+  if (!existsSync(src)) throw new RepoError(3, `Instrument file not found: ${src}`)
+  assertInstrumentFile(src)
+  return { bytes: readFileSync(src), filename: src }
 }
 
 function parsePackageKind(raw: unknown): PackageKind {

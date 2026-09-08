@@ -140,16 +140,20 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
   if (method === 'POST' && parts[0] === 'changes' && parts[2] === 'instrument') {
     const body = await readJson<{
       file?: string
+      filename?: string
+      content?: string
       type?: string
       authority?: string
       dated?: string
       reference?: string
     }>(req)
+    const letter = uploadedLetter(body)
     sendJson(
       res,
       200,
       repo.attachInstrument(parts[1], {
-        file: body.file ?? '',
+        bytes: letter.bytes,
+        filename: letter.filename,
         type: body.type ?? '',
         authority: body.authority ?? '',
         dated: body.dated ?? '',
@@ -253,15 +257,19 @@ async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Pr
       parent?: string
       authority?: string
       file?: string
+      filename?: string
+      content?: string
       expires?: string
     }>(req)
+    const letter = uploadedLetter(body)
     sendJson(
       res,
       200,
       repo.issueTr(parts[1], {
         parent: body.parent ?? '',
         authority: body.authority ?? '',
-        file: body.file ?? '',
+        bytes: letter.bytes,
+        filename: letter.filename,
         expires: body.expires,
       }),
     )
@@ -340,6 +348,24 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
   const raw = Buffer.concat(chunks).toString('utf8')
   if (!raw.trim()) return {} as T
   return JSON.parse(raw) as T
+}
+
+function uploadedLetter(body: { file?: string; filename?: string; content?: string }): {
+  bytes: Buffer
+  filename: string
+} {
+  if (body.file?.trim()) {
+    throw new RepoError(
+      2,
+      'The desk uploads the letter; it does not take a server path. CLI still uses --file.',
+    )
+  }
+  const filename = (body.filename ?? '').trim()
+  if (!filename) throw new RepoError(2, 'filename is required.')
+  if (!body.content) throw new RepoError(2, 'content is required.')
+  const bytes = Buffer.from(body.content, 'base64')
+  if (!bytes.length) throw new RepoError(2, 'Instrument file is empty.')
+  return { bytes, filename }
 }
 
 export function dataRootFrom(cwd: string): string {

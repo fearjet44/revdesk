@@ -453,13 +453,18 @@ h1 {
   padding: 14px;
 }
 
-label.field {
+label.field,
+.field {
   display: grid;
   gap: 6px;
   font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--muted);
   text-transform: uppercase;
+}
+
+.field > label {
+  letter-spacing: 0.12em;
 }
 
 input[type="text"], textarea, select {
@@ -471,9 +476,44 @@ input[type="text"], textarea, select {
 }
 
 label.field.invalid input,
-label.field.invalid select {
+label.field.invalid select,
+.field.invalid .file-pick {
   border-color: #6a2a28;
   background: #2a1414;
+}
+
+.file-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 4px 8px 4px 4px;
+  background: #0f1319;
+  border: 1px solid var(--line);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.file-pick input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.file-pick-name {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.file-pick-name.empty {
+  color: var(--muted);
 }
 
 .field-error {

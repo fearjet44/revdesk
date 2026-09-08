@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '../api.ts'
+import { api, encodeLetterFile } from '../api.ts'
 import { NEXT_ACTION, formatDate } from '../status.ts'
 import type { ChangeRecord, ControlClass, InstrumentType, LaunchedStatus, PackageKind } from '../types.ts'
+import { LetterPicker } from './LetterPicker.tsx'
 import { StatusLamp } from './StatusLamp.tsx'
 
 const INSTRUMENT_TYPES: InstrumentType[] = [
@@ -32,9 +33,9 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [effective, setEffective] = useState(() => new Date().toISOString().slice(0, 10))
-  const [trFile, setTrFile] = useState('')
+  const [trFile, setTrFile] = useState<File | null>(null)
   const [trAuthority, setTrAuthority] = useState('chief-pilot')
-  const [instrumentPath, setInstrumentPath] = useState('')
+  const [instrumentFile, setInstrumentFile] = useState<File | null>(null)
   const [instrumentDated, setInstrumentDated] = useState(() => new Date().toISOString().slice(0, 10))
   const [instrumentType, setInstrumentType] = useState<InstrumentType>('acceptance-letter')
   const [instrumentAuthority, setInstrumentAuthority] = useState('poi')
@@ -101,11 +102,11 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
   const isTr = namedKind === 'tr'
   const kindLabel = change.kind === 'tr' ? 'TR' : change.kind === 'rev' ? 'REV' : 'WIP'
   const hasInstrument = Boolean(change.instrument)
-  const launchDocEmpty = isTr ? !trFile.trim() : !hasInstrument && !instrumentPath.trim()
+  const launchDocEmpty = isTr ? !trFile : !hasInstrument && !instrumentFile
   const canIssue =
     (change.status === 'approved' || change.status === 'ready-to-launch') &&
     namedKind != null &&
-    (isTr ? Boolean(trFile.trim() && launched?.full) : hasInstrument)
+    (isTr ? Boolean(trFile && launched?.full) : hasInstrument)
 
   return (
     <>
@@ -274,14 +275,13 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
 
             {isTr ? (
               <>
-                <label className="field">
-                  TR letter path
-                  <input
-                    value={trFile}
-                    onChange={(e) => setTrFile(e.target.value)}
-                    placeholder="/path/to/cp-letter.txt"
-                  />
-                </label>
+                <LetterPicker
+                  label="TR letter"
+                  file={trFile}
+                  invalid={launchDocEmpty}
+                  disabled={busy}
+                  onChange={setTrFile}
+                />
                 <label className="field">
                   TR authority
                   <select value={trAuthority} onChange={(e) => setTrAuthority(e.target.value)}>
@@ -301,14 +301,13 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
               </p>
             ) : (
               <>
-                <label className="field">
-                  Attach instrument — local file path
-                  <input
-                    value={instrumentPath}
-                    onChange={(e) => setInstrumentPath(e.target.value)}
-                    placeholder="/path/to/acceptance-letter.pdf"
-                  />
-                </label>
+                <LetterPicker
+                  label="Launch letter"
+                  file={instrumentFile}
+                  invalid={launchDocEmpty}
+                  disabled={busy}
+                  onChange={setInstrumentFile}
+                />
                 <label className="field">
                   Instrument type
                   <select
@@ -344,17 +343,21 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
                   <button
                     className="btn"
                     type="button"
-                    disabled={busy || !instrumentPath.trim()}
+                    disabled={busy || !instrumentFile}
                     onClick={() =>
                       void run(async () => {
+                        if (!instrumentFile) return
+                        const content = await encodeLetterFile(instrumentFile)
                         setChange(
                           await api.attachInstrument(change.id, {
-                            file: instrumentPath.trim(),
+                            filename: instrumentFile.name,
+                            content,
                             type: instrumentType,
                             authority: instrumentAuthority,
                             dated: instrumentDated,
                           }),
                         )
+                        setInstrumentFile(null)
                       })
                     }
                   >
@@ -372,11 +375,15 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
                 onClick={() =>
                   void run(async () => {
                     if (isTr) {
+                      if (!trFile) return
+                      const content = await encodeLetterFile(trFile)
                       await api.issueTr(change.id, {
                         parent: launched!.full!,
                         authority: trAuthority,
-                        file: trFile.trim(),
+                        filename: trFile.name,
+                        content,
                       })
+                      setTrFile(null)
                     } else {
                       await api.issueFull(change.id, effective)
                     }
@@ -385,8 +392,8 @@ export function ChangeView({ onChanged }: { onChanged: () => Promise<void> }) {
               >
                 {isTr ? 'Issue temporary revision' : 'Launch revision'}
               </button>
-              {launchDocEmpty ? (
-                <span className="meta">Attach a letter when you are ready to launch.</span>
+              {!isTr && !hasInstrument && instrumentFile ? (
+                <span className="meta">Attach the letter before launch.</span>
               ) : null}
             </div>
           </div>
