@@ -47,6 +47,10 @@ export type GitSnapshotResult = {
   git_skipped: boolean
 }
 
+export type LibrarySnapshotResult = GitSnapshotResult & {
+  pushed: boolean
+}
+
 export type ReviewFile = {
   gitPath: string
   content: string
@@ -347,6 +351,55 @@ export function snapshotLaunch(
   }
 
   return { source_commit: sha, git_skipped: false }
+}
+
+/**
+ * Commit allowed library paths after ingest. Push HEAD when origin exists.
+ * Never `--force`. Never cuts an `issued/` tag — that is `issue` / `tr issue`.
+ */
+export function snapshotLibrary(dataRoot: string, message: string): LibrarySnapshotResult {
+  const cfg = loadGitConfig(dataRoot)
+  if (!cfg.enabled) return { source_commit: null, git_skipped: true, pushed: false }
+  const root = resolveManualsGitRoot(dataRoot)
+  if (!root) {
+    warnIfSkippedApplicationRepo(dataRoot)
+    return { source_commit: null, git_skipped: true, pushed: false }
+  }
+
+  const dirty = porcelainPaths(root, cfg)
+  const disallowed = dirty.filter((gitRel) => !isAllowedGitPath(gitRel, root, dataRoot))
+  if (disallowed.length) {
+    const listed = disallowed.map((p) => `  ${displayPath(p, root, dataRoot)}`).join('\n')
+    throw new GitAdapterError(
+      2,
+      `Uncommitted files outside manuals/, control/, artifacts/, .revdesk/:\n${listed}`,
+    )
+  }
+
+  const toAdd = dirty.filter((gitRel) => isAllowedGitPath(gitRel, root, dataRoot))
+  if (toAdd.length) {
+    runGit(root, cfg, ['add', '--', ...toAdd])
+    commit(root, cfg, message)
+  }
+
+  const sha = revParse(root, cfg, 'HEAD')
+  if (!sha) {
+    throw new GitAdapterError(5, 'git rev-parse HEAD failed after library snapshot.')
+  }
+
+  const pushed = maybePushHead(root, cfg)
+  return { source_commit: sha, git_skipped: false, pushed }
+}
+
+function maybePushHead(root: string, cfg: GitConfig): boolean {
+  const remotes = spawnGit(root, cfg, ['remote'])
+  if (remotes.status !== 0 || !/(^|\n)origin(\n|$)/.test(remotes.stdout)) return false
+  // Never --force.
+  const result = spawnGit(root, cfg, ['push', 'origin', 'HEAD'])
+  if (result.status !== 0) {
+    throw new GitAdapterError(5, gitFail('push', result))
+  }
+  return true
 }
 
 export function tagOk(

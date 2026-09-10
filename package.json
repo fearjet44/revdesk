@@ -18,6 +18,7 @@
     "test:slice2": "bash scripts/slice2-acceptance.sh",
     "test:slice3": "bash scripts/slice3-acceptance.sh",
     "test:slice6": "bash scripts/slice6-acceptance.sh",
+    "test:slice7": "bash scripts/slice7-acceptance.sh",
     "test:review": "bash scripts/review-comments-check.sh",
     "test:desk": "node --test scripts/desk-deploy.test.mjs",
     "test:instrument": "node --experimental-strip-types scripts/instrument-bytes-check.ts"

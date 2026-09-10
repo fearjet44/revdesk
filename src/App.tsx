@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { api } from './api.ts'
 import { ChangeView } from './components/ChangeView.tsx'
+import { ConfigView } from './components/ConfigView.tsx'
 import { DeskHome } from './components/DeskHome.tsx'
+import { IngestDialog } from './components/IngestDialog.tsx'
 import { IssuedSection } from './components/IssuedSection.tsx'
 import { IssueView } from './components/IssueView.tsx'
 import { ManualPdfView } from './components/ManualPdfView.tsx'
 import { ManualView } from './components/ManualView.tsx'
 import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
-import type { DeskPayload } from './types.ts'
+import type { DeskPayload, LibraryInfo } from './types.ts'
 
 export default function App() {
   return (
@@ -23,11 +25,15 @@ export default function App() {
 function DeskApp() {
   const location = useLocation()
   const [desk, setDesk] = useState<DeskPayload | null>(null)
+  const [library, setLibrary] = useState<LibraryInfo | null>(null)
+  const [ingestOpen, setIngestOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function refresh() {
     try {
-      setDesk(await api.desk())
+      const [nextDesk, nextLibrary] = await Promise.all([api.desk(), api.config()])
+      setDesk(nextDesk)
+      setLibrary(nextLibrary)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to read the control library.')
@@ -55,7 +61,17 @@ function DeskApp() {
           </Link>
           <div className="mast-title">Controlled Manual Desk</div>
         </div>
-        <div className="mast-meta">LOCAL LIBRARY · NO AUTH · FILE-BACKED</div>
+        <div className="mast-tools">
+          <button className="btn" type="button" onClick={() => setIngestOpen(true)}>
+            Ingest a book
+          </button>
+          <NavLink className="btn ghost" to="/config">
+            Config
+          </NavLink>
+          <div className="mast-meta">
+            {library?.bound ? 'BOUND LIBRARY · NO AUTH' : 'LOCAL LIBRARY · NO AUTH · FILE-BACKED'}
+          </div>
+        </div>
       </header>
 
       <aside className="rail">
@@ -98,7 +114,8 @@ function DeskApp() {
       <main className="stage">
         {error ? <div className="banner error">{error}</div> : null}
         <Routes>
-          <Route path="/" element={<DeskHome desk={desk} />} />
+          <Route path="/" element={<DeskHome desk={desk} onIngest={() => setIngestOpen(true)} />} />
+          <Route path="/config" element={<ConfigView onChanged={refresh} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
           <Route path="/issues/:issueId/sections/:sectionId" element={<IssuedSection />} />
           <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />
@@ -107,6 +124,14 @@ function DeskApp() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      {ingestOpen ? (
+        <IngestDialog
+          onClose={() => setIngestOpen(false)}
+          onDone={async () => {
+            await refresh()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

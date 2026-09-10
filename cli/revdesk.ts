@@ -3,13 +3,15 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  classifyFromText,
-  classifyPdf,
+  applyIngest,
+  classifySource,
   formatClassification,
   listCatalogs,
   loadCatalog,
   scaffoldCatalog,
+  type IngestApplyResult,
 } from '../server/ingest.ts'
+import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
 import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
 import { Repo, RepoError } from '../server/repo.ts'
 import type {
@@ -24,9 +26,7 @@ import type {
 } from '../server/types.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DATA = process.env.REVDESK_DATA
-  ? path.resolve(process.env.REVDESK_DATA)
-  : path.join(ROOT, 'data')
+const DATA = resolveLibraryRoot(ROOT)
 
 async function main(argv: string[]): Promise<number> {
   const args = [...argv]
@@ -45,6 +45,10 @@ async function main(argv: string[]): Promise<number> {
     return out.exitCode
   }
 
+  if (cmd === 'config') {
+    return runConfig(json, sub, rest)
+  }
+
   const repo = new Repo(DATA)
 
   try {
@@ -59,16 +63,7 @@ async function main(argv: string[]): Promise<number> {
 
     if (cmd === 'ingest' && sub === 'classify') {
       const file = requirePositional(rest, 0, 'pdf or text file')
-      const abs = path.resolve(file)
-      const report = abs.toLowerCase().endsWith('.txt')
-        ? classifyFromText(readFileSync(abs, 'utf8'), {
-            filename: path.basename(abs),
-            pages: null,
-            creator: null,
-            producer: null,
-          })
-        : classifyPdf(abs)
-      return emit(json, report, formatClassification)
+      return emit(json, classifySource(path.resolve(file)), formatClassification)
     }
 
     if (cmd === 'ingest' && sub === 'scaffold') {
@@ -101,7 +96,11 @@ async function main(argv: string[]): Promise<number> {
     }
 
     if (cmd === 'ingest') {
-      throw new RepoError(2, 'Usage: revdesk ingest classify <file> | scaffold --catalog <id> [--out dir] | catalogs')
+      const opts = parseOpts(sub ? [sub, ...rest] : rest)
+      const file = ingestFileArg(sub, rest, opts)
+      const out = opts.out ? path.resolve(opts.out) : DATA
+      const result = applyIngest({ file }, out)
+      return emit(json, result, formatIngestApply)
     }
 
     if (cmd === 'git' && sub === 'status') {
@@ -693,6 +692,63 @@ function requirePositional(tokens: string[], index: number, label: string): stri
   return value
 }
 
+function runConfig(json: boolean, sub: string | undefined, rest: string[]): number {
+  if (!sub || sub === 'show') {
+    return emit(json, libraryInfo(ROOT), formatLibraryInfo)
+  }
+  if (sub === 'set') {
+    const field = requirePositional(rest, 0, 'remote')
+    if (field !== 'remote') {
+      throw new RepoError(2, 'Usage: revdesk config set remote <url|"">')
+    }
+    const value = rest[1] ?? ''
+    if (value.startsWith('--')) throw new RepoError(2, 'Usage: revdesk config set remote <url|"">')
+    const info = bindRemote(value === '""' || value === "''" ? '' : value)
+    if (!info.bound) {
+      info.library_root = path.join(ROOT, 'data')
+      info.solo = true
+    }
+    return emit(json, info, formatLibraryInfo)
+  }
+  throw new RepoError(2, 'Usage: revdesk config [show] | config set remote <url|"">')
+}
+
+function ingestFileArg(sub: string | undefined, rest: string[], opts: Record<string, string>): string {
+  if (opts.file) return path.resolve(opts.file)
+  if (sub === 'apply') return path.resolve(requirePositional(rest, 0, 'pdf or text file'))
+  if (sub && !sub.startsWith('--')) return path.resolve(sub)
+  throw new RepoError(
+    2,
+    'Usage: revdesk ingest <file> | ingest apply <file> | ingest classify <file> | ingest scaffold --catalog <id> | ingest catalogs',
+  )
+}
+
+function formatIngestApply(row: IngestApplyResult): string {
+  const gold = row.matched_gold ? `known map ${row.catalog}` : 'from source map'
+  const snap = row.snapshot.skipped
+    ? 'solo tree (not the bound library)'
+    : row.snapshot.pushed
+      ? 'wrote through to the bound library'
+      : 'wrote on the local library'
+  return [
+    `${row.abbrev}  ${row.title}  ${row.sections} sections  ${gold}`,
+    `root ${row.root}`,
+    snap,
+    ...row.files.map((file) => `  ${file}`),
+  ].join('\n')
+}
+
+function formatLibraryInfo(info: ReturnType<typeof libraryInfo>): string {
+  return [
+    `remote:   ${info.remote || '(none — solo library)'}`,
+    `bound:    ${info.bound}`,
+    `solo:     ${info.solo}`,
+    `library:  ${info.library_root || '(unbound)'}`,
+    `config:   ${info.config_path}`,
+    `cloned:   ${info.cloned}`,
+  ].join('\n')
+}
+
 function printHelp(): void {
   console.log(`revdesk — controlled manual desk (file-backed)
 
@@ -730,12 +786,17 @@ Usage:
 
   revdesk git status
 
+  revdesk config [show]
+  revdesk config set remote <url|"">
+
+  revdesk ingest <pdf|txt> [--out dir]
+  revdesk ingest apply <pdf|txt> [--out dir]
   revdesk ingest catalogs
   revdesk ingest classify <pdf|txt> [--json]
   revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 
 Exit: 0 ok · 2 validation · 3 not found · 4 not allowed · 5 pipeline
-Data root: ${DATA}  (override with REVDESK_DATA)
+Data root: ${DATA}  (override with REVDESK_DATA; empty config remote = data/)
 `)
 }
 

@@ -3,12 +3,16 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify as stringifyYaml } from 'yaml'
+import { GitAdapterError, snapshotLibrary } from './git.ts'
 import { RepoError } from './repo.ts'
 import {
   guessPaperFonts,
@@ -120,6 +124,56 @@ export type ScaffoldResult = {
   sections: number
   files: string[]
 }
+
+export type IngestApplyInput = {
+  file?: string
+  filename?: string
+  bytes?: Buffer
+}
+
+export type IngestApplyResult = {
+  id: string
+  title: string
+  abbrev: string
+  catalog: string | null
+  matched_gold: boolean
+  root: string
+  sections: number
+  files: string[]
+  classification: IngestClassification
+  snapshot: { source_commit: string | null; skipped: boolean; pushed: boolean }
+}
+
+const OPERATOR_PROSE =
+  /Premier Air Charter|Palomar Airport|Carlsbad(?:, CA)?|Operations@Premier/gi
+
+const MONTHS: Record<string, string> = {
+  jan: '01',
+  feb: '02',
+  mar: '03',
+  apr: '04',
+  may: '05',
+  jun: '06',
+  jul: '07',
+  aug: '08',
+  sep: '09',
+  oct: '10',
+  nov: '11',
+  dec: '12',
+}
+
+const LIBRARY_GIT_YAML = `enabled: true
+discover_parent: false
+change_branch: "change/{change_id}"
+full_tag: "issued/{abbrev}/{revision}"
+tr_tag: "issued/{abbrev}/{parent_revision}-TR/{seq}"
+annotated: true
+update_ref_on_full_issue: ""
+push_on_launch: false
+author_name: "Revdesk"
+author_email: "revdesk@local"
+issue_id: "{abbrev}-{revision}"
+`
 
 const VALID_ROMAN = new Set(Array.from({ length: 40 }, (_, i) => toRoman(i + 1)))
 
@@ -241,8 +295,132 @@ function guessTheme(
   }
 }
 
+export function classifyUpload(filename: string, bytes: Buffer): IngestClassification {
+  const source = materializeSource({ filename, bytes })
+  try {
+    return classifySource(source.path, source.filename)
+  } finally {
+    if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
+  }
+}
+
+export function classifySource(file: string, displayName?: string): IngestClassification {
+  const abs = path.resolve(file)
+  if (!existsSync(abs)) throw new RepoError(3, `Source ${file} not found.`)
+  const name = displayName ?? path.basename(abs)
+  if (name.toLowerCase().endsWith('.txt')) {
+    return classifyFromText(readFileSync(abs, 'utf8'), {
+      filename: name,
+      pages: null,
+      creator: null,
+      producer: null,
+    })
+  }
+  const report = classifyPdf(abs)
+  return { ...report, source: { ...report.source, filename: name } }
+}
+
+export function matchGoldCatalog(report: IngestClassification): string | null {
+  for (const id of listCatalogs()) {
+    const catalog = loadCatalog(id)
+    if (catalog.kind_guess !== report.kind_guess) continue
+    if (catalog.pagination.control_surface !== report.control_surface) continue
+    if (catalog.house_style !== report.house_style) continue
+    const want = new Set(
+      catalog.leaves.filter((leaf) => leaf.kind === 'section').map((leaf) => leaf.title.toLowerCase()),
+    )
+    const got = report.sections.filter((section) => section.kind === 'section')
+    if (!got.length || want.size === 0) continue
+    const overlap = got.filter((section) => want.has(section.title.toLowerCase())).length
+    if (overlap >= Math.min(3, got.length) || overlap / got.length >= 0.5) return id
+  }
+  return null
+}
+
+export function catalogFromClassification(report: IngestClassification): IngestCatalog {
+  const kind = report.kind_guess
+  const title =
+    kind === 'gom'
+      ? 'General Operations Manual'
+      : kind === 'training-program'
+        ? 'Training Program'
+        : genericTitle(report.source.filename)
+  const abbrev = kind === 'gom' ? 'GOM' : kind === 'training-program' ? 'TP' : abbrevFrom(title)
+  const id = slug(abbrev) || slug(title) || 'manual'
+  const number = report.revision.number ?? 1
+  const effective = isoFromRevDate(report.revision.date) ?? '2026-01-01'
+  const control_class = report.control_class_guess ?? 'internal'
+  const instrument_required = control_class !== 'internal'
+  return {
+    id,
+    title,
+    abbrev,
+    kind_guess: kind,
+    control_class,
+    owner: 'Certificate holder',
+    authority: instrument_required ? 'poi' : 'chief-pilot',
+    instrument_required,
+    current_issued: `${abbrev}-R${number}`,
+    next_revision: number + 1,
+    effective,
+    revision: {
+      number,
+      date: effective,
+      label: report.revision.label ?? `Revision ${number}`,
+    },
+    house_style: report.house_style,
+    pagination: report.pagination,
+    lep_slots: report.lep_slots,
+    source: {
+      supplier: 'ingest',
+      template: report.house_style,
+      note: `Structure from ${scrub(report.source.filename)}; bodies are lorem.`,
+    },
+    leaves: leavesFromReport(report),
+  }
+}
+
+export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestApplyResult {
+  const source = materializeSource(input)
+  try {
+    const classification = classifySource(source.path, source.filename)
+    const gold = matchGoldCatalog(classification)
+    const catalog = gold ? loadCatalog(gold) : catalogFromClassification(classification)
+    ensureLibraryGitConfig(dataRoot)
+    const written = writeCatalog(catalog, dataRoot)
+    let snapshot
+    try {
+      snapshot = snapshotLibrary(dataRoot, `Ingest ${catalog.id} (structure, lorem bodies)`)
+    } catch (error) {
+      if (error instanceof GitAdapterError) throw new RepoError(error.status, error.message)
+      throw error
+    }
+    return {
+      id: catalog.id,
+      title: catalog.title,
+      abbrev: catalog.abbrev,
+      catalog: gold,
+      matched_gold: Boolean(gold),
+      root: dataRoot,
+      sections: written.sections,
+      files: written.files,
+      classification,
+      snapshot: {
+        source_commit: snapshot.source_commit,
+        skipped: snapshot.git_skipped,
+        pushed: snapshot.pushed,
+      },
+    }
+  } finally {
+    if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
+  }
+}
+
 export function scaffoldCatalog(id: string, dataRoot: string): ScaffoldResult {
-  const catalog = loadCatalog(id)
+  return writeCatalog(loadCatalog(id), dataRoot)
+}
+
+function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult {
   const files: string[] = []
   const manualDir = path.join(dataRoot, 'manuals', catalog.id)
   const sectionDir = path.join(manualDir, 'sections')
@@ -759,4 +937,80 @@ function toRoman(n: number): string {
     }
   }
   return out
+}
+
+function materializeSource(input: IngestApplyInput): { path: string; filename: string; cleanup?: string } {
+  if (input.file?.trim()) {
+    const abs = path.resolve(input.file)
+    if (!existsSync(abs)) throw new RepoError(3, `Source ${input.file} not found.`)
+    return { path: abs, filename: path.basename(abs) }
+  }
+  const filename = path.basename((input.filename ?? '').trim())
+  if (!filename) throw new RepoError(2, 'filename is required.')
+  if (!input.bytes?.length) throw new RepoError(2, 'content is required.')
+  const ext = path.extname(filename).toLowerCase()
+  if (ext !== '.pdf' && ext !== '.txt') throw new RepoError(2, 'Ingest accepts a PDF or a text file.')
+  const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-ingest-'))
+  const dest = path.join(dir, filename.replace(/[^a-zA-Z0-9._-]+/g, '_'))
+  writeFileSync(dest, input.bytes)
+  return { path: dest, filename, cleanup: dir }
+}
+
+function ensureLibraryGitConfig(dataRoot: string): void {
+  const file = path.join(dataRoot, '.revdesk', 'git.yaml')
+  if (existsSync(file)) return
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, LIBRARY_GIT_YAML)
+}
+
+function leavesFromReport(report: IngestClassification): CatalogLeaf[] {
+  if (!report.sections.length) {
+    return [{ kind: 'section', number: '1', title: 'Body', start: '1-1', headings: [] }]
+  }
+  return report.sections.map((section) => ({
+    kind: section.kind,
+    number: section.number,
+    title: scrub(section.title),
+    start:
+      section.start ??
+      (section.kind === 'appendix'
+        ? `${section.number ?? 'A'}-1`
+        : section.kind === 'section'
+          ? `${section.number ?? '1'}-1`
+          : 'i'),
+    headings: [],
+  }))
+}
+
+function genericTitle(filename: string): string {
+  const stem = scrub(filename)
+    .replace(/\.[^.]+$/, '')
+    .replace(/revision\s*\d+/gi, '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  return stem || 'Manual'
+}
+
+function abbrevFrom(title: string): string {
+  const letters = title
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((word) => word[0] ?? '')
+    .join('')
+    .toUpperCase()
+    .slice(0, 6)
+  return letters || 'MAN'
+}
+
+function isoFromRevDate(raw: string | null): string | null {
+  if (!raw) return null
+  const match = raw.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/)
+  if (!match) return null
+  const month = MONTHS[match[2].toLowerCase()]
+  if (!month) return null
+  return `${match[3]}-${month}-${match[1]}`
+}
+
+function scrub(value: string): string {
+  return value.replace(OPERATOR_PROSE, 'Sample').replace(/\s+/g, ' ').trim()
 }

@@ -191,6 +191,40 @@ export type DeskPayload = {
   trs: TrRecord[]
 }
 
+export type LibraryInfo = {
+  remote: string
+  bound: boolean
+  solo: boolean
+  library_root: string
+  cloned: boolean
+}
+
+export type IngestSectionPreview = {
+  kind: string
+  number: string | null
+  title: string
+  start: string | null
+}
+
+export type IngestPreview = {
+  control_surface: string
+  control_class_guess: string | null
+  house_style: string
+  kind_guess: string
+  revision: { number: number | null; date: string | null; label: string | null }
+  sections: IngestSectionPreview[]
+  source: { filename: string; pages: number | null }
+}
+
+export type IngestApplyResult = {
+  id: string
+  title: string
+  abbrev: string
+  catalog: string | null
+  matched_gold: boolean
+  sections: number
+}
+
 export type SectionFile = {
   path: string
   meta: Frontmatter
