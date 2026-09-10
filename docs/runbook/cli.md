@@ -72,6 +72,8 @@ revdesk desk deploy --pr <n> | --branch <name> | --tree <path>
 revdesk desk origin
 revdesk desk public-demo on | off
 revdesk launched <manual-id>
+revdesk ledger show <manual-id>
+revdesk ledger refresh <manual-id>
 revdesk manual list | show <id>
 
 revdesk change list

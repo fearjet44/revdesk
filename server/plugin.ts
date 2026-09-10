@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from './config.ts'
 import { applyIngest, classifyUpload } from './ingest.ts'
-import { renderIssuedPdf, type PdfKind } from './print.ts'
+import { renderIssuedPdf, type LedgerPersist, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
 
@@ -42,6 +42,13 @@ function httpStatus(code: number): number {
   if (code === 2 || code === 5) return 409
   if (code >= 400 && code < 600) return code
   return 400
+}
+
+function ledgerHooks(repo: Repo, manualId: string): LedgerPersist {
+  return {
+    persistLedger: (ledger) => repo.writeLedger(manualId, ledger),
+    rehydrate: () => repo.issuedBook(manualId),
+  }
 }
 
 async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -102,7 +109,7 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
   if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'pdf' && parts.length === 3) {
     const kind: PdfKind = url.searchParams.get('kind') === 'regulator' ? 'regulator' : 'reference'
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
-    const pdf = await renderIssuedPdf(repo.issuedBook(parts[1]), { kind, downloadedAt: new Date() })
+    const pdf = await renderIssuedPdf(repo.issuedBook(parts[1]), { kind, downloadedAt: new Date() }, ledgerHooks(repo, parts[1]))
     sendPdf(res, pdf.bytes, pdf.filename, download)
     return
   }
@@ -358,7 +365,11 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
     const issue = repo.readIssue(parts[1])
     const kind: PdfKind = url.searchParams.get('kind') === 'regulator' ? 'regulator' : 'reference'
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
-    const pdf = await renderIssuedPdf(repo.issuedBook(issue.manual), { kind, downloadedAt: new Date() })
+    const pdf = await renderIssuedPdf(
+      repo.issuedBook(issue.manual),
+      { kind, downloadedAt: new Date() },
+      ledgerHooks(repo, issue.manual),
+    )
     sendPdf(res, pdf.bytes, pdf.filename, download)
     return
   }

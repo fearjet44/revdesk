@@ -13,8 +13,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify as stringifyYaml } from 'yaml'
 import { GitAdapterError, snapshotLibrary } from './git.ts'
+import { ledgerOnDisk, seedLedger } from './ledger.ts'
 import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
+import type { ManualRecord, SectionSummary } from './types.ts'
 import {
   guessPaperFonts,
   parsePdfFontNames,
@@ -457,6 +459,10 @@ function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult 
     files.push(`manuals/${catalog.id}/sections/${filename}`)
   })
 
+  const ledger = seedLedger(manualFromCatalog(catalog), summariesFromCatalog(catalog))
+  writeFileSync(path.join(manualDir, 'ledger.yaml'), stringifyYaml(ledgerOnDisk(ledger), { lineWidth: 100 }))
+  files.push(`manuals/${catalog.id}/ledger.yaml`)
+
   writeBaseline(dataRoot, catalog, files)
   return { id: catalog.id, root: dataRoot, sections: catalog.leaves.length, files }
 }
@@ -882,6 +888,42 @@ function leafFilename(index: number, leaf: CatalogLeaf): string {
 function idPrefix(manualId: string): string {
   if (manualId === 'gom-lep') return 'gomlep'
   return manualId
+}
+
+function manualFromCatalog(catalog: IngestCatalog): ManualRecord {
+  return {
+    id: catalog.id,
+    title: catalog.title,
+    abbrev: catalog.abbrev,
+    control_class: catalog.control_class,
+    control: catalog.control_class,
+    owner: catalog.owner,
+    authority: catalog.authority,
+    instrument_required: catalog.instrument_required,
+    current_issued: catalog.current_issued,
+    next_revision: catalog.next_revision,
+    effective: catalog.effective,
+    pagination: catalog.pagination,
+    lep_slots: catalog.lep_slots,
+  }
+}
+
+function summariesFromCatalog(catalog: IngestCatalog): SectionSummary[] {
+  const prefix = idPrefix(catalog.id)
+  const revLabel = `R${catalog.revision.number}`
+  return catalog.leaves.map((leaf, index) => {
+    const title = leafTitle(leaf)
+    return {
+      id: leafId(prefix, leaf),
+      title,
+      rev_last_changed: revLabel,
+      path: `manuals/${catalog.id}/sections/${leafFilename(index, leaf)}`,
+      filename: leafFilename(index, leaf),
+      open_change: null,
+      managed: inferManagedKind(title),
+      lep_start: leaf.start,
+    }
+  })
 }
 
 function slug(title: string): string {

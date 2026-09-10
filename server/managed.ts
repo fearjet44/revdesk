@@ -44,6 +44,8 @@ export type ManagedHydrateInput = {
   leaves: ManagedLeafInput[]
   issues: IssueRecord[]
   trs: TrRecord[]
+  lep_rows?: Array<{ slot: string; rev: string; section: string; dagger: boolean }>
+  les_rows?: Array<{ title: string; rev: string }>
 }
 
 export function hydrateManagedSection(file: SectionFile, input: ManagedHydrateInput): SectionFile {
@@ -153,8 +155,6 @@ function rorRows(
 }
 
 function lepBody(input: ManagedHydrateInput): string {
-  const slots = input.manual.lep_slots ?? []
-  const fallback = bookRev(input.manual)
   const lines = [
     `# ${input.meta.title}`,
     '',
@@ -163,6 +163,19 @@ function lepBody(input: ManagedHydrateInput): string {
     '| Slot | Revision | Section |',
     '| --- | --- | --- |',
   ]
+  if (input.lep_rows) {
+    if (!input.lep_rows.length) {
+      lines.push('| — | — | This book has no page ledger yet. |')
+      return `${lines.join('\n')}\n`
+    }
+    for (const row of input.lep_rows) {
+      const slot = row.dagger ? `${row.slot} †` : row.slot
+      lines.push(`| ${esc(slot)} | ${esc(row.rev)} | ${esc(row.section)} |`)
+    }
+    return `${lines.join('\n')}\n`
+  }
+  const slots = input.manual.lep_slots ?? []
+  const fallback = bookRev(input.manual)
   if (!slots.length) {
     lines.push('| — | — | This book has no page ledger yet. |')
     return `${lines.join('\n')}\n`
@@ -175,7 +188,6 @@ function lepBody(input: ManagedHydrateInput): string {
 }
 
 function lesBody(input: ManagedHydrateInput): string {
-  const leaves = authorLeaves(input.leaves)
   const lines = [
     `# ${input.meta.title}`,
     '',
@@ -184,6 +196,16 @@ function lesBody(input: ManagedHydrateInput): string {
     '| Section | Revision |',
     '| --- | --- |',
   ]
+  if (input.les_rows) {
+    if (!input.les_rows.length) lines.push('| — | — |')
+    else {
+      for (const row of input.les_rows) {
+        lines.push(`| ${esc(row.title)} | ${esc(row.rev)} |`)
+      }
+    }
+    return `${lines.join('\n')}\n`
+  }
+  const leaves = authorLeaves(input.leaves)
   if (!leaves.length) {
     lines.push('| — | — |')
   } else {

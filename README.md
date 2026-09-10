@@ -31,6 +31,7 @@ npm run test:slice2   # Slice 2 acceptance path
 npm run test:slice6   # Slice 6 ingest classify + lorem scaffold
 npm run test:slice7   # dummy remote bind + ingest from file (lorem)
 npm run test:slice9   # managed ROR / LOEP / LOES / TOC
+npm run test:slice10  # page ledger paginate + LEP from YAML
 npm run test:review   # reviewer diff + git-notes comments
 ```
 
