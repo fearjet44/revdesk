@@ -23,7 +23,7 @@ Pillar 2 leftover is **remote**, not another local tag grammar. `push_on_launch`
 
 Real PDFs stay in `corpus/` (gitignored). Never copy operator prose.
 
-Identities / logins are the **next** spawn. Binding a remote does not turn a login wall on in this cut.
+Identities / logins are the **next** spawn (`docs/plan/identities.md`, `docs/handoffs/REVDESK-SLICE-8-IDENTITIES.md`). Binding a remote does not turn a login wall on in this cut.
 
 ---
 
