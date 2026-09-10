@@ -130,6 +130,12 @@ Render later **stamps** chosen page numbers into YAML and into the footer. That 
 
 ---
 
+## Derived lists (Slice 9)
+
+The ROR, LEP, LES, and TOC **leaves** are still in the book. Authors do not type those tables. The desk hydrates them from launched issues and the page ledger. Lock: `managed-leaves.md`. Overflow / dagger / `printed_as` still wait on the render loop above.
+
+---
+
 ## Out of scope
 
 - Typesetter choice

@@ -58,8 +58,9 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
           <p className="lede">
             Current {manual.current_issued ?? '(never launched)'}, next full {manual.next_revision}
             {manual.effective ? `, effective ${formatDate(manual.effective)}` : ''}. Owner:{' '}
-            {manual.owner}. Open dirties one working copy into Print with the editor. Crew PDF and
-            findings live under Issued.
+            {manual.owner}. Open dirties one working copy into Print with the editor. Record of
+            revisions, effective-page lists, and the table of contents are automatically managed.
+            Crew PDF and findings live under Issued.
           </p>
         </div>
       </div>
@@ -80,7 +81,14 @@ export function ManualView({ onChanged }: { onChanged: () => Promise<void> }) {
                 <div className="meta">{section.path}</div>
               </span>
               <span className="mono">{section.rev_last_changed}</span>
-              {section.open_change ? (
+              {section.managed ? (
+                <span className="row-actions">
+                  <span className="managed-tag">Automatically managed</span>
+                  <Link className="btn ghost" to={`/manuals/${manual.id}/sections/${section.id}`}>
+                    View
+                  </Link>
+                </span>
+              ) : section.open_change ? (
                 <Link className="btn ghost" to={`/changes/${section.open_change}`}>
                   On {section.open_change}
                 </Link>

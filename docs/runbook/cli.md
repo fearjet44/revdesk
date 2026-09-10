@@ -98,6 +98,7 @@ revdesk compose <CHG> --to "..." --from "..." --dated YYYY-MM-DD --subject "..."
 
 revdesk section get <section-id> --change <CHG> [--out <path>]
 revdesk section put <section-id> --change <CHG> --file <path> --mark RF|GS|SE|… [--note "…"]
+# ROR / LEP / LES / TOC cannot be opened or Written. They are automatically managed.
 revdesk preview <CHG>
 
 revdesk issue <CHG> --effective YYYY-MM-DD

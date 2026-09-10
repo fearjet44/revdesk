@@ -24,11 +24,12 @@ The desk people sit at. Git never appears.
 
 **Done enough when:** an author opens a packet, edits one or many sections, submits; a reviewer attaches or composes the right letter and launches; `revdesk launched` tells the truth.
 
-**Where we are:** Slices 0–2, 4, write marks, nested steps, document theme, Issued rail, the launch **file picker**, and the **compose window** are on main. Kind is named at review (`deferred-kind-and-wip.md`). Theme is `manuals/<id>/theme.yaml` (stable H1–H5, paper font + color, not LEP). The reviewer chooses a letter or writes one; CLI still takes `--file` / `compose`.
+**Where we are:** Slices 0–2, 4, write marks, nested steps, document theme, Issued rail, the launch **file picker**, the **compose window**, and **managed control leaves** (ROR / LOEP / LOES / TOC) are on main. Kind is named at review (`deferred-kind-and-wip.md`). Theme is `manuals/<id>/theme.yaml` (stable H1–H5, paper font + color, not LEP). The reviewer chooses a letter or writes one; CLI still takes `--file` / `compose`.
 
 **Still inside this pillar:**
 
 - Editor polish (current work). Do not freeze the desk for remote git.
+- Managed ROR / LOEP / LOES / TOC (`managed-leaves.md`). Page-flow overflow and change bars later.
 - Three rails: Manuals (author Open / editor), Issued (crew paper + CF + watermarked PDF) — `issued-pdf.md`. CF answers (Done/Stand/Later) later.
 - Reviewer TR incorporate/withdraw before a rev launches (`change-package-model.md`).
 - Stationery render of memo / request on company letterhead — Later, not theme.yaml.

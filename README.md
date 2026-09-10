@@ -30,6 +30,7 @@ Same binary for Slice 1 + Slice 2. No server required. Override the library with
 npm run test:slice2   # Slice 2 acceptance path
 npm run test:slice6   # Slice 6 ingest classify + lorem scaffold
 npm run test:slice7   # dummy remote bind + ingest from file (lorem)
+npm run test:slice9   # managed ROR / LOEP / LOES / TOC
 npm run test:review   # reviewer diff + git-notes comments
 ```
 
@@ -89,7 +90,7 @@ Fixture for acceptance: `fixtures/tiny-gom`.
 
 Sample section bodies in `data/` and `fixtures/` are **lorem ipsum**. Put real operator manuals for parser training in `corpus/` (gitignored). Do not commit them.
 
-Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Classify a corpus PDF with `revdesk ingest classify <pdf>`. Bring a book onto the desk (structure + lorem) with `revdesk ingest <file>` or the Ingest dialog. Point the desk at the dummy library with `revdesk config set remote https://github.com/fearjet44/test-manual-repo.git` (`~/.config/revdesk/config.yaml`).
+Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Record of Revisions, List of Effective Pages/Sections, and Table of Contents are automatically managed — not author pages. Classify a corpus PDF with `revdesk ingest classify <pdf>`. Bring a book onto the desk (structure + lorem) with `revdesk ingest <file>` or the Ingest dialog. Point the desk at the dummy library with `revdesk config set remote https://github.com/fearjet44/test-manual-repo.git` (`~/.config/revdesk/config.yaml`).
 
 ## License
 

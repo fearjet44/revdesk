@@ -105,8 +105,8 @@ Existing `data/manuals/gom` stays the small letter-style desk sample. The Nimbl-
 ## 4. Out of scope
 
 - `ingest apply` that transcribes PDF body text into Markdown
-- Persisting `pagination` through `Repo.writeManual` (would strip extra YAML today)
-- UI changes
+- Persisting `pagination` through `Repo.writeManual` (Slice 9 keeps the ledger on write)
+- UI changes (Slice 9: managed ROR / LEP / TOC are not author pages)
 - Git `issued/` tags (ingest records what the company believes is current; cutting the tag is pillar 2)
 - Changing a live book’s control surface (that is a rev package, not an ingest surprise)
 

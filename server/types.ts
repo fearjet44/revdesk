@@ -35,10 +35,28 @@ export type InstrumentAuthority =
   | 'do'
   | string
 
+export type ManagedKind = 'ror' | 'lep' | 'les' | 'toc'
+
+export type ControlSurface = 'lep' | 'les' | 'rev-only'
+
+export type PaginationRegion = {
+  name: string
+  scheme: string
+  slots?: string[]
+}
+
+export type ManualPagination = {
+  control_surface: ControlSurface
+  lep_inferred?: boolean
+  regions?: PaginationRegion[]
+}
+
 export type Frontmatter = {
   id: string
   title: string
   rev_last_changed: string
+  managed?: ManagedKind | null
+  lep_start?: string | null
 }
 
 export type ManualRecord = {
@@ -56,6 +74,8 @@ export type ManualRecord = {
   /** Next full revision number to assign at launch (not minted on change start) */
   next_revision: number
   effective: string | null
+  pagination?: ManualPagination | null
+  lep_slots?: string[]
 }
 
 export type SectionSummary = {
@@ -65,6 +85,8 @@ export type SectionSummary = {
   path: string
   filename: string
   open_change: string | null
+  managed: ManagedKind | null
+  lep_start: string | null
 }
 
 export type ManualDetail = ManualRecord & {
