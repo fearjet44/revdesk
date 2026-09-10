@@ -43,9 +43,9 @@ Storage and review plumbing. Hidden.
 
 **Done enough when:** `issue` / `tr issue` cut a real tag or refuse; a hand-moved tag shows `tag_ok: false`; a dummy remote can receive the launch tag; UI still does not say Git; solo still runs with no account.
 
-**Where we are:** Slice 3b is on main. Local adapter writes annotated tags, `source_commit`, `tag_ok`. `push_on_launch` exists and is **false**. No origin bind, no identities.
+**Where we are:** Slice 3b is on main. Local adapter writes annotated tags, `source_commit`, `tag_ok`. `push_on_launch` exists and is **false**. Slice 7 bind + fake-suite ingest: `data/.revdesk/config.yaml` / `~/.config/revdesk/config.yaml` points at a manuals origin (dummy: `fearjet44/test-manual-repo`). Identities are not on yet.
 
-**Still inside this pillar:** dummy remote + fake suite (next **big** slice — `docs/handoffs/REVDESK-SLICE-7-DUMMY-REMOTE.md`). That slice spawns admin and logins **only** when a remote is bound. Solo stays no-auth. Never `git push --force`. Never delete an `issued/` tag.
+**Still inside this pillar:** identities / logins when a remote is bound (company mode). `push_on_launch` of issued tags. Never `git push --force`. Never delete an `issued/` tag.
 
 Company-post-without-letter is **not** a Revdesk verb.
 
@@ -59,9 +59,9 @@ How a living GOM / FOTM / MEL becomes Revdesk sections instead of a toy fixture.
 
 **Done enough when:** a fake suite in the dummy remote opens in the desk with the right leaves, and a change packet can touch those leaves. After that: one real book (start with GOM).
 
-**Where we are:** Slice 6 scaffold is on main. `revdesk ingest classify` inspects LEP/LES/rev-only + Nimbl Word house style and guesses `theme.yaml`. Gold catalogs + lorem sample books (`gom-lep`, `tp`) sit beside the tiny desk `gom`. Real PDFs stay in `corpus/` (gitignored). `ingest apply` (transcribe operator prose) is not this era.
+**Where we are:** Slice 6 scaffold is on main. Slice 7 ingest-from-file writes that structure (or a gold catalog match) with **lorem** bodies into the bound library. `revdesk ingest <file>` and the desk dialog (file picker) are the verbs. Real PDFs stay in `corpus/` (gitignored). Transcribing operator prose is not this era.
 
-**Still inside this pillar:** ingest the **fake** suite into the dummy remote (work this with Slice 7). Then `ingest apply` for a real book.
+**Still inside this pillar:** `ingest apply` for a real book (source prose, not lorem).
 
 ---
 
@@ -86,7 +86,7 @@ Blank forms in the book are leaves. Filled, signed instances are records. Do not
 Editor work continues in parallel. Do not stop the desk for remote git.
 
 1. Keep polishing the editor (current).
-2. Dummy remote + fake suite ingest (next **big** slice). Admin + logins only in company mode.
+2. Dummy remote + fake suite ingest (Slice 7 bind + lorem ingest). Admin + logins only in company mode — next spawn.
 3. Stationery render.
 4. Later: forms service, distribution, push.
 

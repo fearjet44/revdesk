@@ -3,8 +3,11 @@ import type {
   ChangeRecord,
   DeskPayload,
   InstrumentRecord,
+  IngestApplyResult,
+  IngestPreview,
   IssueRecord,
   LaunchedStatus,
+  LibraryInfo,
   CrewFinding,
   CrewSectionFile,
   IssuedSectionFile,
@@ -155,6 +158,13 @@ export const api = {
   instrument: (_changeId: string): Promise<InstrumentRecord> => {
     throw new Error('Use change.instrument')
   },
+  config: () => request<LibraryInfo>('/api/config'),
+  saveConfig: (remote: string) =>
+    request<LibraryInfo>('/api/config', { method: 'PUT', body: JSON.stringify({ remote }) }),
+  classifyIngest: (body: { filename: string; content: string }) =>
+    request<IngestPreview>('/api/ingest/classify', { method: 'POST', body: JSON.stringify(body) }),
+  ingestBook: (body: { filename: string; content: string }) =>
+    request<IngestApplyResult>('/api/ingest', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 export function encodeLetterFile(file: File): Promise<string> {

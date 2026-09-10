@@ -112,6 +112,10 @@ revdesk git status
 revdesk ingest catalogs
 revdesk ingest classify <pdf|txt> [--json]
 revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
+revdesk ingest <pdf|txt> [--out dir]
+revdesk ingest apply <pdf|txt>
+revdesk config [show]
+revdesk config set remote <url|"">
 ```
 
 `revdesk git` with any other subcommand exits 2. Tags are cut only by `issue` / `tr issue`.
@@ -123,7 +127,9 @@ git notes --ref=revdesk/review show change/CHG-2026-003
 git show change/CHG-2026-003
 ```
 
-`ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`.
+`ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`. `ingest <file>` (same as `ingest apply`) classifies a PDF or text export, keeps the section map (gold catalog when it matches `gom-lep` / `tp`), and writes lorem onto the library. The desk dialog uploads `filename` + bytes; it refuses a server path.
+
+`config.yaml` is the human desk config (later the Config screen). Empty `remote` is solo `data/`. Set `remote` to the manuals-library URL (dummy: `https://github.com/fearjet44/test-manual-repo.git`). Operator file: `~/.config/revdesk/config.yaml`. In-tree default: `data/.revdesk/config.yaml`.
 
 ## Desk deploy (host)
 
@@ -329,7 +335,14 @@ Walking up from `data/` in this development checkout finds revdesk’s own `.git
   control/issues/<MANUAL>-R<n>.yaml
   control/trs/<MANUAL>-R<n>-TR<k>.yaml
   artifacts/…
-  .revdesk/git.yaml          # optional
+  .revdesk/git.yaml          # optional tag grammar
+```
+
+Desk config (not inside the library when using a bound remote):
+
+```
+~/.config/revdesk/config.yaml    # operator; wins
+data/.revdesk/config.yaml        # solo default, remote: ""
 ```
 
 ## Tests
@@ -339,6 +352,7 @@ npm run test:md
 npm run test:slice2    # fixtures/tiny-gom copy; launch + TR YAML
 npm run test:slice3    # throwaway git repo in $TMPDIR; does not tag this checkout
 npm run test:slice6    # ingest classify + lorem Nimbl sample books
+npm run test:slice7    # dummy remote bind + ingest from file
 npm run test:desk      # desk deploy drop-in / worktree (no systemd)
 ```
 

@@ -1,0 +1,9 @@
+# Revdesk desk config. The Config screen edits this file.
+# Empty remote = this `data/` tree (solo, no account).
+# Paste a manuals-library URL to bind a remote (dummy, then company).
+# Operator override: ~/.config/revdesk/config.yaml (wins).
+#
+# Dummy remote for this project:
+#   remote: https://github.com/fearjet44/test-manual-repo.git
+
+remote: ""

@@ -3,7 +3,7 @@ import type { DeskPayload } from '../types.ts'
 import { StatusLamp } from './StatusLamp.tsx'
 import { formatDate } from '../status.ts'
 
-export function DeskHome({ desk }: { desk: DeskPayload | null }) {
+export function DeskHome({ desk, onIngest }: { desk: DeskPayload | null; onIngest: () => void }) {
   if (!desk) return <div className="empty">Reading the control library…</div>
 
   const issued = desk.manuals[0]
@@ -17,8 +17,13 @@ export function DeskHome({ desk }: { desk: DeskPayload | null }) {
           <h1>Launched books on the board</h1>
           <p className="lede">
             Open a page, save a working copy, submit. Review approves, opens the letter, then
-            launches.
+            launches. Ingest a PDF to put a lorem book on the board.
           </p>
+          <div className="page-head-actions">
+            <button className="btn primary" type="button" onClick={onIngest}>
+              Ingest a book
+            </button>
+          </div>
         </div>
         {issued ? (
           <div className="stamp-block">

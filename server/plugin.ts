@@ -1,14 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
+import { bindRemote, libraryInfo, resolveLibraryRoot } from './config.ts'
+import { applyIngest, classifyUpload } from './ingest.ts'
 import { renderIssuedPdf, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
 
 const ACTIONS = new Set<ChangeAction>(['submit', 'approve', 'open-letter'])
 
-export function controlDeskPlugin(dataRoot: string): Plugin {
-  const repo = new Repo(dataRoot)
+export function controlDeskPlugin(appRoot: string): Plugin {
   return {
     name: 'revdesk-control-api',
     configureServer(server: ViteDevServer) {
@@ -19,7 +20,9 @@ export function controlDeskPlugin(dataRoot: string): Plugin {
           return
         }
         try {
-          await handle(repo, req, res)
+          const dataRoot = resolveLibraryRoot(appRoot)
+          const repo = new Repo(dataRoot)
+          await handle(repo, appRoot, req, res)
         } catch (error) {
           if (error instanceof RepoError) {
             sendJson(res, httpStatus(error.status), { error: error.message, code: error.status })
@@ -41,10 +44,40 @@ function httpStatus(code: number): number {
   return 400
 }
 
-async function handle(repo: Repo, req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://revdesk.local')
   const method = req.method ?? 'GET'
   const parts = url.pathname.replace(/^\/api\//, '').split('/').filter(Boolean)
+
+  if (method === 'GET' && parts[0] === 'config' && parts.length === 1) {
+    sendJson(res, 200, publicLibrary(libraryInfo(appRoot)))
+    return
+  }
+
+  if (method === 'PUT' && parts[0] === 'config' && parts.length === 1) {
+    const body = await readJson<{ remote?: string }>(req)
+    const info = bindRemote(body.remote ?? '')
+    if (!info.bound) {
+      info.library_root = path.join(appRoot, 'data')
+      info.solo = true
+    }
+    sendJson(res, 200, publicLibrary(info))
+    return
+  }
+
+  if (method === 'POST' && parts[0] === 'ingest' && parts[1] === 'classify') {
+    const body = await readJson<{ file?: string; filename?: string; content?: string }>(req)
+    const source = uploadedBook(body)
+    sendJson(res, 200, classifyUpload(source.filename, source.bytes))
+    return
+  }
+
+  if (method === 'POST' && parts[0] === 'ingest' && parts.length === 1) {
+    const body = await readJson<{ file?: string; filename?: string; content?: string }>(req)
+    const source = uploadedBook(body)
+    sendJson(res, 201, applyIngest({ filename: source.filename, bytes: source.bytes }, repo.root))
+    return
+  }
 
   if (method === 'GET' && parts[0] === 'desk') {
     sendJson(res, 200, repo.desk())
@@ -408,6 +441,34 @@ function uploadedLetter(body: { file?: string; filename?: string; content?: stri
   return { bytes, filename }
 }
 
+function uploadedBook(body: { file?: string; filename?: string; content?: string }): {
+  bytes: Buffer
+  filename: string
+} {
+  if (body.file?.trim()) {
+    throw new RepoError(
+      2,
+      'The desk uploads the book; it does not take a server path. CLI ingest still uses a file argument.',
+    )
+  }
+  const filename = path.basename((body.filename ?? '').trim())
+  if (!filename) throw new RepoError(2, 'filename is required.')
+  if (!body.content) throw new RepoError(2, 'content is required.')
+  const bytes = Buffer.from(body.content, 'base64')
+  if (!bytes.length) throw new RepoError(2, 'Source file is empty.')
+  return { bytes, filename }
+}
+
+function publicLibrary(info: ReturnType<typeof libraryInfo>) {
+  return {
+    remote: info.remote,
+    bound: info.bound,
+    solo: info.solo,
+    library_root: info.library_root,
+    cloned: info.cloned,
+  }
+}
+
 export function dataRootFrom(cwd: string): string {
-  return path.resolve(cwd, 'data')
+  return resolveLibraryRoot(cwd)
 }

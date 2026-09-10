@@ -78,9 +78,9 @@ Leave Serve in place unless you mean to drop remote access. Without systemd, `np
 |---|---|---|
 | UI | `src/` via Vite | Routes under `/`, `/manuals/:id`, `/changes/:id`, `/issues/:id` |
 | Control API | `server/plugin.ts` | Prefix `/api/` |
-| Library | `data/` | Hard-coded in `vite.config.ts` — **not** `REVDESK_DATA` |
+| Library | `data/` or bound clone | `data/.revdesk/config.yaml` / `~/.config/revdesk/config.yaml`. `REVDESK_DATA` still wins for CLI tests. |
 
-The plugin constructs `new Repo('<repo>/data')` once at process start. Reloading the page re-reads files; restart the process if you swap the tree on disk.
+The plugin resolves the library per request from desk config (empty `remote` → `<repo>/data`; bound remote → `$XDG_DATA_HOME/revdesk/libraries/…`). Reloading the page re-reads files. Restart after a plugin change; bind/unbind via Config does not need a rebuild.
 
 `npm run preview` is a static file server only. It does **not** mount `/api`. Do not use it as the desk.
 
@@ -103,7 +103,7 @@ If the banner says it cannot read the control library, the API failed (wrong cwd
 
 ## Data root
 
-Always `<repo>/data` for the server:
+Default `<repo>/data` (solo). Bound remote uses the clone of that origin:
 
 ```
 data/
@@ -223,7 +223,7 @@ launched ↛ withdrawn
 |---|---|
 | Page loads, masthead error about the library | Process is not the `revdesk` unit / `npm run dev`, or `data/` is missing |
 | Port already in use | Vite **exits**. Stop the other process (usually a leftover `npm run dev`). Do not walk onto 5175 (RFD) |
-| CLI changes do not appear in the UI | CLI used `REVDESK_DATA`; UI always reads `data/` |
+| CLI changes do not appear in the UI | CLI used `REVDESK_DATA`; UI follows desk config (solo `data/` or the bound clone) |
 | `npm run preview` 404s `/api/desk` | Expected. Use `npm run dev` |
 | Launch from the UI fails with validation | Same rules as the CLI: instrument, status, TR one-section |
 | Git words in the UI | Bug. Git stays in `server/git.ts` + `revdesk git status` |
@@ -243,6 +243,7 @@ npm run test:compose  # memo vs request; request cannot satisfy issue
 npm run test:slice2   # launch / TR YAML (temp copy of fixtures/tiny-gom)
 npm run test:slice3   # git adapter (throwaway repo in $TMPDIR)
 npm run test:slice6   # ingest classify + lorem Nimbl sample books
+npm run test:slice7   # dummy remote bind + ingest from file
 npm run test:desk     # desk deploy drop-in / worktree (no systemd)
 ```
 
