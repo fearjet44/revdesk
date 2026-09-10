@@ -1,4 +1,16 @@
-import type { Frontmatter } from '../types.ts'
+import type { Frontmatter, ManagedKind } from '../types.ts'
+
+const MANAGED = new Set<ManagedKind>(['ror', 'lep', 'les', 'toc'])
+
+function managedFromTitle(title: string, explicit?: string): ManagedKind | null {
+  const raw = (explicit ?? '').trim().toLowerCase()
+  if (MANAGED.has(raw as ManagedKind)) return raw as ManagedKind
+  if (/record of revisions?/i.test(title)) return 'ror'
+  if (/list of effective pages/i.test(title)) return 'lep'
+  if (/list of effective sections/i.test(title)) return 'les'
+  if (/table of contents/i.test(title)) return 'toc'
+  return null
+}
 
 export type Mark = {
   type: string
@@ -23,15 +35,20 @@ export function splitFrontmatter(markdown: string): { meta: Frontmatter; body: s
     const key = line.slice(0, idx).trim()
     const value = line.slice(idx + 1).trim().replace(/^['"]|['"]$/g, '')
     if (key === 'id' || key === 'title' || key === 'rev_last_changed') meta[key] = value
+    if (key === 'lep_start') meta.lep_start = value
+    if (key === 'managed') meta.managed = managedFromTitle('', value)
   }
   if (!meta.id || !meta.title || !meta.rev_last_changed) {
     throw new Error('Frontmatter must include id, title, and rev_last_changed.')
   }
+  meta.managed = managedFromTitle(meta.title, meta.managed ?? undefined)
   return { meta, body: match[2].replace(/^\n/, '') }
 }
 
 export function withFrontmatter(meta: Frontmatter, body: string): string {
-  return `---\nid: ${meta.id}\ntitle: ${meta.title}\nrev_last_changed: ${meta.rev_last_changed}\n---\n\n${body.replace(/^\n+/, '').replace(/\s*$/, '\n')}`
+  const managed = meta.managed ? `managed: ${meta.managed}\n` : ''
+  const start = meta.lep_start ? `lep_start: ${meta.lep_start}\n` : ''
+  return `---\nid: ${meta.id}\ntitle: ${meta.title}\nrev_last_changed: ${meta.rev_last_changed}\n${managed}${start}---\n\n${body.replace(/^\n+/, '').replace(/\s*$/, '\n')}`
 }
 
 export type SourceBlockRange = {

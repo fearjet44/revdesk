@@ -8,6 +8,7 @@ import { IngestDialog } from './components/IngestDialog.tsx'
 import { IssuedSection } from './components/IssuedSection.tsx'
 import { IssueView } from './components/IssueView.tsx'
 import { ManualPdfView } from './components/ManualPdfView.tsx'
+import { ManagedSection } from './components/ManagedSection.tsx'
 import { ManualView } from './components/ManualView.tsx'
 import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
@@ -117,6 +118,7 @@ function DeskApp() {
           <Route path="/" element={<DeskHome desk={desk} onIngest={() => setIngestOpen(true)} />} />
           <Route path="/config" element={<ConfigView onChanged={refresh} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
+          <Route path="/manuals/:manualId/sections/:sectionId" element={<ManagedSection />} />
           <Route path="/issues/:issueId/sections/:sectionId" element={<IssuedSection />} />
           <Route path="/changes/:changeId/sections/:sectionId" element={<SectionDesk onChanged={refresh} />} />
           <Route path="/changes/:changeId/*" element={<ChangeView onChanged={refresh} />} />

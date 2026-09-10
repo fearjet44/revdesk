@@ -13,6 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { stringify as stringifyYaml } from 'yaml'
 import { GitAdapterError, snapshotLibrary } from './git.ts'
+import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
 import {
   guessPaperFonts,
@@ -438,13 +439,16 @@ function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult 
   const revLabel = `R${catalog.revision.number}`
   catalog.leaves.forEach((leaf, index) => {
     const filename = leafFilename(index, leaf)
-    const body = loremBody(leaf, catalog, index)
     const title = leafTitle(leaf)
+    const managed = inferManagedKind(title)
+    const body = loremBody(leaf, index)
     const markdown = [
       '---',
       `id: ${leafId(prefix, leaf)}`,
       `title: ${yamlPlain(title)}`,
       `rev_last_changed: ${revLabel}`,
+      ...(managed ? [`managed: ${managed}`] : []),
+      ...(leaf.start ? [`lep_start: ${leaf.start}`] : []),
       '---',
       '',
       body.replace(/\s*$/, '\n'),
@@ -785,39 +789,12 @@ function writeBaseline(dataRoot: string, catalog: IngestCatalog, files: string[]
   files.push(`control/issues/${catalog.current_issued}.yaml`)
 }
 
-function loremBody(leaf: CatalogLeaf, catalog: IngestCatalog, index: number): string {
+function loremBody(leaf: CatalogLeaf, index: number): string {
   const title = leafTitle(leaf)
+  if (inferManagedKind(title)) {
+    return [`# ${headingLabel(leaf, title)}`, '', 'Automatically managed. Not an author page.', ''].join('\n')
+  }
   const lines: string[] = [`# ${headingLabel(leaf, title)}`, '', lorem(index), '']
-  if (leaf.kind === 'front' && /record of revision/i.test(leaf.title)) {
-    lines.push('## Recorded revisions', '')
-    lines.push('| Revision | Effective | Summary |')
-    lines.push('| --- | --- | --- |')
-    lines.push(`| R${catalog.revision.number} | ${catalog.effective} | Lorem ipsum baseline for this sample library. |`)
-    lines.push('')
-    lines.push(lorem(index + 1))
-    return lines.join('\n')
-  }
-  if (leaf.kind === 'front' && /list of effective pages/i.test(leaf.title)) {
-    lines.push('The page ledger for this sample lives on `manual.yaml` (`pagination` + `lep_slots`).')
-    lines.push('')
-    lines.push('| Slot | Revision | Date |')
-    lines.push('| --- | --- | --- |')
-    for (const slot of catalog.lep_slots.slice(0, 8)) {
-      lines.push(`| ${slot} | R${catalog.revision.number} | ${catalog.effective} |`)
-    }
-    lines.push('')
-    lines.push(lorem(index + 2))
-    return lines.join('\n')
-  }
-  if (leaf.kind === 'front' && /table of contents/i.test(leaf.title)) {
-    lines.push('## Leaves', '')
-    for (const item of catalog.leaves) {
-      if (item.kind === 'front') continue
-      lines.push(`- ${headingLabel(item, leafTitle(item))} — ${item.start}`)
-    }
-    lines.push('')
-    return lines.join('\n')
-  }
 
   const headings = leaf.headings ?? []
   headings.forEach((heading, hIndex) => {
@@ -887,6 +864,7 @@ function leafId(prefix: string, leaf: CatalogLeaf): string {
   const map: Record<string, string> = {
     'Record of Revision': 'ror',
     'List of Effective Pages': 'lep',
+    'List of Effective Sections': 'les',
     'Table of Contents': 'toc',
     'Source of Training Document': 'source',
     'Contract Training Partner – Training Center Information': 'ctp',

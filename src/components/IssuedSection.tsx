@@ -80,8 +80,9 @@ export function IssuedSection() {
           <p className="kicker">ISSUED · CREW · {manual.abbrev}</p>
           <h1>{meta.title}</h1>
           <p className="lede">
-            Read-only paper of the launched leaf. This is the controlled copy. Leave a crew finding
-            on this page; it does not edit the book.
+            {meta.managed
+              ? 'Automatically managed paper of the launched leaf. Leave a crew finding here; it does not edit the book.'
+              : 'Read-only paper of the launched leaf. This is the controlled copy. Leave a crew finding on this page; it does not edit the book.'}
           </p>
         </div>
         <div className="actions">

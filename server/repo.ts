@@ -9,6 +9,13 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import {
+  hydrateManagedSection,
+  inferManagedKind,
+  inferStart,
+  leafFromSection,
+  managedOpenError,
+} from './managed.ts'
 import { formatWriteMark, parseWriteMark, snapshotMarkLine } from './marks.ts'
 import { DEFAULT_THEME, parseTheme, type DocTheme } from './theme.ts'
 import { lineDiff } from './diff.ts'
@@ -50,6 +57,7 @@ import type {
   IssueSection,
   LaunchedStatus,
   ManualDetail,
+  ManualPagination,
   ManualRecord,
   PackageKind,
   QueryStatus,
@@ -166,23 +174,44 @@ export class Repo {
       current_issued: current,
       next_revision: next,
       effective: raw.effective == null ? null : String(raw.effective),
+      pagination: parsePagination(raw.pagination),
+      lep_slots: Array.isArray(raw.lep_slots) ? raw.lep_slots.map((slot) => String(slot)) : [],
     }
   }
 
   writeManual(manual: ManualRecord): void {
+    const file = this.abs('manuals', manual.id, 'manual.yaml')
+    const existing = existsSync(file)
+      ? ((parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown> | null) ?? {})
+      : {}
+    const known = {
+      id: manual.id,
+      title: manual.title,
+      abbrev: manual.abbrev,
+      control_class: manual.control_class,
+      owner: manual.owner,
+      authority: manual.authority,
+      instrument_required: manual.instrument_required,
+      current_issued: manual.current_issued,
+      next_revision: manual.next_revision,
+      effective: manual.effective,
+    }
+    const reserved = new Set([...Object.keys(known), 'control'])
+    const extras: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(existing)) {
+      if (!reserved.has(key)) extras[key] = value
+    }
+    const pagination = manual.pagination ?? extras.pagination
+    const lep_slots = manual.lep_slots?.length ? manual.lep_slots : extras.lep_slots
+    delete extras.pagination
+    delete extras.lep_slots
     writeFileSync(
-      this.abs('manuals', manual.id, 'manual.yaml'),
+      file,
       dumpYaml({
-        id: manual.id,
-        title: manual.title,
-        abbrev: manual.abbrev,
-        control_class: manual.control_class,
-        owner: manual.owner,
-        authority: manual.authority,
-        instrument_required: manual.instrument_required,
-        current_issued: manual.current_issued,
-        next_revision: manual.next_revision,
-        effective: manual.effective,
+        ...known,
+        ...(pagination ? { pagination } : {}),
+        ...(Array.isArray(lep_slots) && lep_slots.length ? { lep_slots } : {}),
+        ...extras,
       }),
     )
   }
@@ -202,6 +231,7 @@ export class Repo {
       .map((filename) => {
         const relPath = `manuals/${manualId}/sections/${filename}`
         const meta = this.readFrontmatter(this.abs(relPath))
+        const managed = inferManagedKind(meta.title, meta.managed)
         return {
           id: meta.id,
           title: meta.title,
@@ -209,6 +239,8 @@ export class Repo {
           path: relPath,
           filename,
           open_change: open.get(meta.id) ?? null,
+          managed,
+          lep_start: meta.lep_start ?? inferStart(meta),
         }
       })
   }
@@ -224,7 +256,7 @@ export class Repo {
     return {
       manual,
       theme: this.readTheme(id),
-      files: manual.sections.map((section) => this.readSection(section.path)),
+      files: manual.sections.map((section) => this.hydrateSection(this.readSection(section.path), manual)),
     }
   }
 
@@ -232,7 +264,7 @@ export class Repo {
     const manual = this.getManual(manualId)
     const section = this.findSection(manualId, sectionId)
     return {
-      ...this.readSection(section.path),
+      ...this.hydrateSection(this.readSection(section.path), manual),
       theme: this.readTheme(manualId),
       manual,
       section,
@@ -425,6 +457,7 @@ export class Repo {
     for (const sectionId of sectionIds) {
       const section = manual.sections.find((item) => item.id === sectionId)
       if (!section) throw new RepoError(2, `Section ${sectionId} is not in ${manual.abbrev}.`)
+      if (section.managed) throw new RepoError(2, managedOpenError(section.title))
       const holder = locks.get(section.id)
       if (holder) throw new RepoError(2, `${section.title} is already on ${holder}.`)
       selected.push(section)
@@ -511,6 +544,7 @@ export class Repo {
     if (holder) throw new RepoError(2, `Section ${sectionId} is already on ${holder}.`)
 
     const section = this.findSection(change.manual, sectionId)
+    if (section.managed) throw new RepoError(2, managedOpenError(section.title))
     const workingDir = `control/working/${change.id}`
     mkdirSync(this.abs(workingDir), { recursive: true })
     const working = `${workingDir}/${section.filename}`
@@ -552,6 +586,9 @@ export class Repo {
       throw new RepoError(2, 'Section id in frontmatter must not change.')
     }
     const existing = this.readSection(touched.working)
+    if (inferManagedKind(existing.meta.title, existing.meta.managed)) {
+      throw new RepoError(2, managedOpenError(existing.meta.title))
+    }
     const next = withFrontmatter(
       { ...incoming.meta, id: existing.meta.id, rev_last_changed: existing.meta.rev_last_changed },
       incoming.body,
@@ -1640,20 +1677,38 @@ export class Repo {
   private readFrontmatter(absPath: string): Frontmatter {
     return splitFrontmatter(readFileSync(absPath, 'utf8')).meta
   }
+
+  private hydrateSection(file: SectionFile, manual: ManualDetail): SectionFile {
+    const kind = inferManagedKind(file.meta.title, file.meta.managed)
+    if (!kind) return file
+    return hydrateManagedSection(file, {
+      manual,
+      meta: file.meta,
+      kind,
+      leaves: manual.sections.map(leafFromSection),
+      issues: this.listIssues(),
+      trs: this.listTrs({ manual: manual.id }),
+    })
+  }
 }
 
 export function splitFrontmatter(markdown: string): { meta: Frontmatter; body: string } {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
   if (!match) throw new RepoError(2, 'Section is missing YAML frontmatter.')
-  const raw = parseYaml(match[1]) as Partial<Frontmatter>
+  const raw = parseYaml(match[1]) as Partial<Frontmatter> & { managed?: string; lep_start?: string }
   if (!raw.id || !raw.title || !raw.rev_last_changed) {
     throw new RepoError(2, 'Frontmatter must include id, title, and rev_last_changed.')
   }
+  const title = String(raw.title)
+  const managed = inferManagedKind(title, raw.managed)
+  const lep_start = raw.lep_start ? String(raw.lep_start) : null
   return {
     meta: {
       id: String(raw.id),
-      title: String(raw.title),
+      title,
       rev_last_changed: String(raw.rev_last_changed),
+      managed,
+      lep_start,
     },
     body: match[2].replace(/^\n/, ''),
   }
@@ -1665,10 +1720,33 @@ export function withFrontmatter(meta: Frontmatter, body: string): string {
       id: meta.id,
       title: meta.title,
       rev_last_changed: meta.rev_last_changed,
+      ...(meta.managed ? { managed: meta.managed } : {}),
+      ...(meta.lep_start ? { lep_start: meta.lep_start } : {}),
     },
     { lineWidth: 0 },
   ).trimEnd()
   return `---\n${yaml}\n---\n\n${body.replace(/^\n+/, '')}`.replace(/\s*$/, '\n')
+}
+
+function parsePagination(raw: unknown): ManualPagination | null {
+  if (!raw || typeof raw !== 'object') return null
+  const rec = raw as Record<string, unknown>
+  const surface = rec.control_surface
+  if (surface !== 'lep' && surface !== 'les' && surface !== 'rev-only') return null
+  return {
+    control_surface: surface,
+    lep_inferred: Boolean(rec.lep_inferred),
+    regions: Array.isArray(rec.regions)
+      ? rec.regions.map((region) => {
+          const item = (region ?? {}) as Record<string, unknown>
+          return {
+            name: String(item.name ?? ''),
+            scheme: String(item.scheme ?? ''),
+            slots: Array.isArray(item.slots) ? item.slots.map((slot) => String(slot)) : undefined,
+          }
+        })
+      : [],
+  }
 }
 
 export function dumpYaml(value: unknown): string {
