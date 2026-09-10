@@ -1,7 +1,7 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { inferManagedKind, inferStart, slotOwners } from '../server/managed.ts'
+import { fillFrontStarts, inferManagedKind, inferStart, slotOwners } from '../server/managed.ts'
 import { applyIngest, scaffoldCatalog } from '../server/ingest.ts'
 import { Repo, RepoError } from '../server/repo.ts'
 
@@ -38,6 +38,18 @@ check('roman i owns ror', mapped[0]?.section === 'Record of Revision')
 check('roman ii stays ror', mapped[1]?.section === 'Record of Revision')
 check('roman iii owns lep', mapped[2]?.section === 'List of Effective Pages')
 check('1-2 follows section 1 rev', mapped[4]?.rev === 'R12' && mapped[4]?.section === 'Section 1 — Policy')
+
+const filled = fillFrontStarts(
+  [
+    { id: 'ror', title: 'Record of Revision', rev_last_changed: 'R11', managed: 'ror', lep_start: null },
+    { id: 'lep', title: 'List of Effective Pages', rev_last_changed: 'R11', managed: 'lep', lep_start: null },
+    { id: 's1', title: 'Section 1 — Policy', rev_last_changed: 'R11', managed: null, lep_start: null },
+  ],
+  ['i', 'ii', 'iii', 'iv', 'v', 'vi', '1-1'],
+)
+check('front ror gets i', filled[0]?.lep_start === 'i')
+check('front lep gets a later roman', filled[1]?.lep_start === 'iv')
+check('section start left to infer', filled[2]?.lep_start == null)
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-managed-'))

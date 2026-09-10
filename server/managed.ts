@@ -47,14 +47,28 @@ export type ManagedHydrateInput = {
 }
 
 export function hydrateManagedSection(file: SectionFile, input: ManagedHydrateInput): SectionFile {
+  const leaves = fillFrontStarts(input.leaves, input.manual.lep_slots ?? [])
   const meta: Frontmatter = {
     ...file.meta,
     managed: input.kind,
     lep_start: file.meta.lep_start ?? input.meta.lep_start,
   }
-  const body = managedBody(input)
+  const body = managedBody({ ...input, leaves })
   const markdown = wrapFrontmatter(meta, body)
   return { ...file, meta, markdown, body }
+}
+
+/** When ingest did not stamp lep_start, split roman slots across front managed leaves in book order. */
+export function fillFrontStarts(leaves: ManagedLeafInput[], slots: string[]): ManagedLeafInput[] {
+  const roman = slots.filter((slot) => slotFamily(slot) === 'roman')
+  const fronts = leaves.filter((leaf) => leaf.managed && !(leaf.lep_start || inferStart(leaf)))
+  if (!roman.length || !fronts.length) return leaves
+  const chunk = Math.max(1, Math.ceil(roman.length / fronts.length))
+  const starts = new Map<string, string>()
+  fronts.forEach((leaf, index) => {
+    starts.set(leaf.id, roman[Math.min(index * chunk, roman.length - 1)])
+  })
+  return leaves.map((leaf) => (starts.has(leaf.id) ? { ...leaf, lep_start: starts.get(leaf.id) ?? null } : leaf))
 }
 
 function wrapFrontmatter(meta: Frontmatter, body: string): string {
