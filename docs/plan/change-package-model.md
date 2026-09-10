@@ -59,6 +59,8 @@ Not this week. When the adapter exists:
 
 Do not expose branch/PR language in the UI.
 
+Identity for those PRs is `identities.md`: editors sign in with GitHub (or GitLab) as org members so **their** user checks a packet out and in. Do not implement stacking in the identities slice.
+
 ---
 
 ## Model fields to add later

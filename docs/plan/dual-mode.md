@@ -16,6 +16,12 @@ Solo is the default. Connecting a remote is what turns auth on — not installin
 
 Admin exists **only** in company mode: bind origin, identities, who may approve/launch. Not a settings graveyard on the solo desk.
 
-Local `enabled: false` / no-`.git` stays: YAML launch, `git_skipped`, no tag. Solo does not require a GitHub account.
+**How they sign in** (lock: `identities.md`):
 
-Never `git push --force`. Never delete an `issued/` tag. UI still does not say Git.
+- **Editors** (authors, reviewers, admin — anyone who mutates a packet) belong to the org that owns the bound library and authenticate with **GitHub** (or **GitLab** if that is the origin). Their user checks a packet out and in. No shared bot.
+- **Standard users** (crew on Issued) authenticate with **org email**. No GitHub account required.
+- Solo does not require a GitHub account.
+
+Local `enabled: false` / no-`.git` stays: YAML launch, `git_skipped`, no tag.
+
+Never `git push --force`. Never delete an `issued/` tag. UI still does not say Git (sign-in may name GitHub / GitLab).

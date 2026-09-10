@@ -1,6 +1,6 @@
 # Revdesk — Three pillars
 
-Locked 2026-09-03. Refreshed 2026-09-04. Numbered slices under this are implementation cuts. These three are the system.
+Locked 2026-09-03. Refreshed 2026-09-10. Numbered slices under this are implementation cuts. These three are the system.
 
 ```text
 1. Editor and review
@@ -45,7 +45,7 @@ Storage and review plumbing. Hidden.
 
 **Where we are:** Slice 3b is on main. Local adapter writes annotated tags, `source_commit`, `tag_ok`. `push_on_launch` exists and is **false**. Slice 7 bind + fake-suite ingest: `data/.revdesk/config.yaml` / `~/.config/revdesk/config.yaml` points at a manuals origin (dummy: `fearjet44/test-manual-repo`). Identities are not on yet.
 
-**Still inside this pillar:** identities / logins when a remote is bound (company mode). `push_on_launch` of issued tags. Never `git push --force`. Never delete an `issued/` tag.
+**Still inside this pillar:** company identities (`docs/plan/identities.md`, next spawn — `docs/handoffs/REVDESK-SLICE-8-IDENTITIES.md`). Editors: GitHub/GitLab OAuth + org membership, check packets out/in as themselves. Standard users: org email. Then `push_on_launch` of issued tags. Never `git push --force`. Never delete an `issued/` tag.
 
 Company-post-without-letter is **not** a Revdesk verb.
 
@@ -86,8 +86,8 @@ Blank forms in the book are leaves. Filled, signed instances are records. Do not
 Editor work continues in parallel. Do not stop the desk for remote git.
 
 1. Keep polishing the editor (current).
-2. Dummy remote + fake suite ingest (Slice 7 bind + lorem ingest). Admin + logins only in company mode — next spawn.
+2. Company identities (Slice 8). Admin + logins only when a remote is bound.
 3. Stationery render.
-4. Later: forms service, distribution, push.
+4. Later: forms service, distribution, push. Stacked PRs after identity exists.
 
 Solo file-backed no-auth never drops off this list.
