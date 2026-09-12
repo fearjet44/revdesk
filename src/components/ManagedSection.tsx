@@ -5,7 +5,8 @@ import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
 import { parseSection } from '../schema/markdown.ts'
 import { DEFAULT_THEME, paperCalloutStyle, stepMarkerCss, type DocTheme } from '../../server/theme.ts'
-import type { Frontmatter, ManualDetail } from '../types.ts'
+import type { Frontmatter, ManualDetail, SlotStamp } from '../types.ts'
+import { SlotFooter } from './IssuedSection.tsx'
 
 export function ManagedSection() {
   const { manualId, sectionId } = useParams()
@@ -13,6 +14,7 @@ export function ManagedSection() {
   const [manual, setManual] = useState<ManualDetail | null>(null)
   const [theme, setTheme] = useState<DocTheme>(DEFAULT_THEME)
   const [error, setError] = useState<string | null>(null)
+  const [pages, setPages] = useState<SlotStamp[]>([])
 
   const editor = useEditor({
     extensions: editorExtensions,
@@ -36,6 +38,7 @@ export function ManagedSection() {
         setMeta(parsed.meta)
         setManual(file.manual)
         setTheme(file.theme ?? DEFAULT_THEME)
+        setPages(file.pages ?? [])
         editor.commands.setContent(parsed.doc)
       })
       .catch((err: unknown) => {
@@ -72,6 +75,7 @@ export function ManagedSection() {
       <div className="paper-wrap is-readonly" style={paperCalloutStyle(theme) as CSSProperties}>
         <h2 className="title-field">{meta.title}</h2>
         <EditorContent editor={editor} />
+        <SlotFooter pages={pages} />
       </div>
     </div>
   )

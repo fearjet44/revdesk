@@ -254,10 +254,17 @@ export type SectionFile = {
   body: string
 }
 
+export type SlotStamp = {
+  slot: string
+  rev: string
+  dagger: boolean
+}
+
 export type IssuedSectionFile = SectionFile & {
   theme: DocTheme
   manual: ManualDetail
   section: SectionSummary
+  pages: SlotStamp[]
 }
 
 export type CrewFinding = {

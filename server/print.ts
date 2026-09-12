@@ -4,9 +4,17 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { parseSection, type JSONContent } from '../src/schema/markdown.ts'
+import {
+  applyCounts,
+  effectivePages,
+  formatRevNumber,
+  parseRevNumber,
+  seedLedger,
+  type BookLedger,
+} from './ledger.ts'
 import { paperCalloutStyle, stepMarkerCss, type DocTheme } from './theme.ts'
 import { RepoError } from './repo.ts'
-import type { ManualRecord, SectionFile } from './types.ts'
+import type { ManualRecord, SectionFile, SectionSummary } from './types.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -16,6 +24,12 @@ export type IssuedBook = {
   manual: ManualRecord
   theme: DocTheme
   files: SectionFile[]
+  ledger?: BookLedger | null
+}
+
+export type LedgerPersist = {
+  persistLedger: (ledger: BookLedger) => void
+  rehydrate: () => IssuedBook
 }
 
 export type RenderedPdf = {
@@ -41,7 +55,7 @@ export function pdfFilename(manual: ManualRecord, kind: PdfKind): string {
 
 export function buildManualHtml(
   book: IssuedBook,
-  opts: { kind: PdfKind; downloadedAt?: Date },
+  opts: { kind: PdfKind; downloadedAt?: Date; paged?: boolean },
 ): { html: string; watermark: string | null } {
   const at = opts.downloadedAt ?? new Date()
   const watermark = opts.kind === 'reference' ? referenceWatermark(at) : null
@@ -112,7 +126,7 @@ html, body {
 .leaf {
   break-before: page;
 }
-.leaf:first-of-type { break-before: auto; }
+.leaf:first-of-type { break-before: ${opts.paged ? 'page' : 'auto'}; }
 .leaf-title {
   margin: 0 0 6pt;
   padding-bottom: 6pt;
@@ -197,13 +211,15 @@ ${stepMarkerCss(book.theme.steps.markers)}
 </style>
 </head>
 <body class="${opts.kind}">
-<header class="cover">
+${opts.paged
+    ? ''
+    : `<header class="cover">
   <p class="kicker">${escapeHtml(book.manual.abbrev)} · ${escapeHtml(book.manual.control_class)} · ${escapeHtml(issued)}</p>
   <h1>${escapeHtml(book.manual.title)}</h1>
   <p class="lede">${opts.kind === 'reference'
     ? 'Reference PDF. This is not a controlled copy. The issued electronic manual in Revdesk is the controlled copy.'
     : 'Of-record PDF for regulator signature. Not for crew distribution.'}</p>
-</header>
+</header>`}
 ${sections}
 </body>
 </html>`
@@ -247,11 +263,79 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
 export async function renderIssuedPdf(
   book: IssuedBook,
   opts: { kind: PdfKind; downloadedAt?: Date },
+  hooks?: LedgerPersist,
 ): Promise<RenderedPdf> {
+  const surface = book.manual.pagination?.control_surface ?? 'rev-only'
+  if (surface === 'lep' || surface === 'les') {
+    return renderPagedPdf(book, opts, hooks)
+  }
   const { html, watermark } = buildManualHtml(book, opts)
   let bytes = await htmlToPdf(html)
   if (watermark) bytes = await overlayWatermark(bytes, watermark)
   return { bytes, filename: pdfFilename(book.manual, opts.kind), watermark }
+}
+
+async function renderPagedPdf(
+  book: IssuedBook,
+  opts: { kind: PdfKind; downloadedAt?: Date },
+  hooks?: LedgerPersist,
+): Promise<RenderedPdf> {
+  const bookRev = parseRevNumber(book.manual.current_issued)
+  let current = book
+  let ledger = current.ledger ?? seedLedger(current.manual, summariesFromBook(current))
+  for (let pass = 0; pass < 2; pass += 1) {
+    const { html } = buildManualHtml(current, { ...opts, paged: true })
+    let bytes = await htmlToPdf(html)
+    const assignment = await assignPagesToLeaves(bytes, current.files.map((file) => file.meta.id))
+    const counts = new Map<string, number>()
+    for (const leafId of assignment) counts.set(leafId, (counts.get(leafId) ?? 0) + 1)
+    for (const file of current.files) {
+      if (!counts.has(file.meta.id)) counts.set(file.meta.id, 1)
+    }
+    const previousLep = effectivePages(ledger)
+      .filter((page) => page.leafId === lepLeafId(current))
+      .length
+    ledger = applyCounts(ledger, counts, bookRev)
+    hooks?.persistLedger(ledger)
+    const nextLep = effectivePages(ledger)
+      .filter((page) => page.leafId === lepLeafId(current))
+      .length
+    if (pass === 0 && nextLep !== previousLep && hooks?.rehydrate) {
+      current = { ...hooks.rehydrate(), ledger }
+      continue
+    }
+    const labels = footerLabels(current, ledger, assignment)
+    bytes = await stampSlotFooters(bytes, labels)
+    const stamp = opts.kind === 'reference' ? referenceWatermark(opts.downloadedAt ?? new Date()) : null
+    if (stamp) bytes = await overlayWatermark(bytes, stamp)
+    return { bytes, filename: pdfFilename(current.manual, opts.kind), watermark: stamp }
+  }
+  throw new RepoError(5, 'Page ledger render did not produce a PDF.')
+}
+
+function lepLeafId(book: IssuedBook): string | null {
+  return book.files.find((file) => file.meta.managed === 'lep')?.meta.id ?? null
+}
+
+function footerLabels(book: IssuedBook, ledger: BookLedger, assignment: string[]): string[] {
+  if (ledger.control_surface === 'lep') {
+    const rows = effectivePages(ledger)
+    return assignment.map((leafId, index) => {
+      const page = rows[index]
+      if (page) {
+        const mark = page.dagger ? ' †' : ''
+        return `${page.slot}${mark} · ${formatRevNumber(page.rev_page)} · ${book.manual.abbrev}`
+      }
+      const file = book.files.find((item) => item.meta.id === leafId)
+      return `${file?.meta.rev_last_changed ?? ''} · ${book.manual.abbrev}`.trim()
+    })
+  }
+  return assignment.map((leafId) => {
+    const file = book.files.find((item) => item.meta.id === leafId)
+    const title = file?.meta.title ?? leafId
+    const rev = file?.meta.rev_last_changed ?? ''
+    return `${title} · ${rev} · ${book.manual.abbrev}`
+  })
 }
 
 function stampHtml(watermark: string): string {
@@ -298,6 +382,121 @@ async function overlayWatermark(body: Buffer, watermark: string): Promise<Buffer
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+}
+
+function summariesFromBook(book: IssuedBook): SectionSummary[] {
+  return book.files.map((file) => ({
+    id: file.meta.id,
+    title: file.meta.title,
+    rev_last_changed: file.meta.rev_last_changed,
+    path: file.path,
+    filename: path.basename(file.path),
+    open_change: null,
+    managed: file.meta.managed ?? null,
+    lep_start: file.meta.lep_start ?? null,
+  }))
+}
+
+async function assignPagesToLeaves(bytes: Buffer, ids: string[]): Promise<string[]> {
+  if (!ids.length) return []
+  const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-pages-'))
+  const file = path.join(dir, 'book.pdf')
+  writeFileSync(file, bytes)
+  try {
+    const total = await pdfPageCount(file)
+    const escaped = ids.map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+    const header = new RegExp(`(${escaped})\\s*·\\s*rev last changed`, 'i')
+    let current = ids[0]
+    const assignment: string[] = []
+    for (let page = 1; page <= total; page += 1) {
+      const text = await pdfPageText(file, page)
+      const hit = text.match(header)
+      if (hit?.[1] && ids.includes(hit[1])) current = hit[1]
+      assignment.push(current)
+    }
+    return assignment
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+async function pdfPageCount(file: string): Promise<number> {
+  try {
+    const { stdout } = await execFileAsync('qpdf', ['--show-npages', file], { timeout: 15_000 })
+    const n = Number(String(stdout).trim())
+    if (Number.isFinite(n) && n > 0) return n
+  } catch {
+    /* fall through */
+  }
+  const { stdout } = await execFileAsync('pdfinfo', [file], { timeout: 15_000 })
+  const n = Number(String(stdout).match(/^Pages:\s+(\d+)/m)?.[1] ?? '0')
+  return n > 0 ? n : 1
+}
+
+async function pdfPageText(file: string, page: number): Promise<string> {
+  const { stdout } = await execFileAsync('pdftotext', ['-f', String(page), '-l', String(page), file, '-'], {
+    timeout: 15_000,
+    encoding: 'utf8',
+  })
+  return String(stdout)
+}
+
+async function stampSlotFooters(body: Buffer, labels: string[]): Promise<Buffer> {
+  if (!labels.length) return body
+  const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-slots-'))
+  const bodyPath = path.join(dir, 'body.pdf')
+  writeFileSync(bodyPath, body)
+  try {
+    const total = await pdfPageCount(bodyPath)
+    const parts: string[] = []
+    for (let page = 1; page <= total; page += 1) {
+      const pagePath = path.join(dir, `p${page}.pdf`)
+      const stamped = path.join(dir, `s${page}.pdf`)
+      const stampPath = path.join(dir, `t${page}.pdf`)
+      await execFileAsync('qpdf', [bodyPath, '--pages', '.', `${page}`, '--', pagePath], { timeout: 15_000 })
+      const label = labels[page - 1] ?? labels.at(-1) ?? ''
+      writeFileSync(stampPath, await htmlToPdf(footerStampHtml(label)))
+      await execFileAsync('qpdf', ['--overlay', stampPath, '--repeat=1', '--', pagePath, stamped], {
+        timeout: 15_000,
+      })
+      parts.push(stamped)
+    }
+    const outPath = path.join(dir, 'out.pdf')
+    await execFileAsync('qpdf', ['--empty', '--pages', ...parts, '--', outPath], { timeout: 30_000 })
+    return readFileSync(outPath)
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('ENOENT')) throw new RepoError(5, 'qpdf is required to stamp slot footers.')
+    throw new RepoError(5, `PDF slot stamp failed: ${msg}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+function footerStampHtml(label: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: letter; margin: 0; }
+body { margin: 0; }
+.footer {
+  position: absolute;
+  left: 0.7in;
+  right: 0.7in;
+  bottom: 0.36in;
+  font-family: ui-monospace, "IBM Plex Mono", monospace;
+  font-size: 8.5pt;
+  color: #5c241f;
+  letter-spacing: 0.02em;
+  border-top: 0.6pt solid #8a8373;
+  padding-top: 4pt;
+}
+</style>
+</head>
+<body><div class="footer">${escapeHtml(label)}</div></body>
+</html>`
 }
 
 export function escapeHtml(value: string): string {

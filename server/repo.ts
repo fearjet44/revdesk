@@ -10,6 +10,15 @@ import {
 import path from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import {
+  formatRevNumber,
+  leafSlots,
+  ledgerOnDisk,
+  lepRows,
+  parseLedger,
+  seedLedger,
+  type BookLedger,
+} from './ledger.ts'
+import {
   hydrateManagedSection,
   inferManagedKind,
   inferStart,
@@ -251,24 +260,48 @@ export class Repo {
     return section
   }
 
-  issuedBook(id: string): { manual: ManualDetail; theme: DocTheme; files: SectionFile[] } {
+  issuedBook(id: string): { manual: ManualDetail; theme: DocTheme; files: SectionFile[]; ledger: BookLedger } {
     const manual = this.getManual(id)
+    const ledger = this.readLedger(id)
     return {
       manual,
       theme: this.readTheme(id),
-      files: manual.sections.map((section) => this.hydrateSection(this.readSection(section.path), manual)),
+      files: manual.sections.map((section) => this.hydrateSection(this.readSection(section.path), manual, ledger)),
+      ledger,
     }
   }
 
   issuedSection(manualId: string, sectionId: string) {
     const manual = this.getManual(manualId)
     const section = this.findSection(manualId, sectionId)
+    const ledger = this.readLedger(manualId)
     return {
-      ...this.hydrateSection(this.readSection(section.path), manual),
+      ...this.hydrateSection(this.readSection(section.path), manual, ledger),
       theme: this.readTheme(manualId),
       manual,
       section,
+      pages: leafSlots(ledger, sectionId).map((page) => ({
+        slot: page.slot,
+        rev: formatRevNumber(page.rev_page),
+        dagger: page.dagger,
+      })),
     }
+  }
+
+  readLedger(id: string): BookLedger {
+    const fallback = seedLedger(this.readManual(id), this.listSections(id))
+    const file = this.abs('manuals', id, 'ledger.yaml')
+    if (!existsSync(file)) return fallback
+    try {
+      return parseLedger(parseYaml(readFileSync(file, 'utf8')), fallback)
+    } catch {
+      return fallback
+    }
+  }
+
+  writeLedger(id: string, ledger: BookLedger): void {
+    mkdirSync(this.abs('manuals', id), { recursive: true })
+    writeFileSync(this.abs('manuals', id, 'ledger.yaml'), dumpYaml(ledgerOnDisk(ledger)))
   }
 
   crewSection(issueId: string, sectionId: string) {
@@ -1678,9 +1711,10 @@ export class Repo {
     return splitFrontmatter(readFileSync(absPath, 'utf8')).meta
   }
 
-  private hydrateSection(file: SectionFile, manual: ManualDetail): SectionFile {
+  private hydrateSection(file: SectionFile, manual: ManualDetail, ledger?: BookLedger): SectionFile {
     const kind = inferManagedKind(file.meta.title, file.meta.managed)
     if (!kind) return file
+    const bookLedger = ledger ?? this.readLedger(manual.id)
     return hydrateManagedSection(file, {
       manual,
       meta: file.meta,
@@ -1688,6 +1722,13 @@ export class Repo {
       leaves: manual.sections.map(leafFromSection),
       issues: this.listIssues(),
       trs: this.listTrs({ manual: manual.id }),
+      lep_rows: bookLedger.control_surface === 'lep' ? lepRows(bookLedger) : undefined,
+      les_rows:
+        bookLedger.control_surface === 'les'
+          ? bookLedger.leaves
+              .filter((leaf) => inferManagedKind(leaf.title) == null)
+              .map((leaf) => ({ title: leaf.title, rev: formatRevNumber(leaf.rev_content) }))
+          : undefined,
     })
   }
 }

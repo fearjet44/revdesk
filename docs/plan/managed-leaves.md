@@ -70,7 +70,6 @@ Until pagination stamps overflow slots, each `lep_slots` row takes the owning le
 
 ## Out of scope
 
-- Overflow / underflow / dagger / `printed_as` (page-flow pass)
 - Change bars
 - Stationery
 - Company identities

@@ -5,7 +5,7 @@ import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
 import { parseSection } from '../schema/markdown.ts'
 import { DEFAULT_THEME, paperCalloutStyle, stepMarkerCss, type DocTheme } from '../../server/theme.ts'
-import type { CrewFinding, Frontmatter, IssueRecord, ManualDetail } from '../types.ts'
+import type { CrewFinding, Frontmatter, IssueRecord, ManualDetail, SlotStamp } from '../types.ts'
 import { FindingList } from './FindingList.tsx'
 
 export function IssuedSection() {
@@ -19,6 +19,7 @@ export function IssuedSection() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [canFind, setCanFind] = useState(false)
+  const [pages, setPages] = useState<SlotStamp[]>([])
 
   const editor = useEditor({
     extensions: editorExtensions,
@@ -45,6 +46,7 @@ export function IssuedSection() {
         setTheme(file.theme ?? DEFAULT_THEME)
         setFindings(file.findings ?? [])
         setCanFind(file.can_find)
+        setPages(file.pages ?? [])
         editor.commands.setContent(parsed.doc)
       })
       .catch((err: unknown) => {
@@ -122,7 +124,22 @@ export function IssuedSection() {
       <div className="paper-wrap is-readonly is-crew" style={paperCalloutStyle(theme) as CSSProperties}>
         <h2 className="title-field">{meta.title}</h2>
         <EditorContent editor={editor} />
+        <SlotFooter pages={pages} />
       </div>
+    </div>
+  )
+}
+
+export function SlotFooter({ pages }: { pages: SlotStamp[] }) {
+  if (!pages.length) return null
+  return (
+    <div className="paper-slots">
+      {pages.map((page) => (
+        <span key={page.slot}>
+          {page.slot}
+          {page.dagger ? ' †' : ''} · {page.rev}
+        </span>
+      ))}
     </div>
   )
 }

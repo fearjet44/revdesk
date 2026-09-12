@@ -12,6 +12,8 @@ import {
   type IngestApplyResult,
 } from '../server/ingest.ts'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
+import { type BookLedger } from '../server/ledger.ts'
+import { renderIssuedPdf } from '../server/print.ts'
 import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
 import { Repo, RepoError } from '../server/repo.ts'
 import type {
@@ -59,6 +61,25 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === 'launched') {
       const id = requirePositional(sub ? [sub, ...rest] : rest, 0, 'manual id')
       return emit(json, repo.launched(id), formatLaunched)
+    }
+
+    if (cmd === 'ledger' && sub === 'refresh') {
+      const id = requirePositional(rest, 0, 'manual id')
+      await renderIssuedPdf(repo.issuedBook(id), { kind: 'regulator' }, {
+        persistLedger: (ledger) => repo.writeLedger(id, ledger),
+        rehydrate: () => repo.issuedBook(id),
+      })
+      return emit(json, repo.readLedger(id), formatLedger)
+    }
+
+    if (cmd === 'ledger' && sub === 'show') {
+      const id = requirePositional(rest, 0, 'manual id')
+      return emit(json, repo.readLedger(id), formatLedger)
+    }
+
+    if (cmd === 'ledger') {
+      const id = requirePositional(sub ? [sub, ...rest] : rest, 0, 'manual id')
+      return emit(json, repo.readLedger(id), formatLedger)
     }
 
     if (cmd === 'ingest' && sub === 'classify') {
@@ -749,6 +770,19 @@ function formatLibraryInfo(info: ReturnType<typeof libraryInfo>): string {
   ].join('\n')
 }
 
+function formatLedger(ledger: BookLedger): string {
+  const lines = [`${ledger.control_surface}  overflow ${ledger.overflow_style}`, '']
+  for (const leaf of ledger.leaves) {
+    const vis = leaf.pages.filter((page) => !page.omitted)
+    lines.push(`${leaf.id}  ${leaf.scheme}  ${vis.length} face(s)  rev ${leaf.rev_content}`)
+    for (const page of vis.slice(0, 6)) {
+      lines.push(`  ${page.slot}  R${page.rev_page}${page.dagger ? ' †' : ''}`)
+    }
+    if (vis.length > 6) lines.push(`  … ${vis.length - 6} more`)
+  }
+  return lines.join('\n')
+}
+
 function printHelp(): void {
   console.log(`revdesk — controlled manual desk (file-backed)
 
@@ -756,6 +790,7 @@ Usage:
   revdesk status [--json]
   revdesk desk status | deploy --pr <n> | deploy --branch <name> | deploy --tree <path> | origin | public-demo on | off
   revdesk launched <manual-id>
+  revdesk ledger show | refresh <manual-id>
   revdesk manual list | show <id>
 
   revdesk change list

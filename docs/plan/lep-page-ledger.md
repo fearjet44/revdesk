@@ -130,9 +130,9 @@ Render later **stamps** chosen page numbers into YAML and into the footer. That 
 
 ---
 
-## Derived lists (Slice 9)
+## Derived lists (Slice 9–10)
 
-The ROR, LEP, LES, and TOC **leaves** are still in the book. Authors do not type those tables. The desk hydrates them from launched issues and the page ledger. Lock: `managed-leaves.md`. Overflow / dagger / `printed_as` still wait on the render loop above.
+The ROR, LEP, LES, and TOC **leaves** are still in the book. Authors do not type those tables. The desk hydrates them from launched issues and `manuals/<id>/ledger.yaml`. Lock: `managed-leaves.md`. PDF render paginates, writes overflow/underflow, stamps `printed_as`, and emits LEP from the ledger in one pass.
 
 ---
 
