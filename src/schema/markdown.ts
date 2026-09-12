@@ -106,6 +106,12 @@ function advanceBlock(lines: string[], i: number): number {
     if (i < lines.length) i += 1
     return i
   }
+  if (isMermaidOpen(line)) {
+    i += 1
+    while (i < lines.length && !isFenceClose(lines[i])) i += 1
+    if (i < lines.length) i += 1
+    return i
+  }
   if (line.startsWith('|')) {
     while (i < lines.length && lines[i].startsWith('|')) i += 1
     return i
@@ -158,6 +164,18 @@ export function parseBody(markdown: string): JSONContent {
       if (i < lines.length) i += 1
       const children = parseBody(inner.join('\n')).content ?? [{ type: 'paragraph' }]
       blocks.push({ type: fence[1], content: children })
+      continue
+    }
+
+    if (isMermaidOpen(line)) {
+      const inner: string[] = []
+      i += 1
+      while (i < lines.length && !isFenceClose(lines[i])) {
+        inner.push(lines[i])
+        i += 1
+      }
+      if (i < lines.length) i += 1
+      blocks.push({ type: 'mermaid', attrs: { source: inner.join('\n') } })
       continue
     }
 
@@ -216,13 +234,22 @@ export function serializeSection(meta: Frontmatter, doc: JSONContent): string {
   return withFrontmatter(meta, serializeBody(doc))
 }
 
+function isMermaidOpen(line: string): boolean {
+  return /^```mermaid(?:\s+.*)?\s*$/.test(line)
+}
+
+function isFenceClose(line: string): boolean {
+  return /^```\s*$/.test(line)
+}
+
 function isBlockStart(line: string): boolean {
   return (
     /^(#{1,5})\s+/.test(line) ||
     /^\d+\.\s+/.test(line) ||
     line.startsWith('|') ||
     /^:::(note|caution|warning)\s*$/.test(line) ||
-    line.trim() === ':::'
+    line.trim() === ':::' ||
+    isMermaidOpen(line)
   )
 }
 
@@ -457,6 +484,10 @@ function serializeBlock(node: JSONContent): string {
         .join('\n')
     case 'table':
       return serializeTable(node)
+    case 'mermaid': {
+      const source = String(node.attrs?.source ?? '').replace(/\n+$/, '')
+      return `\`\`\`mermaid\n${source}\n\`\`\``
+    }
     default:
       return serializeInline(node)
   }

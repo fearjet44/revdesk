@@ -63,7 +63,7 @@ revdesk manuals find --q "operational control"
 revdesk gap --standard <file> --manuals gom,fotm,mel
 ```
 
-An agent gets section ids, titles, and body. Suite of company manuals in one Revdesk library. This sits on pillar 1 after the desk works, or beside ingest once real books are in.
+An agent gets section ids, titles, and body. Mermaid fences stay in that body — the graph is structured text, not a PNG (`mermaid.md`). Suite of company manuals in one Revdesk library. This sits on pillar 1 after the desk works, or beside ingest once real books are in.
 
 Gap findings are **queries** on a line (see `review-queries.md`). The agent does not write the leaf. The author answers Done (text changed), Stand (stet + reason), or Later.
 

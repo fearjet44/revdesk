@@ -1,6 +1,6 @@
 # REVDESK — Controlled Manual Desk
 
-Local editor for controlled manuals. The author desk never mentions Git. The reviewer screen shows a line diff and stores comments as git notes. Persistence is Markdown with YAML frontmatter plus control YAML under `data/`.
+Local editor for controlled manuals. The author desk never mentions Git. The reviewer screen shows a line diff and stores comments as git notes. Persistence is Markdown with YAML frontmatter plus control YAML under `data/`. Procedure diagrams are mermaid fences, not pasted images.
 
 ## Run (UI)
 

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { parseSection, type JSONContent } from '../src/schema/markdown.ts'
+import { htmlHasMermaid, servePrintDir, stageMermaidAssets, withMermaidBoot } from './mermaid.ts'
 import {
   applyCounts,
   effectivePages,
@@ -207,6 +208,15 @@ html, body {
 .callout-note { border-left-color: var(--note); }
 .callout-caution { border-left-color: var(--caution); }
 .callout-warning { border-left-color: var(--alert); }
+.mermaid-figure {
+  margin: 0 0 1em;
+  padding: 8pt;
+  border: 0.6pt solid #b7ae9a;
+  background: #fff;
+  break-inside: avoid;
+}
+.mermaid-figure .mermaid { margin: 0; }
+.mermaid-figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 ${stepMarkerCss(book.theme.steps.markers)}
 </style>
 </head>
@@ -230,8 +240,13 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-pdf-'))
   const htmlPath = path.join(dir, 'manual.html')
   const pdfPath = path.join(dir, 'manual.pdf')
-  writeFileSync(htmlPath, html)
+  const mermaid = htmlHasMermaid(html)
+  writeFileSync(htmlPath, mermaid ? withMermaidBoot(html) : html)
+  let close: (() => Promise<void>) | null = null
   try {
+    if (mermaid) stageMermaidAssets(dir)
+    const target = mermaid ? await servePrintDir(dir) : { url: htmlPath, close: async () => {} }
+    close = target.close
     try {
       await execFileAsync(
         'chromium',
@@ -240,10 +255,11 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
           '--disable-gpu',
           '--no-first-run',
           '--no-pdf-header-footer',
+          ...(mermaid ? ['--virtual-time-budget=20000'] : []),
           `--print-to-pdf=${pdfPath}`,
-          htmlPath,
+          target.url,
         ],
-        { timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
+        { timeout: mermaid ? 90_000 : 60_000, maxBuffer: 4 * 1024 * 1024 },
       )
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -256,6 +272,11 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     }
     return readFileSync(pdfPath)
   } finally {
+    try {
+      await close?.()
+    } catch {
+      /* bind already gone */
+    }
     rmSync(dir, { recursive: true, force: true })
   }
 }
@@ -535,6 +556,10 @@ function renderNode(node: JSONContent): string {
       return `<th>${renderNodes(node.content)}</th>`
     case 'tableCell':
       return `<td>${renderNodes(node.content)}</td>`
+    case 'mermaid': {
+      const source = String(node.attrs?.source ?? '')
+      return `<figure class="mermaid-figure"><pre class="mermaid">${escapeHtml(source)}</pre></figure>`
+    }
     case 'text':
       return renderText(node)
     default:
