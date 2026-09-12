@@ -238,7 +238,7 @@ launched ↛ withdrawn
 ## Tests that exercise the same code
 
 ```sh
-npm run test:md       # markdown roundtrip + instrument bytes + compose
+npm run test:md       # markdown roundtrip + mermaid + instrument bytes + compose
 npm run test:compose  # memo vs request; request cannot satisfy issue
 npm run test:slice2   # launch / TR YAML (temp copy of fixtures/tiny-gom)
 npm run test:slice3   # git adapter (throwaway repo in $TMPDIR)
