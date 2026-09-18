@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { editorExtensions } from '../schema/extensions.ts'
+import { DEFAULT_MERMAID } from '../schema/mermaid.ts'
 import {
   blockIndexForLine,
   blockSourceRanges,
@@ -321,6 +322,17 @@ export function SectionEditor({
     editor?.chain().focus().insertContent({ type, content: [{ type: 'paragraph' }] }).run()
   }
 
+  function insertDiagram() {
+    editor
+      ?.chain()
+      .focus()
+      .insertContent([
+        { type: 'mermaid', attrs: { source: DEFAULT_MERMAID } },
+        { type: 'paragraph' },
+      ])
+      .run()
+  }
+
   function applyHeading(level: 1 | 2 | 3 | 4 | 5) {
     if (!editor) return
     if (editor.isActive('heading', { level })) {
@@ -550,6 +562,13 @@ export function SectionEditor({
           <button type="button" onClick={() => insertCallout('warning')}>Warning</button>
           <button type="button" onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
             Table
+          </button>
+          <button
+            type="button"
+            className={editor?.isActive('mermaid') ? 'is-on' : ''}
+            onClick={() => insertDiagram()}
+          >
+            Diagram
           </button>
         </div>
         )}

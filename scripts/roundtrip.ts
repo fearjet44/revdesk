@@ -59,6 +59,16 @@ const samples: Array<[string, string]> = [
       '',
     ].join('\n'),
   ],
+  [
+    'mermaid flowchart',
+    [
+      '```mermaid',
+      'flowchart TD',
+      '  PIC[PIC] --> Dispatch[Dispatch]',
+      '```',
+      '',
+    ].join('\n'),
+  ],
 ]
 for (const [label, body] of samples) {
   const raw = withFrontmatter({ id: 'x', title: 't', rev_last_changed: 'R1' }, body)

@@ -8,6 +8,14 @@ rev_last_changed: R13
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 
+```mermaid
+flowchart TD
+  PIC[PIC] --> Dispatch[Dispatch]
+  Dispatch --> Go{Go?}
+  Go -->|Yes| Release[Release]
+  Go -->|No| Hold[Hold]
+```
+
 ## Currency
 
 1. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip.

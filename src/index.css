@@ -970,6 +970,53 @@ textarea { min-height: 88px; resize: vertical; }
 .callout-caution { border-left-color: var(--caution); background: #fff6e4; }
 .callout-warning { border-left-color: var(--alert); background: #fbeceb; }
 
+.mermaid-figure {
+  margin: 0 0 1em;
+  padding: 10px;
+  border: 1px solid #b7ae9a;
+  background: #fff;
+  break-inside: avoid;
+}
+.mermaid-figure.is-selected {
+  outline: 2px solid var(--steel);
+}
+.mermaid-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5c574c;
+  margin: 0 0 6px;
+}
+.mermaid-source {
+  display: block;
+  width: 100%;
+  min-height: 8em;
+  margin: 0 0 8px;
+  padding: 8px;
+  border: 1px solid var(--paper-rule);
+  background: #f7f3ea;
+  color: var(--paper-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.mermaid-preview svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.mermaid-error {
+  color: var(--stamp);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+.paper-wrap.is-readonly .mermaid-kicker,
+.paper-wrap.is-readonly .mermaid-source { display: none; }
+
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #9a9383;
   content: attr(data-placeholder);

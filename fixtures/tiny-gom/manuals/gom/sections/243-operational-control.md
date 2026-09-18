@@ -7,3 +7,11 @@ rev_last_changed: R13
 # 2.4.3 Operational Control
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+```mermaid
+flowchart TD
+  PIC[PIC] --> Dispatch[Dispatch]
+  Dispatch --> Go{Go?}
+  Go -->|Yes| Release[Release]
+  Go -->|No| Hold[Hold]
+```

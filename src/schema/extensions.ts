@@ -2,6 +2,8 @@ import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
+import { DEFAULT_MERMAID } from './mermaid.ts'
+import { createMermaidView } from './mermaid-view.ts'
 
 const STEP_MAX_DEPTH = 5
 
@@ -67,6 +69,32 @@ export const Note = callout('note')
 export const Caution = callout('caution')
 export const Warning = callout('warning')
 
+export const Mermaid = Node.create({
+  name: 'mermaid',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes() {
+    return {
+      source: {
+        default: DEFAULT_MERMAID,
+        parseHTML: (element) => element.getAttribute('data-source') ?? '',
+        renderHTML: (attributes) => ({ 'data-source': attributes.source }),
+      },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-mermaid]' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-mermaid': '', class: 'mermaid-figure' })]
+  },
+  addNodeView() {
+    return (props) => createMermaidView(props)
+  },
+})
+
 export const editorExtensions = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3, 4, 5] },
@@ -86,6 +114,7 @@ export const editorExtensions = [
   Note,
   Caution,
   Warning,
+  Mermaid,
   Placeholder.configure({
     placeholder: 'Write the controlled text…',
   }),

@@ -1,6 +1,6 @@
 # Revdesk runbooks
 
-Operator notes for the local desk. The UI never mentions Git. Persistence is Markdown with YAML frontmatter plus control YAML under the data root.
+Operator notes for the local desk. The UI never mentions Git. Persistence is Markdown with YAML frontmatter plus control YAML under the data root. Procedure diagrams are mermaid fences (`docs/plan/mermaid.md`).
 
 | Runbook | What it covers |
 |---|---|
