@@ -1,6 +1,6 @@
 # Server runbook
 
-The Revdesk “server” is the Vite dev process. It serves the React desk and mounts the control API as middleware. There is no separate Node HTTP binary.
+The Revdesk “server” is the Vite dev process. It serves the React desk and mounts the control API as middleware. The desktop app runs the same API from `server/standalone.ts` instead (`desktop.md`).
 
 ## Start
 

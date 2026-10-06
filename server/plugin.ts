@@ -10,29 +10,35 @@ import type { ChangeAction, TouchAction } from './types.ts'
 const ACTIONS = new Set<ChangeAction>(['submit', 'approve', 'open-letter'])
 
 export function controlDeskPlugin(appRoot: string): Plugin {
+  const api = createApiHandler(appRoot)
   return {
     name: 'revdesk-control-api',
     configureServer(server: ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
-        const url = req.url ?? ''
-        if (!url.startsWith('/api/')) {
-          next()
-          return
-        }
-        try {
-          const dataRoot = resolveLibraryRoot(appRoot)
-          const repo = new Repo(dataRoot)
-          await handle(repo, appRoot, req, res)
-        } catch (error) {
-          if (error instanceof RepoError) {
-            sendJson(res, httpStatus(error.status), { error: error.message, code: error.status })
-            return
-          }
-          const message = error instanceof Error ? error.message : 'Server error'
-          sendJson(res, 500, { error: message })
-        }
+        if (!(await api(req, res))) next()
       })
     },
+  }
+}
+
+/** `/api/*` dispatcher shared by the Vite dev plugin and `server/standalone.ts`. Resolves false for non-API URLs. */
+export function createApiHandler(appRoot: string) {
+  return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
+    const url = req.url ?? ''
+    if (!url.startsWith('/api/')) return false
+    try {
+      const dataRoot = resolveLibraryRoot(appRoot)
+      const repo = new Repo(dataRoot)
+      await handle(repo, appRoot, req, res)
+    } catch (error) {
+      if (error instanceof RepoError) {
+        sendJson(res, httpStatus(error.status), { error: error.message, code: error.status })
+        return true
+      }
+      const message = error instanceof Error ? error.message : 'Server error'
+      sendJson(res, 500, { error: message })
+    }
+    return true
   }
 }
 

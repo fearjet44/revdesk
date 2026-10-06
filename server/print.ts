@@ -226,6 +226,22 @@ ${sections}
   return { html, watermark }
 }
 
+const MAC_BROWSERS = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+]
+
+/** Headless browser for HTML→PDF: `REVDESK_CHROME`, then a macOS app bundle, then `chromium` on PATH. */
+function chromeBinary(): string {
+  const override = process.env.REVDESK_CHROME?.trim()
+  if (override) return override
+  if (process.platform === 'darwin') {
+    const found = MAC_BROWSERS.find((p) => existsSync(p))
+    if (found) return found
+  }
+  return 'chromium'
+}
+
 export async function htmlToPdf(html: string): Promise<Buffer> {
   const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-pdf-'))
   const htmlPath = path.join(dir, 'manual.html')
@@ -234,7 +250,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   try {
     try {
       await execFileAsync(
-        'chromium',
+        chromeBinary(),
         [
           '--headless=new',
           '--disable-gpu',
