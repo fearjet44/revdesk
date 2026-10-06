@@ -2,6 +2,8 @@
 
 Locked 2026-09-10. Company mode only. Dual-mode still holds: solo is no-auth and is not deleted.
 
+> **Parked 2026-10-05 — crew / standard users.** Revdesk is heading to a desktop app for the people who write and control the book (`docs/runbook/desktop.md`, PR #10). Crew distribution is out of scope for now: plenty of products already host documents with read receipts. The **standard user** half below (org email, domain allowlist, crew sign-in on Issued) is not the next slice. The **editor** half still holds: editors work against the bound origin as themselves through GitHub/GitLab. On the desktop that is the user's own forge credentials, not a hosted OAuth server. Crew findings stay control records in the library. How a crew note reaches the library from outside the desk is an open question. Commenting directly on the issued page was the low-friction part, and it may need a different channel later.
+
 Auth turns on when a **remote is bound**, not when the app is installed. Do not make a login wall the only binary. Admin is not a settings graveyard on the solo desk.
 
 The bound library is a real origin (dummy now: `fearjet44/test-manual-repo`; then the certificate holder’s). Packets will become pull requests (`change-package-model.md`, parked). Editors who write those packets should do so **as themselves**, as members of the org that owns the book — not as a shared bot. Crew and other standard users should not need a forge account.

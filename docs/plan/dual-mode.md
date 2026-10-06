@@ -2,6 +2,8 @@
 
 Locked 2026-09-04. Company remote git is an add-on. Solo file-backed, no-auth is not a prototype and is not deleted.
 
+> **Parked 2026-10-05 — crew / standard users.** Revdesk is heading to a desktop app (`docs/runbook/desktop.md`, PR #10). Solo stays as below. "Company" now means editors sharing a bound origin through GitHub/GitLab from their own desktops, with no Revdesk-hosted server. The org-email **standard users** row and the crew sign-in below are parked (see `identities.md`). Crew distribution is out of scope for now.
+
 Same editor, same change machine, same CLI verbs.
 
 | | **Solo** | **Company** |
