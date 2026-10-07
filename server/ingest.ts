@@ -4,19 +4,21 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { stringify as stringifyYaml } from 'yaml'
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { GitAdapterError, snapshotLibrary } from './git.ts'
 import { ledgerOnDisk, seedLedger } from './ledger.ts'
 import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
-import { toolPath } from './tools.ts'
+import { readLibraryText, toolPath } from './tools.ts'
 import type { ManualRecord, SectionSummary } from './types.ts'
 import {
   guessPaperFonts,
@@ -133,6 +135,10 @@ export type IngestApplyInput = {
   file?: string
   filename?: string
   bytes?: Buffer
+  /** `source` brings in the book's text; `practice` writes placeholder text. Default `source`. */
+  bodies?: 'source' | 'practice'
+  /** Bring in a manual that already exists again. Default false. */
+  replace?: boolean
 }
 
 export type IngestApplyResult = {
@@ -141,6 +147,7 @@ export type IngestApplyResult = {
   abbrev: string
   catalog: string | null
   matched_gold: boolean
+  bodies: 'source' | 'practice'
   root: string
   sections: number
   files: string[]
@@ -399,12 +406,28 @@ export function catalogFromClassification(report: IngestClassification): IngestC
 }
 
 export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestApplyResult {
+  const bodies = input.bodies ?? 'source'
+  const replace = input.replace ?? false
+  if (bodies === 'source' && insideSampleLibrary(dataRoot)) {
+    throw new RepoError(
+      4,
+      'This is the practice library that ships with Revdesk. Open your own library folder to bring in a real book, or choose a practice copy.',
+    )
+  }
   const source = materializeSource(input)
   try {
     const classification = classifySource(source.path, source.filename)
-    const gold = matchGoldCatalog(classification)
+    // A real book is never swapped for the sanitized gold map.
+    const gold = bodies === 'practice' ? matchGoldCatalog(classification) : null
     const catalog = gold ? loadCatalog(gold) : catalogFromClassification(classification)
+    guardExisting(dataRoot, catalog.id, replace)
+    if (bodies === 'source') {
+      throw new RepoError(5, 'Bringing in the source text is not built yet. Choose a practice copy for now.')
+    }
     ensureLibraryGitConfig(dataRoot)
+    if (replace) {
+      rmSync(path.join(dataRoot, 'manuals', catalog.id, 'sections'), { recursive: true, force: true })
+    }
     const written = writeCatalog(catalog, dataRoot)
     let snapshot
     try {
@@ -419,6 +442,7 @@ export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestAp
       abbrev: catalog.abbrev,
       catalog: gold,
       matched_gold: Boolean(gold),
+      bodies,
       root: dataRoot,
       sections: written.sections,
       files: written.files,
@@ -432,6 +456,54 @@ export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestAp
   } finally {
     if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
   }
+}
+
+function insideSampleLibrary(dataRoot: string): boolean {
+  const sample = canonicalPath(path.join(ROOT, 'data'))
+  const target = canonicalPath(dataRoot)
+  const rel = path.relative(sample, target)
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+}
+
+function canonicalPath(target: string): string {
+  const abs = path.resolve(target)
+  const missing: string[] = []
+  let probe = abs
+  while (!existsSync(probe)) {
+    const parent = path.dirname(probe)
+    if (parent === probe) return abs
+    missing.unshift(path.basename(probe))
+    probe = parent
+  }
+  return path.join(realpathSync(probe), ...missing)
+}
+
+function guardExisting(dataRoot: string, id: string, replace: boolean): void {
+  if (!existsSync(path.join(dataRoot, 'manuals', id))) return
+  if (!replace) {
+    throw new RepoError(4, `A manual with id ${id} is already in this library. Choose replace to bring it in again.`)
+  }
+  if (manualHasHistory(dataRoot, id)) {
+    throw new RepoError(
+      4,
+      `Manual ${id} has changes or launches since it was brought in. Replacing it would rewrite controlled history; start a revision instead.`,
+    )
+  }
+}
+
+function manualHasHistory(dataRoot: string, id: string): boolean {
+  const records = (name: string): Record<string, unknown>[] => {
+    const dir = path.join(dataRoot, 'control', name)
+    if (!existsSync(dir)) return []
+    return readdirSync(dir)
+      .filter((file) => file.endsWith('.yaml') && !file.startsWith('.'))
+      .map((file) => (parseYaml(readLibraryText(path.join(dir, file))) ?? {}) as Record<string, unknown>)
+  }
+  return (
+    records('changes').some((row) => row.manual === id) ||
+    records('trs').some((row) => row.manual === id) ||
+    records('issues').some((row) => row.manual === id && row.change !== 'CHG-BASELINE')
+  )
 }
 
 export function scaffoldCatalog(id: string, dataRoot: string): ScaffoldResult {
@@ -754,6 +826,8 @@ function dumpManualYaml(catalog: IngestCatalog): string {
   )
 }
 
+// T2.2: the baseline is still the sample one (placeholder instrument, fake sha, placeholder PDF).
+// For a real book it must say "not on file" instead.
 function writeBaseline(dataRoot: string, catalog: IngestCatalog, files: string[]): void {
   const instrumentsDir = path.join(dataRoot, 'control', 'instruments')
   const issuesDir = path.join(dataRoot, 'control', 'issues')

@@ -117,10 +117,19 @@ async function main(argv: string[]): Promise<number> {
     }
 
     if (cmd === 'ingest') {
-      const opts = parseOpts(sub ? [sub, ...rest] : rest)
-      const file = ingestFileArg(sub, rest, opts)
+      const all = sub ? [sub, ...rest] : rest
+      const tokens = all.filter((token) => token !== '--practice' && token !== '--replace')
+      const opts = parseOpts(tokens)
+      const file = ingestFileArg(tokens[0], tokens.slice(1), opts)
       const out = opts.out ? path.resolve(opts.out) : DATA
-      const result = applyIngest({ file }, out)
+      const result = applyIngest(
+        {
+          file,
+          bodies: all.includes('--practice') ? 'practice' : 'source',
+          replace: all.includes('--replace'),
+        },
+        out,
+      )
       return emit(json, result, formatIngestApply)
     }
 
@@ -740,19 +749,20 @@ function ingestFileArg(sub: string | undefined, rest: string[], opts: Record<str
   if (sub && !sub.startsWith('--')) return path.resolve(sub)
   throw new RepoError(
     2,
-    'Usage: revdesk ingest <file> | ingest apply <file> | ingest classify <file> | ingest scaffold --catalog <id> | ingest catalogs',
+    'Usage: revdesk ingest <file> [--practice] [--replace] | ingest apply <file> | ingest classify <file> | ingest scaffold --catalog <id> | ingest catalogs',
   )
 }
 
 function formatIngestApply(row: IngestApplyResult): string {
   const gold = row.matched_gold ? `known map ${row.catalog}` : 'from source map'
+  const bodies = row.bodies === 'practice' ? 'practice copy' : 'source text'
   const snap = row.snapshot.skipped
     ? 'solo tree (not the bound library)'
     : row.snapshot.pushed
       ? 'wrote through to the bound library'
       : 'wrote on the local library'
   return [
-    `${row.abbrev}  ${row.title}  ${row.sections} sections  ${gold}`,
+    `${row.abbrev}  ${row.title}  ${row.sections} sections  ${gold}  ${bodies}`,
     `root ${row.root}`,
     snap,
     ...row.files.map((file) => `  ${file}`),
@@ -824,8 +834,8 @@ Usage:
   revdesk config [show]
   revdesk config set remote <url|"">
 
-  revdesk ingest <pdf|txt> [--out dir]
-  revdesk ingest apply <pdf|txt> [--out dir]
+  revdesk ingest <pdf|txt> [--practice] [--replace] [--out dir]
+  revdesk ingest apply <pdf|txt> [--practice] [--replace] [--out dir]
   revdesk ingest catalogs
   revdesk ingest classify <pdf|txt> [--json]
   revdesk ingest scaffold --catalog gom-lep|tp [--out dir]

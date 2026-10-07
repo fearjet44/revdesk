@@ -86,9 +86,27 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
   }
 
   if (method === 'POST' && parts[0] === 'ingest' && parts.length === 1) {
-    const body = await readJson<{ file?: string; filename?: string; content?: string }>(req)
+    const body = await readJson<{
+      file?: string
+      filename?: string
+      content?: string
+      bodies?: 'source' | 'practice'
+      replace?: boolean
+    }>(req)
     const source = uploadedBook(body)
-    sendJson(res, 201, applyIngest({ filename: source.filename, bytes: source.bytes }, repo.root))
+    sendJson(
+      res,
+      201,
+      applyIngest(
+        {
+          filename: source.filename,
+          bytes: source.bytes,
+          bodies: body.bodies === 'practice' ? 'practice' : 'source',
+          replace: body.replace === true,
+        },
+        repo.root,
+      ),
+    )
     return
   }
 

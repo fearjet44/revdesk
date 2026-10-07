@@ -2,7 +2,9 @@ import { useId, useRef, useState } from 'react'
 import { api, encodeLetterFile } from '../api.ts'
 import type { IngestApplyResult, IngestPreview } from '../types.ts'
 
-const ACCEPT = '.pdf,.txt,application/pdf,text/plain'
+const ACCEPT =
+  '.pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const EXISTS_NOTE = 'is already in this library'
 
 export function IngestDialog({
   onClose,
@@ -18,6 +20,9 @@ export function IngestDialog({
   const [result, setResult] = useState<IngestApplyResult | null>(null)
   const [busy, setBusy] = useState<'inspect' | 'ingest' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [practice, setPractice] = useState(false)
+  const [replace, setReplace] = useState(false)
+  const [exists, setExists] = useState(false)
 
   async function inspect() {
     if (!file) return
@@ -39,13 +44,21 @@ export function IngestDialog({
     if (!file) return
     setBusy('ingest')
     setError(null)
+    setExists(false)
     try {
       const content = await encodeLetterFile(file)
-      const written = await api.ingestBook({ filename: file.name, content })
+      const written = await api.ingestBook({
+        filename: file.name,
+        content,
+        bodies: practice ? 'practice' : 'source',
+        replace,
+      })
       setResult(written)
       await onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not bring the book onto the desk.')
+      const message = err instanceof Error ? err.message : 'Could not bring the book onto the desk.'
+      setExists(message.includes(EXISTS_NOTE))
+      setError(message)
     } finally {
       setBusy(null)
     }
@@ -59,8 +72,9 @@ export function IngestDialog({
         <div className="panel-hd">INGEST A BOOK</div>
         <div className="modal-body">
           <p className="modal-note">
-            Choose a PDF or text export. Revdesk keeps the section map and fills lorem bodies so
-            this test library never stores operator prose.
+            Choose a PDF, Word file, or text export. Revdesk keeps the section map and brings in
+            the text.
+            {practice ? ' A practice copy keeps the section map and fills placeholder text instead.' : ''}
           </p>
           <div className={`field ${!file && error ? 'invalid' : ''}`}>
             <label htmlFor={inputId}>Source book</label>
@@ -76,6 +90,8 @@ export function IngestDialog({
                   setPreview(null)
                   setResult(null)
                   setError(null)
+                  setExists(false)
+                  setReplace(false)
                 }}
               />
               <button
@@ -89,7 +105,27 @@ export function IngestDialog({
               <span className={`file-pick-name ${name ? '' : 'empty'}`}>{name || 'No book chosen'}</span>
             </div>
           </div>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={practice}
+              disabled={busy !== null}
+              onChange={(event) => setPractice(event.target.checked)}
+            />{' '}
+            Practice copy (placeholder text, keeps the section map)
+          </label>
           {error ? <div className="banner error">{error}</div> : null}
+          {exists ? (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={replace}
+                disabled={busy !== null}
+                onChange={(event) => setReplace(event.target.checked)}
+              />{' '}
+              Replace the existing book
+            </label>
+          ) : null}
           {preview ? (
             <div className="ingest-preview">
               <p className="kicker">Section map</p>
@@ -99,8 +135,8 @@ export function IngestDialog({
                 {preview.source.pages ? ` · ${preview.source.pages} pages` : ''}
               </p>
               <p className="modal-note">
-                {preview.sections.length} leaves. Bodies on the desk will be lorem, not the source
-                text.
+                {preview.sections.length} leaves.
+                {practice ? ' Bodies on the desk will be lorem, not the source text.' : ''}
               </p>
               <div className="ingest-leaves">
                 {preview.sections.length === 0 ? <div className="empty">No sections found.</div> : null}
