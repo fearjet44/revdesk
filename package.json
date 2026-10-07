@@ -10,6 +10,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:server": "vite build --config vite.server.config.ts",
+    "serve": "node --experimental-strip-types server/standalone.ts",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
     "lint": "oxlint",
     "preview": "vite preview",
     "revdesk": "node --experimental-strip-types cli/revdesk.ts",
@@ -40,6 +44,7 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",

@@ -13,6 +13,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-server
+
+# Desktop shell build output
+/src-tauri/target
+/src-tauri/gen
 *.local
 
 # Operator / third-party manuals for local parser training. Never commit.
