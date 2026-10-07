@@ -57,7 +57,7 @@ Known gaps on Windows:
 - Unsigned installer (SmartScreen step above). No auto-update.
 - Node, git, qpdf, and poppler are prerequisites, not bundled. The **Prerequisites** screen (mast, next to Config) lists each tool, where it was found, and the install line for this OS. It opens by itself at first run, and a banner shows on every page while a tool is missing. `revdesk doctor` prints the same list (exit `5` when anything is missing).
 - The qpdf installer may not add itself to PATH. If PDFs fail with a qpdf error, set `REVDESK_QPDF` (usually `C:\Program Files\qpdf <version>\bin\qpdf.exe`).
-- Not smoke-tested on a real Windows machine yet (T1.3). The `scripts/*.sh` acceptance scripts are bash and do not run there.
+- Not yet run on a real Windows machine: follow the [Windows smoke checklist](windows-smoke.md). The `scripts/*.sh` acceptance scripts are bash and do not run there.
 - Downloads go to the Downloads folder with no prompt.
 
 ## Run from source
