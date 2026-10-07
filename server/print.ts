@@ -170,6 +170,16 @@ html, body {
 .ProseMirror li { position: relative; margin: 0.25em 0; counter-increment: step; }
 .ProseMirror li > p { margin: 0 0 0.35em; }
 .ProseMirror li > p:last-child { margin-bottom: 0; }
+.ProseMirror ul {
+  list-style: disc;
+  margin: 0 0 1em;
+  padding-left: 1.85em;
+}
+.ProseMirror ul ul { margin: 0.15em 0 0.35em; list-style: circle; }
+.ProseMirror ul ul ul { list-style: square; }
+.ProseMirror ul ul ul ul { list-style: disc; }
+.ProseMirror ul ul ul ul ul { list-style: circle; }
+.ProseMirror ul > li { counter-increment: none; }
 .ProseMirror ol > li::before {
   content: counter(step) ".";
   position: absolute;
