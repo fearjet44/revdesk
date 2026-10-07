@@ -56,8 +56,32 @@ cd .worktrees/t2-practice-mode && npm ci
   - the task ID and a link to the handoff
   - **Tested**: a checkbox list of the commands you ran and what you checked by hand, PR #10 style. Unchecked means not done; say why.
   - **Out of track**: anything you noticed and did not fix.
-- Do not merge. Do not merge or fast-forward into a local checkout to "run it." Do not delete the worktree; the operator may test it.
+- Do not merge. Do not merge or fast-forward into a local checkout to "run it." Do not delete your worktree when you finish; the operator may test it. Cleanup is a separate job (below).
 - Never rewrite published history (`--force`) on a branch someone else may have pulled.
+
+### Clean worktrees (only when the operator asks)
+
+The operator may say "clean worktrees." That means: remove the worktrees and local branches of PRs that are **merged**, and nothing else. Run it from the primary checkout.
+
+```sh
+git fetch --prune origin
+git worktree prune
+git worktree list
+```
+
+For each worktree under `.worktrees/`:
+
+1. Find its branch and its PR: `gh pr list -R fearjet44/revdesk --state all --head <branch> --json number,state`.
+2. **Skip it** and report why if any of these is true:
+   - the PR is open or closed-unmerged, or there is no PR
+   - `git -C <worktree> status --porcelain` is not empty (uncommitted work)
+   - `git -C <worktree> log origin/<branch>..HEAD` is not empty (commits that were never pushed)
+   - on the Linux box, `./bin/revdesk desk status` shows the desk deployed from that worktree
+3. Otherwise:
+   - `git worktree remove <path>`, with no `--force`
+   - then `git branch -d <branch>`. Use lowercase `-d`. If it refuses ("not fully merged", for example after a squash merge), leave the branch and report it. Do not switch to `-D`.
+
+Finish with a short table: removed, skipped (and why). Never delete remote branches, never touch the primary checkout's branch, and never run `rm -rf` on a worktree directory. If `git worktree remove` fails, report it.
 
 ## 6. Build and test
 
