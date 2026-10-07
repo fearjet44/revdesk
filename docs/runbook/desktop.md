@@ -22,6 +22,42 @@ The library is the same folder the web desk uses. Git, a bound remote, and tags 
 
 Finder-launched apps on macOS get a bare PATH. The shell adds node's own directory, `/opt/homebrew/bin`, and `/usr/local/bin` before starting the server.
 
+## Windows
+
+CI builds an unsigned per-user installer (NSIS, no admin prompt). Windows 10 and 11 only.
+
+1. Open the `desktop` workflow run on GitHub (Actions → desktop → the run → Summary → Artifacts) and download `revdesk-x86_64-pc-windows-msvc`. Unzip it to get `Revdesk_<version>_x64-setup.exe`.
+2. Run it. SmartScreen warns because the installer is unsigned: click **More info**, then **Run anyway**. It installs under `%LOCALAPPDATA%\Revdesk` for the current user.
+3. Install the prerequisites once, from a terminal, then **close and reopen Revdesk** (and sign out and in if a tool is still not found). A running app does not see the new PATH.
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+winget install QPDF.QPDF
+winget install oschwartz10612.Poppler
+```
+
+These IDs exist in winget-pkgs (checked 2026-10-07). Edge ships with Windows and renders the PDFs; Chrome also works.
+
+Where the app looks:
+
+- **Node 22+**: `REVDESK_NODE`, then PATH, then `%ProgramFiles%\nodejs`, `%LOCALAPPDATA%\Programs\nodejs`, and `%NVM_SYMLINK%` (nvm-windows).
+- **git**: `REVDESK_GIT`, then `%ProgramFiles%\Git\cmd`, then PATH. The shell also puts that folder on the server's PATH.
+- **qpdf**, **poppler** (`pdfinfo`, `pdftotext`, `pdffonts`): PATH. winget links poppler into `%LOCALAPPDATA%\Microsoft\WinGet\Links`, which is on your user PATH. `REVDESK_QPDF` points at `qpdf.exe`; `REVDESK_POPPLER_DIR` points at the folder holding the `pdf*.exe` files (for the zip from oschwartz10612/poppler-windows if winget is not an option).
+- **Chrome or Edge**: `REVDESK_CHROME`, then Chrome, then Edge under `Program Files`.
+
+Set an override as a user environment variable (Settings → System → About → Advanced system settings → Environment Variables), then reopen Revdesk.
+
+Per-user data: the desk config is `%APPDATA%\revdesk\config.yaml` and a bound remote is cloned under `%LOCALAPPDATA%\revdesk\libraries\`. `XDG_CONFIG_HOME` and `XDG_DATA_HOME` still win when set. The last-opened library is remembered by the app itself, as on macOS.
+
+Known gaps on Windows:
+
+- Unsigned installer (SmartScreen step above). No auto-update.
+- Node, git, qpdf, and poppler are prerequisites, not bundled. The in-app prerequisites screen comes later (T1.2). Until then a missing tool shows as an error when you use it.
+- The qpdf installer may not add itself to PATH. If PDFs fail with a qpdf error, set `REVDESK_QPDF` (usually `C:\Program Files\qpdf <version>\bin\qpdf.exe`).
+- Not smoke-tested on a real Windows machine yet (T1.3). The `scripts/*.sh` acceptance scripts are bash and do not run there.
+- Downloads go to the Downloads folder with no prompt.
+
 ## Run from source
 
 ```sh
@@ -37,6 +73,8 @@ npm run serve            # the sidecar on its own: node server/standalone.ts (ne
 ```sh
 npm run desktop:build    # dist/ + dist-server/server.mjs, then tauri build
 ```
+
+Windows: `.exe` under `src-tauri/target/<target>/release/bundle/nsis/` (CI builds it; see Windows above).
 
 Linux: `.deb` / AppImage under `src-tauri/target/release/bundle/`.
 

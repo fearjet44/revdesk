@@ -20,6 +20,8 @@ systemctl --user restart revdesk
 
 From the repo root without systemd: `npm install && npm run dev`. Stop the unit first so the two do not fight over `:5173`.
 
+Windows: see [docs/runbook/desktop.md](docs/runbook/desktop.md).
+
 ## CLI
 
 Same binary for Slice 1 + Slice 2. No server required. Override the library with `REVDESK_DATA`.
