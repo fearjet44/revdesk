@@ -13,6 +13,7 @@ import {
 } from '../server/ingest.ts'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
 import { type BookLedger } from '../server/ledger.ts'
+import { doctor, type DoctorReport } from '../server/tools.ts'
 import { renderIssuedPdf } from '../server/print.ts'
 import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
 import { Repo, RepoError } from '../server/repo.ts'
@@ -28,7 +29,13 @@ import type {
 } from '../server/types.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DATA = resolveLibraryRoot(ROOT)
+let resolvedData: string | null = null
+
+// Resolved on first use: with a bound library this can clone, and doctor must answer before that.
+function dataRoot(): string {
+  resolvedData ??= resolveLibraryRoot(ROOT)
+  return resolvedData
+}
 
 async function main(argv: string[]): Promise<number> {
   const args = [...argv]
@@ -51,7 +58,13 @@ async function main(argv: string[]): Promise<number> {
     return runConfig(json, sub, rest)
   }
 
-  const repo = new Repo(DATA)
+  if (cmd === 'doctor') {
+    const report = doctor()
+    emit(json, report, formatDoctor)
+    return report.ok ? 0 : 5
+  }
+
+  const repo = new Repo(dataRoot())
 
   try {
     if (cmd === 'status') {
@@ -90,7 +103,7 @@ async function main(argv: string[]): Promise<number> {
     if (cmd === 'ingest' && sub === 'scaffold') {
       const opts = parseOpts(rest)
       const catalogId = opts.catalog ?? requirePositional(rest, 0, 'catalog id')
-      const out = opts.out ? path.resolve(opts.out) : DATA
+      const out = opts.out ? path.resolve(opts.out) : dataRoot()
       const result = scaffoldCatalog(catalogId, out)
       return emit(json, result, (row) =>
         [`${row.id}  ${row.sections} sections`, `root ${row.root}`, ...row.files.map((f) => `  ${f}`)].join(
@@ -121,7 +134,7 @@ async function main(argv: string[]): Promise<number> {
       const tokens = all.filter((token) => token !== '--practice' && token !== '--replace')
       const opts = parseOpts(tokens)
       const file = ingestFileArg(tokens[0], tokens.slice(1), opts)
-      const out = opts.out ? path.resolve(opts.out) : DATA
+      const out = opts.out ? path.resolve(opts.out) : dataRoot()
       const result = applyIngest(
         {
           file,
@@ -432,7 +445,7 @@ function mapExit(status: number): number {
 function cmdStatus(repo: Repo) {
   const desk = repo.desk()
   return {
-    root: DATA,
+    root: dataRoot(),
     manuals: desk.manuals.map((m) => ({
       id: m.id,
       abbrev: m.abbrev,
@@ -668,6 +681,16 @@ function emit<T>(json: boolean, data: T, format: (data: T) => string): number {
   return 0
 }
 
+function formatDoctor(report: DoctorReport): string {
+  return report.tools
+    .map((tool) =>
+      tool.path
+        ? `ok       ${tool.name.padEnd(10)} ${tool.path}`
+        : `missing  ${tool.name.padEnd(10)} ${tool.install ?? 'no install line for this system'}`,
+    )
+    .join('\n')
+}
+
 function table(headers: string[], rows: string[][]): string {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)))
   const fmt = (row: string[]) => row.map((cell, i) => (cell ?? '').padEnd(widths[i])).join('  ')
@@ -831,6 +854,7 @@ Usage:
 
   revdesk git status
 
+  revdesk doctor [--json]
   revdesk config [show]
   revdesk config set remote <url|"">
 
@@ -841,7 +865,7 @@ Usage:
   revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 
 Exit: 0 ok · 2 validation · 3 not found · 4 not allowed · 5 pipeline
-Data root: ${DATA}  (override with REVDESK_DATA; empty config remote = data/)
+Data root: ${dataRoot()}  (override with REVDESK_DATA; empty config remote = data/)
 `)
 }
 

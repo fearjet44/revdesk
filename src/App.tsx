@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api.ts'
 import { ChangeView } from './components/ChangeView.tsx'
 import { ConfigView } from './components/ConfigView.tsx'
 import { DeskHome } from './components/DeskHome.tsx'
+import { DoctorView } from './components/DoctorView.tsx'
 import { IngestDialog } from './components/IngestDialog.tsx'
 import { IssuedSection } from './components/IssuedSection.tsx'
 import { IssueView } from './components/IssueView.tsx'
@@ -12,7 +13,7 @@ import { ManagedSection } from './components/ManagedSection.tsx'
 import { ManualView } from './components/ManualView.tsx'
 import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
-import type { DeskPayload, LibraryInfo } from './types.ts'
+import type { DeskPayload, DoctorReport, LibraryInfo } from './types.ts'
 
 export default function App() {
   return (
@@ -23,8 +24,20 @@ export default function App() {
   )
 }
 
+function firstPrereqsVisit(): boolean {
+  try {
+    if (localStorage.getItem('revdesk.prereqsSeen')) return false
+    localStorage.setItem('revdesk.prereqsSeen', '1')
+    return true
+  } catch {
+    return false
+  }
+}
+
 function DeskApp() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [doctor, setDoctor] = useState<DoctorReport | null>(null)
   const [desk, setDesk] = useState<DeskPayload | null>(null)
   const [library, setLibrary] = useState<LibraryInfo | null>(null)
   const [ingestOpen, setIngestOpen] = useState(false)
@@ -44,6 +57,14 @@ function DeskApp() {
   useEffect(() => {
     void refresh()
   }, [location.pathname])
+
+  const startPath = location.pathname
+  useEffect(() => {
+    api.doctor().then(setDoctor, () => setDoctor(null))
+    // A deep link wins over the first-run screen; the banner still shows if a tool is missing.
+    if (startPath === '/' && firstPrereqsVisit()) navigate('/prerequisites')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
+  }, [navigate])
 
   const openChanges = (desk?.changes ?? []).filter(
     (change) => change.status !== 'launched' && change.status !== 'withdrawn',
@@ -66,6 +87,9 @@ function DeskApp() {
           <button className="btn" type="button" onClick={() => setIngestOpen(true)}>
             Ingest a book
           </button>
+          <NavLink className="btn ghost" to="/prerequisites">
+            Prerequisites
+          </NavLink>
           <NavLink className="btn ghost" to="/config">
             Config
           </NavLink>
@@ -113,9 +137,16 @@ function DeskApp() {
       </aside>
 
       <main className="stage">
+        {doctor && !doctor.ok ? (
+          <div className="banner doctor-banner">
+            Some tools Revdesk needs are missing.
+            <Link to="/prerequisites">See prerequisites</Link>
+          </div>
+        ) : null}
         {error ? <div className="banner error">{error}</div> : null}
         <Routes>
           <Route path="/" element={<DeskHome desk={desk} onIngest={() => setIngestOpen(true)} />} />
+          <Route path="/prerequisites" element={<DoctorView onChecked={setDoctor} />} />
           <Route path="/config" element={<ConfigView onChanged={refresh} />} />
           <Route path="/manuals/:manualId" element={<ManualView onChanged={refresh} />} />
           <Route path="/manuals/:manualId/sections/:sectionId" element={<ManagedSection />} />

@@ -5,6 +5,7 @@ import { bindRemote, libraryInfo, resolveLibraryRoot } from './config.ts'
 import { applyIngest, classifyUpload } from './ingest.ts'
 import { renderIssuedPdf, type LedgerPersist, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
+import { doctor } from './tools.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
 
 const ACTIONS = new Set<ChangeAction>(['submit', 'approve', 'open-letter'])
@@ -26,6 +27,10 @@ export function createApiHandler(appRoot: string) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     const url = req.url ?? ''
     if (!url.startsWith('/api/')) return false
+    if (req.method === 'GET' && url.split('?')[0] === '/api/doctor') {
+      sendJson(res, 200, doctor())
+      return true
+    }
     try {
       const dataRoot = resolveLibraryRoot(appRoot)
       const repo = new Repo(dataRoot)
