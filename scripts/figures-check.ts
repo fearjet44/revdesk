@@ -1,7 +1,7 @@
-import { mkdtempSync, statSync, utimesSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { figureName, readFigure, writeFigure } from '../server/figures.ts'
+import { figureName, figureResolver, readFigure, writeFigure } from '../server/figures.ts'
 import { buildManualHtml, type IssuedBook } from '../server/print.ts'
 import { DEFAULT_THEME } from '../server/theme.ts'
 import { parseBody, serializeBody, withFrontmatter } from '../src/schema/markdown.ts'
@@ -82,6 +82,17 @@ const before = statSync(file).mtimeMs
 const second = writeFigure(root, 'gom', PNG, 'png')
 check('writeFigure write-once', second.existed === true && statSync(file).mtimeMs === before)
 
+const clash = path.join(root, 'manuals', 'tp', 'figures', name)
+mkdirSync(path.dirname(clash), { recursive: true })
+writeFileSync(clash, Buffer.from('not the same picture'))
+try {
+  writeFigure(root, 'tp', PNG, 'png')
+  check('name clash refused', false, 'did not throw')
+} catch (error) {
+  check('name clash refused', (error as { status?: number }).status === 2, String(error))
+}
+check('name clash leaves the file alone', readFileSync(clash, 'utf8') === 'not the same picture')
+
 for (const [label, fn] of [
   ['bad type refused', () => writeFigure(root, 'gom', PNG, 'exe')],
   ['oversize refused', () => writeFigure(root, 'gom', Buffer.alloc(10 * 1024 * 1024 + 1), 'png')],
@@ -131,7 +142,7 @@ const at = new Date(Date.UTC(2026, 8, 12))
 const withBytes = buildManualHtml(book, {
   kind: 'regulator',
   downloadedAt: at,
-  figure: (s) => readFigure(root, 'gom', path.basename(s)),
+  figure: figureResolver(root, 'gom'),
 }).html
 check('print inlines data URI', withBytes.includes('data:image/png;base64,'))
 check('print figure width and caption', withBytes.includes('style="width:75%"') && withBytes.includes('<figcaption>Org chart &amp; &lt;b&gt;</figcaption>'))
@@ -141,6 +152,20 @@ const noResolver = buildManualHtml(book, { kind: 'regulator', downloadedAt: at }
 check('print without resolver shows missing box', noResolver.includes(`Figure missing: ${name}`) && !noResolver.includes('<img'))
 const nullResolver = buildManualHtml(book, { kind: 'regulator', downloadedAt: at, figure: () => null }).html
 check('print with null resolver shows missing box', nullResolver.includes(`Figure missing: ${name}`) && !nullResolver.includes('<img'))
+
+const resolve = figureResolver(root, 'gom')
+const outside = 'abcdefabcdef.png'
+writeFileSync(path.join(root, 'manuals', 'gom', outside), PNG)
+check('resolver ignores ../ in src', resolve(`figures/../${outside}`) === null)
+check('resolver ignores backslash ../ in src', resolve(`figures\\..\\${outside}`) === null)
+check('resolver reads by file name', resolve(src)?.bytes.equals(PNG) === true)
+
+const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><script>alert(1)</script></svg>')
+const svg = writeFigure(root, 'gom', SVG, 'svg')
+const svgBook: IssuedBook = { ...book, files: [{ ...book.files[0], body: `![](${svg.src})\n`, markdown: withFrontmatter(book.files[0].meta, `![](${svg.src})\n`) }] }
+const svgHtml = buildManualHtml(svgBook, { kind: 'regulator', downloadedAt: at, figure: resolve }).html
+check('print keeps SVG inside a data URI img', svgHtml.includes('<img src="data:image/svg+xml;base64,'))
+check('print never inlines SVG markup', !svgHtml.includes('<script>alert') && !/<svg[\s>]/.test(svgHtml.split('<body')[1] ?? svgHtml))
 
 if (failed) {
   console.error(`\n${failed} failed`)

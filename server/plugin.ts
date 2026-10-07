@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from './config.ts'
 import { applyIngest, classifyUpload } from './ingest.ts'
-import { figureExt, FIGURE_MAX_BYTES, readFigure, writeFigure } from './figures.ts'
+import { figureExt, FIGURE_MAX_BYTES, figureResolver, readFigure, writeFigure } from './figures.ts'
 import { renderIssuedPdf, type LedgerPersist, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
@@ -165,7 +165,7 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
     const pdf = await renderIssuedPdf(
       repo.issuedBook(parts[1]),
-      { kind, downloadedAt: new Date(), figure: figureResolver(repo, parts[1]) },
+      { kind, downloadedAt: new Date(), figure: figureResolver(repo.root, parts[1]) },
       ledgerHooks(repo, parts[1]),
     )
     sendPdf(res, pdf.bytes, pdf.filename, download)
@@ -425,7 +425,7 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
     const pdf = await renderIssuedPdf(
       repo.issuedBook(issue.manual),
-      { kind, downloadedAt: new Date(), figure: figureResolver(repo, issue.manual) },
+      { kind, downloadedAt: new Date(), figure: figureResolver(repo.root, issue.manual) },
       ledgerHooks(repo, issue.manual),
     )
     sendPdf(res, pdf.bytes, pdf.filename, download)
@@ -464,10 +464,6 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
   }
 
   sendJson(res, 404, { error: `No route for ${method} ${url.pathname}` })
-}
-
-function figureResolver(repo: Repo, manualId: string) {
-  return (src: string) => readFigure(repo.root, manualId, path.basename(src))
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

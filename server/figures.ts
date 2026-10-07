@@ -47,15 +47,23 @@ export function writeFigure(
   const dir = figureDir(dataRoot, manualId)
   const target = path.join(dir, name)
   const src = `figures/${name}`
-  if (existsSync(target)) return { src, existed: true }
+  if (existsSync(target)) return sameBytes(target, bytes, src)
   mkdirSync(dir, { recursive: true })
   try {
     writeFileSync(target, bytes, { flag: 'wx' })
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return { src, existed: true }
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return sameBytes(target, bytes, src)
     throw error
   }
   return { src, existed: false }
+}
+
+// The name is only a 48-bit prefix; never let two different pictures share one write-once file.
+function sameBytes(target: string, bytes: Buffer, src: string): { src: string; existed: true } {
+  if (!readFileSync(target).equals(bytes)) {
+    throw new RepoError(2, `A different picture already has the name ${src}. Nothing was written.`)
+  }
+  return { src, existed: true }
 }
 
 export function readFigure(
@@ -67,4 +75,9 @@ export function readFigure(
   const target = path.join(figureDir(dataRoot, manualId), file)
   if (!existsSync(target) || !statSync(target).isFile()) return null
   return { bytes: readFileSync(target), mime: figureMime(file) }
+}
+
+/** For print: a leaf's `src` is only ever looked up by its file name inside the manual's figures dir. */
+export function figureResolver(dataRoot: string, manualId: string) {
+  return (src: string) => readFigure(dataRoot, manualId, path.posix.basename(src.replace(/\\/g, '/')))
 }

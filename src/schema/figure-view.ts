@@ -55,10 +55,9 @@ export function createFigureView({ node, editor, getPos }: NodeViewRendererProps
     const pos = getPos()
     if (typeof pos !== 'number') return
     const current = editor.state.doc.nodeAt(pos)
-    if (!current) return
-    editor.view.dispatch(
-      editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, caption: caption.value.replace(/\n/g, ' ') }),
-    )
+    const next = caption.value.replace(/\n/g, ' ')
+    if (!current || current.attrs.caption === next) return
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, caption: next }))
   })
 
   paint(node)
