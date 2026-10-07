@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Slice 7 — dummy remote bind + ingest from file (structure, lorem bodies).
+# Slice 7 — dummy remote bind + ingest from file (practice mode: structure, lorem bodies).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REVDESK=(node --experimental-strip-types "$ROOT/cli/revdesk.ts")
@@ -65,7 +65,7 @@ contains "$out" '"solo": true' "solo"
 
 echo "=== 2 ingest apply nimbl fixture uses gold gom-lep ==="
 export REVDESK_DATA="$WORK"
-expect_ok --json ingest apply "$ROOT/fixtures/ingest/samples/nimbl-lep.txt"
+expect_ok --json ingest apply "$ROOT/fixtures/ingest/samples/nimbl-lep.txt" --practice
 contains "$out" '"matched_gold": true' "gold map"
 contains "$out" '"id": "gom-lep"' "gom-lep id"
 test -f "$WORK/manuals/gom-lep/manual.yaml"
@@ -88,10 +88,30 @@ fi
 contains "$(cat "$WORK/manuals/gom-lep/sections/"*section-01*)" "Company Policy, Procedures, and Rules of Conduct" "GOM section 1 title"
 
 echo "=== 4 ingest file verb (no apply) + unknown LES book ==="
-expect_ok ingest "$ROOT/fixtures/ingest/samples/les-handbook.txt"
+expect_ok ingest "$ROOT/fixtures/ingest/samples/les-handbook.txt" --practice
 test -d "$WORK/manuals"
 pass=$((pass + 1))
 echo "OK  ingest <file> wrote a book from the LES map"
+
+echo "=== 4b ingest guards (CLI exit codes) ==="
+before="$(find "$WORK" -type f | sort | shasum)"
+expect_exit 4 ingest "$ROOT/fixtures/ingest/samples/nimbl-lep.txt" --practice
+contains "$out" "already in this library" "overwrite refused"
+expect_exit 5 ingest "$ROOT/fixtures/ingest/samples/les-handbook.txt" --out "$WORK/source-only"
+contains "$out" "not built yet" "source text stops until the importer lands"
+expect_exit 4 ingest "$ROOT/fixtures/ingest/samples/les-handbook.txt" --out "$ROOT/data"
+contains "$out" "practice library that ships with Revdesk" "sample library refuses source text"
+test ! -e "$WORK/source-only"
+after="$(find "$WORK" -type f | sort | shasum)"
+if [[ "$before" == "$after" ]]; then
+  pass=$((pass + 1))
+  echo "OK  refusals wrote nothing"
+else
+  fail=$((fail + 1))
+  echo "FAIL a refused ingest wrote files"
+fi
+expect_ok ingest "$ROOT/fixtures/ingest/samples/nimbl-lep.txt" --practice --replace
+contains "$out" "practice copy" "replace re-ingests"
 
 echo "=== 5 library snapshot when the tree is its own repo ==="
 GITLIB="$(mktemp -d "${TMPDIR:-/tmp}/revdesk-slice7-git.XXXXXX")"
@@ -99,7 +119,7 @@ trap 'rm -rf "$WORK" "$XDG" "$GITLIB"' EXIT
 git init -q "$GITLIB"
 git -C "$GITLIB" checkout -q -b main
 export REVDESK_DATA="$GITLIB"
-expect_ok --json ingest apply "$ROOT/fixtures/ingest/samples/nimbl-lep.txt"
+expect_ok --json ingest apply "$ROOT/fixtures/ingest/samples/nimbl-lep.txt" --practice
 contains "$out" '"skipped": false' "snapshot not skipped"
 contains "$out" '"pushed": false' "no origin, no push"
 if git -C "$GITLIB" log -1 --pretty=%s | grep -q "Ingest gom-lep"; then

@@ -17,7 +17,7 @@ export function DeskHome({ desk, onIngest }: { desk: DeskPayload | null; onInges
           <h1>Launched books on the board</h1>
           <p className="lede">
             Open a page, save a working copy, submit. Review approves, opens the letter, then
-            launches. Ingest a PDF to put a lorem book on the board.
+            launches. Bring in a manual to put it on the board.
           </p>
           <div className="page-head-actions">
             <button className="btn primary" type="button" onClick={onIngest}>

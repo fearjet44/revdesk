@@ -28,8 +28,8 @@ Same binary for Slice 1 + Slice 2. No server required. Override the library with
 ./bin/revdesk status
 ./bin/revdesk launched gom
 npm run test:slice2   # Slice 2 acceptance path
-npm run test:slice6   # Slice 6 ingest classify + lorem scaffold
-npm run test:slice7   # dummy remote bind + ingest from file (lorem)
+npm run test:slice6   # Slice 6 ingest classify + practice scaffold
+npm run test:slice7   # dummy remote bind + ingest from file (practice mode)
 npm run test:slice9   # managed ROR / LOEP / LOES / TOC
 npm run test:slice10  # page ledger paginate + LEP from YAML
 npm run test:review   # reviewer diff + git-notes comments
@@ -91,7 +91,7 @@ Fixture for acceptance: `fixtures/tiny-gom`.
 
 Sample section bodies in `data/` and `fixtures/` are **practice** text (lorem ipsum). Real company manuals go into a private library outside this repo (see [`corpus/README.md`](corpus/README.md)); never commit them. Parser-training PDFs go in `corpus/` (gitignored).
 
-Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Record of Revisions, List of Effective Pages/Sections, and Table of Contents are automatically managed — not author pages. Classify a corpus PDF with `revdesk ingest classify <pdf>`. Bring a book onto the desk (structure + lorem) with `revdesk ingest <file>` or the Ingest dialog. Point the desk at the dummy library with `revdesk config set remote https://github.com/fearjet44/test-manual-repo.git` (`~/.config/revdesk/config.yaml`).
+Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Record of Revisions, List of Effective Pages/Sections, and Table of Contents are automatically managed — not author pages. Classify a corpus PDF with `revdesk ingest classify <pdf>`. Bring a book onto the desk with `revdesk ingest <file>` or the Ingest dialog; add `--practice` (the dialog's practice copy) to keep the section map with placeholder text. Bringing in the source text is not built yet, and it never goes into this sample library. Point the desk at the dummy library with `revdesk config set remote https://github.com/fearjet44/test-manual-repo.git` (`~/.config/revdesk/config.yaml`).
 
 ## License
 

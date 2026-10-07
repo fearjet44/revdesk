@@ -244,6 +244,7 @@ export type IngestApplyResult = {
   abbrev: string
   catalog: string | null
   matched_gold: boolean
+  bodies: 'source' | 'practice'
   sections: number
 }
 

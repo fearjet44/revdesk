@@ -163,7 +163,12 @@ export const api = {
     request<LibraryInfo>('/api/config', { method: 'PUT', body: JSON.stringify({ remote }) }),
   classifyIngest: (body: { filename: string; content: string }) =>
     request<IngestPreview>('/api/ingest/classify', { method: 'POST', body: JSON.stringify(body) }),
-  ingestBook: (body: { filename: string; content: string }) =>
+  ingestBook: (body: {
+    filename: string
+    content: string
+    bodies?: 'source' | 'practice'
+    replace?: boolean
+  }) =>
     request<IngestApplyResult>('/api/ingest', { method: 'POST', body: JSON.stringify(body) }),
 }
 
