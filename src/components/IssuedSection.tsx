@@ -1,8 +1,8 @@
 import { useEditor, EditorContent } from '@tiptap/react'
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
-import { editorExtensions } from '../schema/extensions.ts'
+import { buildEditorExtensions } from '../schema/extensions.ts'
 import { parseSection } from '../schema/markdown.ts'
 import { DEFAULT_THEME, paperCalloutStyle, stepMarkerCss, type DocTheme } from '../../server/theme.ts'
 import type { CrewFinding, Frontmatter, IssueRecord, ManualDetail, SlotStamp } from '../types.ts'
@@ -21,12 +21,17 @@ export function IssuedSection() {
   const [canFind, setCanFind] = useState(false)
   const [pages, setPages] = useState<SlotStamp[]>([])
 
-  const editor = useEditor({
-    extensions: editorExtensions,
-    immediatelyRender: false,
-    editable: false,
-    content: { type: 'doc', content: [{ type: 'paragraph' }] },
-  })
+  const manualId = manual?.id ?? ''
+  const extensions = useMemo(() => buildEditorExtensions({ manualId }), [manualId])
+  const editor = useEditor(
+    {
+      extensions,
+      immediatelyRender: false,
+      editable: false,
+      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    },
+    [extensions],
+  )
 
   useEffect(() => {
     editor?.setEditable(false)

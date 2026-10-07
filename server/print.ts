@@ -20,6 +20,8 @@ import type { ManualRecord, SectionFile, SectionSummary } from './types.ts'
 
 const execFileAsync = promisify(execFile)
 
+export type FigureResolver = (src: string) => { bytes: Buffer; mime: string } | null
+
 export type PdfKind = 'reference' | 'regulator'
 
 export type IssuedBook = {
@@ -57,7 +59,7 @@ export function pdfFilename(manual: ManualRecord, kind: PdfKind): string {
 
 export function buildManualHtml(
   book: IssuedBook,
-  opts: { kind: PdfKind; downloadedAt?: Date; paged?: boolean },
+  opts: { kind: PdfKind; downloadedAt?: Date; paged?: boolean; figure?: FigureResolver },
 ): { html: string; watermark: string | null } {
   const at = opts.downloadedAt ?? new Date()
   const watermark = opts.kind === 'reference' ? referenceWatermark(at) : null
@@ -71,7 +73,7 @@ export function buildManualHtml(
       return `<article class="leaf">
   <h1 class="leaf-title">${escapeHtml(parsed.meta.title)}</h1>
   <p class="leaf-meta">${escapeHtml(parsed.meta.id)} · rev last changed ${escapeHtml(parsed.meta.rev_last_changed)}</p>
-  ${renderNode(parsed.doc)}
+  ${renderNode(parsed.doc, opts.figure)}
 </article>`
     })
     .join('\n')
@@ -226,6 +228,10 @@ html, body {
   background: #fff;
   break-inside: avoid;
 }
+.figure { margin: 0 auto 1em; text-align: center; break-inside: avoid; }
+.figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.figure figcaption { margin-top: 3pt; font-size: 9pt; text-align: center; }
+.figure-missing { padding: 10pt; border: 0.6pt solid #b7ae9a; font-size: 9pt; }
 .mermaid-figure .mermaid { margin: 0; }
 .mermaid-figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 ${stepMarkerCss(book.theme.steps.markers)}
@@ -294,7 +300,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
 
 export async function renderIssuedPdf(
   book: IssuedBook,
-  opts: { kind: PdfKind; downloadedAt?: Date },
+  opts: { kind: PdfKind; downloadedAt?: Date; figure?: FigureResolver },
   hooks?: LedgerPersist,
 ): Promise<RenderedPdf> {
   const surface = book.manual.pagination?.control_surface ?? 'rev-only'
@@ -309,7 +315,7 @@ export async function renderIssuedPdf(
 
 async function renderPagedPdf(
   book: IssuedBook,
-  opts: { kind: PdfKind; downloadedAt?: Date },
+  opts: { kind: PdfKind; downloadedAt?: Date; figure?: FigureResolver },
   hooks?: LedgerPersist,
 ): Promise<RenderedPdf> {
   const bookRev = parseRevNumber(book.manual.current_issued)
@@ -542,10 +548,10 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function renderNode(node: JSONContent): string {
+function renderNode(node: JSONContent, figure?: FigureResolver): string {
   switch (node.type) {
     case 'doc':
-      return `<div class="ProseMirror">${renderNodes(node.content)}</div>`
+      return `<div class="ProseMirror">${renderNodes(node.content, figure)}</div>`
     case 'heading': {
       const level = Math.min(Math.max(Number(node.attrs?.level ?? 1), 1), 5)
       return `<h${level}>${renderInline(node.content)}</h${level}>`
@@ -553,36 +559,51 @@ function renderNode(node: JSONContent): string {
     case 'paragraph':
       return `<p>${renderInline(node.content)}</p>`
     case 'orderedList':
-      return `<ol>${renderNodes(node.content)}</ol>`
+      return `<ol>${renderNodes(node.content, figure)}</ol>`
     case 'bulletList':
-      return `<ul>${renderNodes(node.content)}</ul>`
+      return `<ul>${renderNodes(node.content, figure)}</ul>`
     case 'listItem':
-      return `<li>${renderNodes(node.content)}</li>`
+      return `<li>${renderNodes(node.content, figure)}</li>`
     case 'note':
     case 'caution':
     case 'warning':
-      return `<aside class="callout callout-${node.type}" data-callout="${node.type}">${renderNodes(node.content)}</aside>`
+      return `<aside class="callout callout-${node.type}" data-callout="${node.type}">${renderNodes(node.content, figure)}</aside>`
     case 'table':
-      return `<table>${renderNodes(node.content)}</table>`
+      return `<table>${renderNodes(node.content, figure)}</table>`
     case 'tableRow':
-      return `<tr>${renderNodes(node.content)}</tr>`
+      return `<tr>${renderNodes(node.content, figure)}</tr>`
     case 'tableHeader':
-      return `<th>${renderNodes(node.content)}</th>`
+      return `<th>${renderNodes(node.content, figure)}</th>`
     case 'tableCell':
-      return `<td>${renderNodes(node.content)}</td>`
+      return `<td>${renderNodes(node.content, figure)}</td>`
     case 'mermaid': {
       const source = String(node.attrs?.source ?? '')
       return `<figure class="mermaid-figure"><pre class="mermaid">${escapeHtml(source)}</pre></figure>`
     }
+    case 'figure':
+      return renderFigure(node, figure)
     case 'text':
       return renderText(node)
     default:
-      return renderNodes(node.content)
+      return renderNodes(node.content, figure)
   }
 }
 
-function renderNodes(nodes: JSONContent[] | undefined): string {
-  return (nodes ?? []).map(renderNode).join('')
+function renderFigure(node: JSONContent, resolve?: FigureResolver): string {
+  const src = String(node.attrs?.src ?? '')
+  const caption = String(node.attrs?.caption ?? '')
+  const width = /^(25|50|75|100)%$/.test(String(node.attrs?.width)) ? String(node.attrs?.width) : '100%'
+  const found = resolve?.(src) ?? null
+  const text = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''
+  if (!found) {
+    const file = src.split('/').pop() ?? src
+    return `<figure class="figure" style="width:${width}"><div class="figure-missing">Figure missing: ${escapeHtml(file)}</div>${text}</figure>`
+  }
+  return `<figure class="figure" style="width:${width}"><img src="data:${found.mime};base64,${found.bytes.toString('base64')}" alt="">${text}</figure>`
+}
+
+function renderNodes(nodes: JSONContent[] | undefined, figure?: FigureResolver): string {
+  return (nodes ?? []).map((node) => renderNode(node, figure)).join('')
 }
 
 function renderInline(nodes: JSONContent[] | undefined): string {
