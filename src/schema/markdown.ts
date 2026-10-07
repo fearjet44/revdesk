@@ -125,18 +125,19 @@ function advanceBlock(lines: string[], i: number): number {
     return i
   }
   if (/^(#{1,5})\s+/.test(line)) return i + 1
-  if (/^\d+\.\s+/.test(line)) {
+  const kind = itemKind(line, 0)
+  if (kind) {
     i += 1
     while (i < lines.length) {
       if (!lines[i].trim()) {
         const next = nextNonBlank(lines, i + 1)
-        if (next < lines.length && (isStepAt(lines[next], 0) || leadingSpaces(lines[next]) > 0)) {
+        if (next < lines.length && (itemKind(lines[next], 0) === kind || leadingSpaces(lines[next]) > 0)) {
           i = next
           continue
         }
         break
       }
-      if (isStepAt(lines[i], 0) || leadingSpaces(lines[i]) > 0) {
+      if (itemKind(lines[i], 0) === kind || leadingSpaces(lines[i]) > 0) {
         i += 1
         continue
       }
@@ -210,8 +211,9 @@ export function parseBody(markdown: string): JSONContent {
       continue
     }
 
-    if (isStepAt(line, 0)) {
-      const parsed = parseOrderedList(lines, i, 0, 1)
+    const listKind = itemKind(line, 0)
+    if (listKind) {
+      const parsed = parseList(lines, i, 0, 1, listKind)
       blocks.push(parsed.node)
       i = parsed.next
       continue
@@ -255,6 +257,7 @@ function isBlockStart(line: string): boolean {
   return (
     /^(#{1,5})\s+/.test(line) ||
     /^\d+\.\s+/.test(line) ||
+    /^-\s+/.test(line) ||
     line.startsWith('|') ||
     /^:::(note|caution|warning)\s*$/.test(line) ||
     line.trim() === ':::' ||
@@ -276,14 +279,20 @@ function leadingSpaces(line: string): number {
   return n
 }
 
-function isStepAt(line: string, indent: number): boolean {
-  return matchStep(line, indent) != null
+type ListKind = 'orderedList' | 'bulletList'
+
+function matchItem(line: string, indent: number): { kind: ListKind; text: string } | null {
+  if (leadingSpaces(line) !== indent) return null
+  const rest = line.slice(indent)
+  const step = rest.match(/^\d+\.\s+(.*)$/)
+  if (step) return { kind: 'orderedList', text: step[1] }
+  const bullet = rest.match(/^-\s+(.*)$/)
+  if (bullet) return { kind: 'bulletList', text: bullet[1] }
+  return null
 }
 
-function matchStep(line: string, indent: number): string | null {
-  if (leadingSpaces(line) !== indent) return null
-  const match = line.slice(indent).match(/^(\d+)\.\s+(.*)$/)
-  return match ? match[2] : null
+function itemKind(line: string, indent: number): ListKind | null {
+  return matchItem(line, indent)?.kind ?? null
 }
 
 function stripItemPrefix(line: string, indent: number): string {
@@ -292,40 +301,42 @@ function stripItemPrefix(line: string, indent: number): string {
   return line.slice(indent).replace(/^\s+/, '')
 }
 
-function parseOrderedList(
+function parseList(
   lines: string[],
   i: number,
   indent: number,
   depth: number,
+  kind: ListKind,
 ): { node: JSONContent; next: number } {
   const items: JSONContent[] = []
   while (i < lines.length) {
     if (!lines[i].trim()) {
       const next = nextNonBlank(lines, i + 1)
-      if (next < lines.length && (isStepAt(lines[next], indent) || leadingSpaces(lines[next]) > indent)) {
+      if (next < lines.length && (itemKind(lines[next], indent) || leadingSpaces(lines[next]) > indent)) {
         i = next
         continue
       }
       break
     }
-    const text = matchStep(lines[i], indent)
-    if (text == null) break
+    const item = matchItem(lines[i], indent)
+    if (!item || item.kind !== kind) break
     i += 1
-    const content: JSONContent[] = [{ type: 'paragraph', content: parseInline(text) }]
+    const content: JSONContent[] = [{ type: 'paragraph', content: parseInline(item.text) }]
     const nestedIndent = indent + STEP_INDENT
     while (i < lines.length) {
       if (!lines[i].trim()) {
         const next = nextNonBlank(lines, i + 1)
-        if (next < lines.length && isStepAt(lines[next], indent)) break
+        if (next < lines.length && itemKind(lines[next], indent)) break
         if (next < lines.length && leadingSpaces(lines[next]) > indent) {
           i = next
           continue
         }
         break
       }
-      if (isStepAt(lines[i], indent)) break
-      if (depth < STEP_MAX_DEPTH && isStepAt(lines[i], nestedIndent)) {
-        const nested = parseOrderedList(lines, i, nestedIndent, depth + 1)
+      if (itemKind(lines[i], indent)) break
+      const nestedKind = itemKind(lines[i], nestedIndent)
+      if (depth < STEP_MAX_DEPTH && nestedKind) {
+        const nested = parseList(lines, i, nestedIndent, depth + 1, nestedKind)
         content.push(nested.node)
         i = nested.next
         continue
@@ -340,34 +351,36 @@ function parseOrderedList(
     items.push({ type: 'listItem', content })
   }
   return {
-    node: { type: 'orderedList', attrs: { start: 1 }, content: items },
+    node: kind === 'orderedList' ? { type: kind, attrs: { start: 1 }, content: items } : { type: kind, content: items },
     next: i,
   }
 }
 
-function serializeOrderedList(node: JSONContent, indent: number): string {
+function serializeList(node: JSONContent, indent: number): string {
   const pad = ' '.repeat(indent)
   const hanging = ' '.repeat(indent + STEP_INDENT)
+  const ordered = node.type === 'orderedList'
   return (node.content ?? [])
     .map((item, index) => {
+      const marker = ordered ? `${index + 1}. ` : '- '
       const chunks: string[] = []
       let marked = false
       for (const child of item.content ?? []) {
-        if (child.type === 'orderedList') {
-          chunks.push(serializeOrderedList(child, indent + STEP_INDENT))
+        if (child.type === 'orderedList' || child.type === 'bulletList') {
+          chunks.push(serializeList(child, indent + STEP_INDENT))
           continue
         }
         const text = child.type === 'paragraph' ? serializeInline(child) : serializeBlock(child)
         const lines = text.split('\n')
         if (!marked) {
-          chunks.push(`${pad}${index + 1}. ${lines[0] ?? ''}`)
+          chunks.push(`${pad}${marker}${lines[0] ?? ''}`)
           for (const line of lines.slice(1)) chunks.push(line ? `${hanging}${line}` : '')
           marked = true
         } else {
           for (const line of lines) chunks.push(line ? `${hanging}${line}` : hanging)
         }
       }
-      if (!marked) chunks.push(`${pad}${index + 1}. `)
+      if (!marked) chunks.push(`${pad}${marker}`)
       return chunks.join('\n')
     })
     .join('\n')
@@ -486,11 +499,8 @@ function serializeBlock(node: JSONContent): string {
     case 'warning':
       return `:::${node.type}\n${(node.content ?? []).map(serializeBlock).join('\n\n')}\n:::`
     case 'orderedList':
-      return serializeOrderedList(node, 0)
     case 'bulletList':
-      return (node.content ?? [])
-        .map((item) => `- ${serializeInline(item.content?.[0] ?? item)}`)
-        .join('\n')
+      return serializeList(node, 0)
     case 'table':
       return serializeTable(node)
     case 'mermaid': {

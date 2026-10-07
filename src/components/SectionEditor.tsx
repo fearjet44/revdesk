@@ -557,6 +557,12 @@ export function SectionEditor({
             active={editor?.isActive('orderedList')}
             onClick={() => editor?.chain().focus().toggleOrderedList().run()}
           />
+          <ToolBtn
+            label="Bullets"
+            tip={IS_MAC ? '⇥ nest · ⇧⇥ out · ⇧↩ para' : 'Tab nest · Shift+Tab out · Shift+Enter para'}
+            active={editor?.isActive('bulletList')}
+            onClick={() => editor?.chain().focus().toggleBulletList().run()}
+          />
           <button type="button" onClick={() => insertCallout('note')}>Note</button>
           <button type="button" onClick={() => insertCallout('caution')}>Caution</button>
           <button type="button" onClick={() => insertCallout('warning')}>Warning</button>
