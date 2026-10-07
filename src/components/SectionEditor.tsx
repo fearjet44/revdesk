@@ -2,7 +2,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
-import { editorExtensions } from '../schema/extensions.ts'
+import { buildEditorExtensions } from '../schema/extensions.ts'
 import { DEFAULT_MERMAID } from '../schema/mermaid.ts'
 import {
   blockIndexForLine,
@@ -107,16 +107,21 @@ export function SectionEditor({
   const [findings, setFindings] = useState<CrewFinding[]>([])
   const paperRef = useRef<HTMLDivElement>(null)
 
-  const editor = useEditor({
-    extensions: editorExtensions,
-    immediatelyRender: false,
-    shouldRerenderOnTransaction: true,
-    editable: !readOnly,
-    content: { type: 'doc', content: [{ type: 'paragraph' }] },
-    onUpdate: () => {
-      if (!readOnly) setSaved(false)
+  const [manualId, setManualId] = useState('')
+  const extensions = useMemo(() => buildEditorExtensions({ manualId }), [manualId])
+  const editor = useEditor(
+    {
+      extensions,
+      immediatelyRender: false,
+      shouldRerenderOnTransaction: true,
+      editable: !readOnly,
+      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+      onUpdate: () => {
+        if (!readOnly) setSaved(false)
+      },
     },
-  })
+    [extensions],
+  )
 
   useEffect(() => {
     editor?.setEditable(!readOnly)
@@ -138,6 +143,7 @@ export function SectionEditor({
         try {
           const review = await api.reviewSection(changeId, sectionId)
           if (!cancelled) {
+            setManualId(review.change.manual)
             setComments(review.comments)
             setDiffRows(review.rows)
             setCanAnswer(review.can_answer)

@@ -1029,6 +1029,43 @@ textarea { min-height: 88px; resize: vertical; }
 .paper-wrap.is-readonly .mermaid-kicker,
 .paper-wrap.is-readonly .mermaid-source { display: none; }
 
+.figure {
+  margin: 0 auto 1em;
+  text-align: center;
+  break-inside: avoid;
+  max-width: 100%;
+}
+.figure-w25 { width: 25%; }
+.figure-w50 { width: 50%; }
+.figure-w75 { width: 75%; }
+.figure-w100 { width: 100%; }
+.figure.is-selected { outline: 2px solid var(--steel); }
+.paper-wrap.is-readonly .figure.is-selected { outline: none; }
+.figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.figure figcaption,
+.figure .figure-caption {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #5c574c;
+  text-align: center;
+}
+.figure .figure-caption {
+  width: 100%;
+  padding: 2px 4px;
+  border: 1px dashed var(--paper-rule);
+  background: transparent;
+  font-family: inherit;
+}
+.figure-missing {
+  padding: 18px 10px;
+  border: 1px solid #b7ae9a;
+  background: #f7f3ea;
+  color: var(--stamp);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.paper-wrap.is-readonly .figure-caption { display: none; }
+
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #9a9383;
   content: attr(data-placeholder);

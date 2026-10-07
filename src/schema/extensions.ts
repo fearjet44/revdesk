@@ -2,6 +2,7 @@ import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
 import StarterKit from '@tiptap/starter-kit'
+import { createFigureView } from './figure-view.ts'
 import { DEFAULT_MERMAID } from './mermaid.ts'
 import { createMermaidView } from './mermaid-view.ts'
 
@@ -55,67 +56,114 @@ function callout(name: (typeof CALLOUTS)[number]) {
     },
     renderHTML({ HTMLAttributes }) {
       return [
-        'aside',
-        mergeAttributes(HTMLAttributes, {
-          'data-callout': name,
-          class: `callout callout-${name}`,
-        }),
-        0,
-      ]
+          'aside',
+          mergeAttributes(HTMLAttributes, {
+            'data-callout': name,
+            class: `callout callout-${name}`,
+          }),
+          0,
+        ]
+      },
+    })
+  }
+
+  export const Note = callout('note')
+  export const Caution = callout('caution')
+  export const Warning = callout('warning')
+
+  export const Mermaid = Node.create({
+    name: 'mermaid',
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: false,
+    addAttributes() {
+      return {
+        source: {
+          default: DEFAULT_MERMAID,
+          parseHTML: (element) => element.getAttribute('data-source') ?? '',
+          renderHTML: (attributes) => ({ 'data-source': attributes.source }),
+        },
+      }
+    },
+    parseHTML() {
+      return [{ tag: 'div[data-mermaid]' }]
+    },
+    renderHTML({ HTMLAttributes }) {
+      return ['div', mergeAttributes(HTMLAttributes, { 'data-mermaid': '', class: 'mermaid-figure' })]
+    },
+    addNodeView() {
+      return (props) => createMermaidView(props)
     },
   })
+
+  export const FIGURE_WIDTHS = ['25%', '50%', '75%', '100%'] as const
+
+  export const Figure = Node.create<{ manualId: string }>({
+    name: 'figure',
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: false,
+    addOptions() {
+      return { manualId: '' }
+    },
+    addAttributes() {
+      return {
+        src: {
+          default: '',
+          parseHTML: (element) => element.getAttribute('data-src') ?? '',
+          renderHTML: (attributes) => ({ 'data-src': attributes.src }),
+        },
+        caption: {
+          default: '',
+          parseHTML: (element) => element.getAttribute('data-caption') ?? '',
+          renderHTML: (attributes) => ({ 'data-caption': attributes.caption }),
+        },
+        width: {
+          default: '100%',
+          parseHTML: (element) => element.getAttribute('data-width') ?? '100%',
+          renderHTML: (attributes) => ({ 'data-width': attributes.width }),
+        },
+      }
+    },
+    parseHTML() {
+      return [{ tag: 'figure[data-figure]' }]
+    },
+    renderHTML({ HTMLAttributes }) {
+      return ['figure', mergeAttributes(HTMLAttributes, { 'data-figure': '', class: 'figure' })]
+    },
+    addNodeView() {
+      const manualId = this.options.manualId
+      return (props) => createFigureView(props, manualId)
+    },
+  })
+
+  export function buildEditorExtensions({ manualId }: { manualId: string }) {
+    return [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3, 4, 5] },
+      blockquote: false,
+      codeBlock: false,
+      code: false,
+      horizontalRule: false,
+      strike: false,
+      link: false,
+      hardBreak: false,
+    }),
+    ManualKeys,
+    TableKit.configure({
+      table: { resizable: false },
+    }),
+    Note,
+    Caution,
+    Warning,
+    Mermaid,
+    Figure.configure({ manualId }),
+    Placeholder.configure({
+      placeholder: 'Write the controlled text…',
+    }),
+  ]
 }
 
-export const Note = callout('note')
-export const Caution = callout('caution')
-export const Warning = callout('warning')
-
-export const Mermaid = Node.create({
-  name: 'mermaid',
-  group: 'block',
-  atom: true,
-  selectable: true,
-  draggable: false,
-  addAttributes() {
-    return {
-      source: {
-        default: DEFAULT_MERMAID,
-        parseHTML: (element) => element.getAttribute('data-source') ?? '',
-        renderHTML: (attributes) => ({ 'data-source': attributes.source }),
-      },
-    }
-  },
-  parseHTML() {
-    return [{ tag: 'div[data-mermaid]' }]
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-mermaid': '', class: 'mermaid-figure' })]
-  },
-  addNodeView() {
-    return (props) => createMermaidView(props)
-  },
-})
-
-export const editorExtensions = [
-  StarterKit.configure({
-    heading: { levels: [1, 2, 3, 4, 5] },
-    blockquote: false,
-    codeBlock: false,
-    code: false,
-    horizontalRule: false,
-    strike: false,
-    link: false,
-    hardBreak: false,
-  }),
-  ManualKeys,
-  TableKit.configure({
-    table: { resizable: false },
-  }),
-  Note,
-  Caution,
-  Warning,
-  Mermaid,
-  Placeholder.configure({
-    placeholder: 'Write the controlled text…',
-  }),
-]
+export const editorExtensions = buildEditorExtensions({ manualId: '' })

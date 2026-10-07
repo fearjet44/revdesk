@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from './config.ts'
 import { applyIngest, classifyUpload } from './ingest.ts'
+import { figureExt, FIGURE_MAX_BYTES, readFigure, writeFigure } from './figures.ts'
 import { renderIssuedPdf, type LedgerPersist, type PdfKind } from './print.ts'
 import { Repo, RepoError } from './repo.ts'
 import type { ChangeAction, TouchAction } from './types.ts'
@@ -130,10 +131,43 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
     return
   }
 
+  if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'figures' && parts.length === 4) {
+    repo.getManual(parts[1])
+    const found = readFigure(repo.root, parts[1], parts[3])
+    if (!found) {
+      sendJson(res, 404, { error: `No figure ${parts[3]}.`, code: 3 })
+      return
+    }
+    res.statusCode = 200
+    res.setHeader('Content-Type', found.mime)
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+    if (found.mime === 'image/svg+xml') res.setHeader('Content-Security-Policy', "script-src 'none'")
+    res.setHeader('Content-Length', String(found.bytes.length))
+    res.end(found.bytes)
+    return
+  }
+
+  if (method === 'POST' && parts[0] === 'manuals' && parts[2] === 'figures' && parts.length === 3) {
+    repo.getManual(parts[1])
+    const body = await readJson<{ filename?: string; content?: string }>(req)
+    const filename = path.basename((body.filename ?? '').trim())
+    if (!filename) throw new RepoError(2, 'filename is required.')
+    if (!body.content) throw new RepoError(2, 'content is required.')
+    const bytes = Buffer.from(body.content, 'base64')
+    if (bytes.length > FIGURE_MAX_BYTES) throw new RepoError(2, 'Figure is over the 10 MB limit.')
+    const saved = writeFigure(repo.root, parts[1], bytes, figureExt(path.extname(filename)))
+    sendJson(res, 201, { src: saved.src, bytes: bytes.length, existed: saved.existed })
+    return
+  }
+
   if (method === 'GET' && parts[0] === 'manuals' && parts[2] === 'pdf' && parts.length === 3) {
     const kind: PdfKind = url.searchParams.get('kind') === 'regulator' ? 'regulator' : 'reference'
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
-    const pdf = await renderIssuedPdf(repo.issuedBook(parts[1]), { kind, downloadedAt: new Date() }, ledgerHooks(repo, parts[1]))
+    const pdf = await renderIssuedPdf(
+      repo.issuedBook(parts[1]),
+      { kind, downloadedAt: new Date(), figure: figureResolver(repo, parts[1]) },
+      ledgerHooks(repo, parts[1]),
+    )
     sendPdf(res, pdf.bytes, pdf.filename, download)
     return
   }
@@ -391,7 +425,7 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
     const download = url.searchParams.get('download') === '1' || url.searchParams.get('download') === 'true'
     const pdf = await renderIssuedPdf(
       repo.issuedBook(issue.manual),
-      { kind, downloadedAt: new Date() },
+      { kind, downloadedAt: new Date(), figure: figureResolver(repo, issue.manual) },
       ledgerHooks(repo, issue.manual),
     )
     sendPdf(res, pdf.bytes, pdf.filename, download)
@@ -430,6 +464,10 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
   }
 
   sendJson(res, 404, { error: `No route for ${method} ${url.pathname}` })
+}
+
+function figureResolver(repo: Repo, manualId: string) {
+  return (src: string) => readFigure(repo.root, manualId, path.basename(src))
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {

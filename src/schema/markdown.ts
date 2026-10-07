@@ -120,6 +120,7 @@ function advanceBlock(lines: string[], i: number): number {
     if (i < lines.length) i += 1
     return i
   }
+  if (FIGURE_LINE.test(line)) return i + 1
   if (line.startsWith('|')) {
     while (i < lines.length && lines[i].startsWith('|')) i += 1
     return i
@@ -189,6 +190,13 @@ export function parseBody(markdown: string): JSONContent {
       continue
     }
 
+    const figure = matchFigure(line)
+    if (figure) {
+      blocks.push(figure)
+      i += 1
+      continue
+    }
+
     if (line.startsWith('|')) {
       const tableLines: string[] = []
       while (i < lines.length && lines[i].startsWith('|')) {
@@ -245,6 +253,17 @@ export function serializeSection(meta: Frontmatter, doc: JSONContent): string {
   return withFrontmatter(meta, serializeBody(doc))
 }
 
+const FIGURE_LINE = /^!\[((?:[^\]\\]|\\.)*)\]\((figures\/[0-9a-f]{12}\.(?:png|jpg|gif|svg|webp))\)(?:\{width=(25|50|75|100)%\})?\s*$/
+
+function matchFigure(line: string): JSONContent | null {
+  const m = line.match(FIGURE_LINE)
+  if (!m) return null
+  return {
+    type: 'figure',
+    attrs: { src: m[2], caption: m[1].replace(/\\([\]\\])/g, '$1'), width: `${m[3] ?? '100'}%` },
+  }
+}
+
 function isMermaidOpen(line: string): boolean {
   return /^```mermaid(?:\s+.*)?\s*$/.test(line)
 }
@@ -261,7 +280,8 @@ function isBlockStart(line: string): boolean {
     line.startsWith('|') ||
     /^:::(note|caution|warning)\s*$/.test(line) ||
     line.trim() === ':::' ||
-    isMermaidOpen(line)
+    isMermaidOpen(line) ||
+    FIGURE_LINE.test(line)
   )
 }
 
@@ -506,6 +526,12 @@ function serializeBlock(node: JSONContent): string {
     case 'mermaid': {
       const source = String(node.attrs?.source ?? '').replace(/\n+$/, '')
       return `\`\`\`mermaid\n${source}\n\`\`\``
+    }
+    case 'figure': {
+      const caption = String(node.attrs?.caption ?? '').replace(/\n/g, ' ').replace(/[\\\]]/g, '\\$&')
+      const width = String(node.attrs?.width ?? '100%')
+      const hint = width === '100%' ? '' : `{width=${width}}`
+      return `![${caption}](${String(node.attrs?.src ?? '')})${hint}`
     }
     default:
       return serializeInline(node)
