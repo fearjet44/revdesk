@@ -12,6 +12,7 @@ import {
   type IngestApplyResult,
 } from '../server/ingest.ts'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
+import { readFigure } from '../server/figures.ts'
 import { type BookLedger } from '../server/ledger.ts'
 import { renderIssuedPdf } from '../server/print.ts'
 import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
@@ -65,7 +66,8 @@ async function main(argv: string[]): Promise<number> {
 
     if (cmd === 'ledger' && sub === 'refresh') {
       const id = requirePositional(rest, 0, 'manual id')
-      await renderIssuedPdf(repo.issuedBook(id), { kind: 'regulator' }, {
+      const figure = (src: string) => readFigure(repo.root, id, path.basename(src))
+      await renderIssuedPdf(repo.issuedBook(id), { kind: 'regulator', figure }, {
         persistLedger: (ledger) => repo.writeLedger(id, ledger),
         rehydrate: () => repo.issuedBook(id),
       })
