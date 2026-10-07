@@ -183,7 +183,11 @@ try {
   check('hydrated lep lists 1-1', lep.markdown.includes('| 1-1 |'))
 
   const viaFile = applyIngest(
-    { file: path.join(root, 'fixtures', 'ingest', 'samples', 'nimbl-lep.txt') },
+    {
+      file: path.join(root, 'fixtures', 'ingest', 'samples', 'nimbl-lep.txt'),
+      bodies: 'practice',
+      replace: true,
+    },
     ingestDir,
   )
   check('file ingest still gold', viaFile.matched_gold && viaFile.id === 'gom-lep')
