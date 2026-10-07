@@ -167,6 +167,33 @@ const svgHtml = buildManualHtml(svgBook, { kind: 'regulator', downloadedAt: at, 
 check('print keeps SVG inside a data URI img', svgHtml.includes('<img src="data:image/svg+xml;base64,'))
 check('print never inlines SVG markup', !svgHtml.includes('<script>alert') && !/<svg[\s>]/.test(svgHtml.split('<body')[1] ?? svgHtml))
 
+// T3.2: what the editor holds after Figure insert, a width pick, and Replace image.
+const PNG2 = Buffer.from(PNG)
+PNG2[PNG2.length - 13] ^= 0x01
+const inserted = {
+  type: 'doc',
+  content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+    { type: 'figure', attrs: { src, caption: 'Half page', width: '100%' } },
+    { type: 'paragraph' },
+  ],
+}
+const widthPicked = { ...inserted, content: inserted.content.map((n) => (n.type === 'figure' ? { ...n, attrs: { ...n.attrs, width: '50%' } } : n)) }
+const written = serializeBody(widthPicked)
+check('insert + width menu writes the hint', written.includes(`![Half page](${src}){width=50%}`), written)
+check('inserted figure round-trips', serializeBody(parseBody(written)) === written)
+const picked100 = serializeBody(inserted)
+check('100% writes no hint', picked100.includes(`![Half page](${src})\n`) && !picked100.includes('{width'), picked100)
+
+const replacedFile = writeFigure(root, 'gom', PNG2, 'png')
+const replaced = serializeBody({
+  ...widthPicked,
+  content: widthPicked.content.map((n) => (n.type === 'figure' ? { ...n, attrs: { ...n.attrs, src: replacedFile.src } } : n)),
+})
+check('replace swaps src, keeps caption and width', replaced.includes(`![Half page](${replacedFile.src}){width=50%}`) && replacedFile.src !== src, replaced)
+check('replace leaves the old file in place', readFigure(root, 'gom', name)?.bytes.equals(PNG) === true)
+check('replace wrote a new file', readFigure(root, 'gom', replacedFile.src.split('/')[1])?.bytes.equals(PNG2) === true)
+
 if (failed) {
   console.error(`\n${failed} failed`)
   process.exit(1)

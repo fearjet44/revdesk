@@ -163,6 +163,11 @@ export const api = {
   config: () => request<LibraryInfo>('/api/config'),
   saveConfig: (remote: string) =>
     request<LibraryInfo>('/api/config', { method: 'PUT', body: JSON.stringify({ remote }) }),
+  uploadFigure: async (manualId: string, file: File) =>
+    request<{ src: string; bytes: number; existed: boolean }>(
+      `/api/manuals/${encodeURIComponent(manualId)}/figures`,
+      { method: 'POST', body: JSON.stringify({ filename: file.name, content: await encodeLetterFile(file) }) },
+    ),
   classifyIngest: (body: { filename: string; content: string }) =>
     request<IngestPreview>('/api/ingest/classify', { method: 'POST', body: JSON.stringify(body) }),
   ingestBook: (body: {

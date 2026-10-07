@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { buildEditorExtensions } from '../schema/extensions.ts'
+import { FIGURE_ACCEPT, FIGURE_MAX_BYTES, FIGURE_TOO_BIG, insertFigure, uploadOrReport } from '../schema/figure-insert.ts'
 import { DEFAULT_MERMAID } from '../schema/mermaid.ts'
 import {
   blockIndexForLine,
@@ -108,7 +109,28 @@ export function SectionEditor({
   const paperRef = useRef<HTMLDivElement>(null)
 
   const [manualId, setManualId] = useState('')
-  const extensions = useMemo(() => buildEditorExtensions({ manualId }), [manualId])
+  const [uploading, setUploading] = useState(false)
+  const manualIdRef = useRef('')
+  manualIdRef.current = manualId
+  const figureHooks = useMemo(
+    () => ({
+      upload: async (file: File) => {
+        setError(null)
+        if (!manualIdRef.current) throw new Error('The manual is still loading. Try again in a moment.')
+        if (file.size > FIGURE_MAX_BYTES) throw new Error(FIGURE_TOO_BIG)
+        setUploading(true)
+        try {
+          return (await api.uploadFigure(manualIdRef.current, file)).src
+        } finally {
+          setUploading(false)
+        }
+      },
+      onError: (message: string) => setError(message),
+    }),
+    [],
+  )
+  const extensions = useMemo(() => buildEditorExtensions({ manualId, ...figureHooks }), [manualId, figureHooks])
+  const figureInput = useRef<HTMLInputElement>(null)
   const editor = useEditor(
     {
       extensions,
@@ -337,6 +359,11 @@ export function SectionEditor({
         { type: 'paragraph' },
       ])
       .run()
+  }
+
+  async function addFigure(file: File) {
+    const src = await uploadOrReport(figureHooks, file)
+    if (src && editor) insertFigure(editor.view, src)
   }
 
   function applyHeading(level: 1 | 2 | 3 | 4 | 5) {
@@ -582,6 +609,25 @@ export function SectionEditor({
           >
             Diagram
           </button>
+          <button
+            type="button"
+            disabled={uploading || !manualId || !editor?.isEditable}
+            onClick={() => figureInput.current?.click()}
+          >
+            {uploading ? 'Adding…' : 'Figure'}
+          </button>
+          <input
+            ref={figureInput}
+            type="file"
+            hidden
+            accept={FIGURE_ACCEPT}
+            data-figure-insert
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              if (file) void addFigure(file)
+            }}
+          />
         </div>
         )}
         <div className="editor-meta">

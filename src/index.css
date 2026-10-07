@@ -1065,6 +1065,26 @@ textarea { min-height: 88px; resize: vertical; }
   font-size: 12px;
 }
 .paper-wrap.is-readonly .figure-caption { display: none; }
+.figure-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+.figure-tools[hidden] { display: none; }
+.figure-tools button {
+  border: 1px solid #b7ae9a;
+  background: #f7f3ea;
+  color: #3a362e;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.figure-tools button[aria-pressed="true"] { border-color: var(--steel); background: #e4e9ee; font-weight: 600; }
+.figure-tools button:disabled { opacity: 0.5; cursor: default; }
+.figure-tools .figure-replace { margin-left: 8px; }
+.paper-wrap.is-readonly .figure-tools { display: none; }
 
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #9a9383;
