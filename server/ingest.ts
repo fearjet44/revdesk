@@ -16,6 +16,7 @@ import { GitAdapterError, snapshotLibrary } from './git.ts'
 import { ledgerOnDisk, seedLedger } from './ledger.ts'
 import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
+import { toolPath } from './tools.ts'
 import type { ManualRecord, SectionSummary } from './types.ts'
 import {
   guessPaperFonts,
@@ -176,6 +177,20 @@ push_on_launch: false
 author_name: "Revdesk"
 author_email: "revdesk@local"
 issue_id: "{abbrev}-{revision}"
+`
+
+// Instruments are hashed bytes: -text keeps a CRLF letter byte-exact on every OS.
+const LIBRARY_GITATTRIBUTES = `* text=auto eol=lf
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.icns binary
+*.eml  -text
+control/instruments/** -text
+control/correspondence/** -text
 `
 
 const VALID_ROMAN = new Set(Array.from({ length: 40 }, (_, i) => toRoman(i + 1)))
@@ -682,9 +697,10 @@ function hasHeading(text: string, title: string): boolean {
 
 function pdfToText(file: string): string {
   try {
-    return execFileSync('pdftotext', ['-layout', file, '-'], {
+    return execFileSync(toolPath('pdftotext'), ['-layout', file, '-'], {
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024,
+      windowsHide: true,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -695,9 +711,10 @@ function pdfToText(file: string): string {
 
 function pdfFonts(file: string): string[] {
   try {
-    const raw = execFileSync('pdffonts', [file], {
+    const raw = execFileSync(toolPath('pdffonts'), [file], {
       encoding: 'utf8',
       maxBuffer: 2 * 1024 * 1024,
+      windowsHide: true,
     })
     return parsePdfFontNames(raw)
   } catch {
@@ -707,7 +724,7 @@ function pdfFonts(file: string): string[] {
 
 function pdfInfo(file: string): { pages: number | null; creator: string | null; producer: string | null } {
   try {
-    const raw = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
+    const raw = execFileSync(toolPath('pdfinfo'), [file], { encoding: 'utf8', windowsHide: true })
     const pages = Number(raw.match(/^Pages:\s+(\d+)/m)?.[1] ?? '') || null
     const creator = raw.match(/^Creator:\s+(.+)$/m)?.[1]?.trim() ?? null
     const producer = raw.match(/^Producer:\s+(.+)$/m)?.[1]?.trim() ?? null
@@ -977,6 +994,11 @@ function materializeSource(input: IngestApplyInput): { path: string; filename: s
 }
 
 function ensureLibraryGitConfig(dataRoot: string): void {
+  const attributes = path.join(dataRoot, '.gitattributes')
+  if (!existsSync(attributes)) {
+    mkdirSync(dataRoot, { recursive: true })
+    writeFileSync(attributes, LIBRARY_GITATTRIBUTES)
+  }
   const file = path.join(dataRoot, '.revdesk', 'git.yaml')
   if (existsSync(file)) return
   mkdirSync(path.dirname(file), { recursive: true })

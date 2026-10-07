@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { RepoError } from './repo.ts'
+import { toolPath } from './tools.ts'
 
 /** Desk config. The Config screen edits this file. Not tag grammar (`git.yaml`). */
 export type DeskConfig = {
@@ -138,8 +139,9 @@ export function ensureClone(remote: string): string {
     throw new RepoError(5, `Library path ${dest} exists and is not a manuals checkout.`)
   }
   mkdirSync(path.dirname(dest), { recursive: true })
-  const result = spawnSync('git', ['clone', remote, dest], {
+  const result = spawnSync(toolPath('git'), ['clone', '--config', 'core.autocrlf=false', remote, dest], {
     encoding: 'utf8',
+    windowsHide: true,
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
   })
   if (result.status !== 0) {

@@ -25,7 +25,13 @@ export type JSONContent = {
   text?: string
 }
 
+/** CRLF/CR → LF. A Windows checkout with core.autocrlf=true hands us CRLF leaves. */
+export function normalizeNewlines(text: string): string {
+  return text.replace(/\r\n?/g, '\n')
+}
+
 export function splitFrontmatter(markdown: string): { meta: Frontmatter; body: string } {
+  markdown = normalizeNewlines(markdown)
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
   if (!match) throw new Error('Section is missing YAML frontmatter.')
   const meta: Frontmatter = { id: '', title: '', rev_last_changed: '' }
@@ -58,6 +64,7 @@ export type SourceBlockRange = {
 
 /** 1-based source line of the first body character after YAML frontmatter. */
 export function bodyStartLine(markdown: string): number {
+  markdown = normalizeNewlines(markdown)
   const { body } = splitFrontmatter(markdown)
   if (!body) {
     const prefix = markdown.match(/^---\n[\s\S]*?\n---\n?/)?.[0] ?? markdown
@@ -70,6 +77,7 @@ export function bodyStartLine(markdown: string): number {
 
 /** Source-line span of each top-level body block, matching `parseBody` order. */
 export function blockSourceRanges(markdown: string): SourceBlockRange[] {
+  markdown = normalizeNewlines(markdown)
   const { body } = splitFrontmatter(markdown)
   const start = bodyStartLine(markdown)
   const lines = body.replace(/\n+$/, '').split('\n')
@@ -142,6 +150,7 @@ function advanceBlock(lines: string[], i: number): number {
 }
 
 export function parseBody(markdown: string): JSONContent {
+  markdown = normalizeNewlines(markdown)
   const lines = markdown.replace(/\n+$/, '').split('\n')
   const blocks: JSONContent[] = []
   let i = 0

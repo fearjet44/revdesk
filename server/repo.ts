@@ -28,6 +28,7 @@ import {
 import { formatWriteMark, parseWriteMark, snapshotMarkLine } from './marks.ts'
 import { DEFAULT_THEME, parseTheme, type DocTheme } from './theme.ts'
 import { lineDiff } from './diff.ts'
+import { readLibraryText } from './tools.ts'
 import {
   GitAdapterError,
   REVIEW_NOTES_REF,
@@ -152,7 +153,7 @@ export class Repo {
     const file = this.abs('manuals', id, 'theme.yaml')
     if (!existsSync(file)) return DEFAULT_THEME
     try {
-      return parseTheme(readFileSync(file, 'utf8'))
+      return parseTheme(readLibraryText(file))
     } catch {
       return DEFAULT_THEME
     }
@@ -161,7 +162,7 @@ export class Repo {
   readManual(id: string): ManualRecord {
     const file = this.abs('manuals', id, 'manual.yaml')
     if (!existsSync(file)) throw new RepoError(3, `Manual ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const raw = parseYaml(readLibraryText(file)) as Record<string, unknown>
     const control_class = normalizeControlClass(raw)
     const abbrev = String(raw.abbrev ?? id.toUpperCase())
     const current = normalizeCurrentIssued(raw.current_issued, abbrev)
@@ -191,7 +192,7 @@ export class Repo {
   writeManual(manual: ManualRecord): void {
     const file = this.abs('manuals', manual.id, 'manual.yaml')
     const existing = existsSync(file)
-      ? ((parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown> | null) ?? {})
+      ? ((parseYaml(readLibraryText(file)) as Record<string, unknown> | null) ?? {})
       : {}
     const known = {
       id: manual.id,
@@ -293,7 +294,7 @@ export class Repo {
     const file = this.abs('manuals', id, 'ledger.yaml')
     if (!existsSync(file)) return fallback
     try {
-      return parseLedger(parseYaml(readFileSync(file, 'utf8')), fallback)
+      return parseLedger(parseYaml(readLibraryText(file)), fallback)
     } catch {
       return fallback
     }
@@ -323,7 +324,7 @@ export class Repo {
     if (!existsSync(dir)) return []
     return readdirSync(dir)
       .filter((name) => name.endsWith('.yaml') && !name.startsWith('.'))
-      .map((name) => parseYaml(readFileSync(path.join(dir, name), 'utf8')) as CrewFinding)
+      .map((name) => parseYaml(readLibraryText(path.join(dir, name))) as CrewFinding)
       .filter((row) => (sectionId ? row.section === sectionId : true))
       .sort((a, b) => b.at.localeCompare(a.at))
   }
@@ -360,7 +361,7 @@ export class Repo {
   readSection(relPath: string): SectionFile {
     const abs = this.abs(relPath)
     if (!existsSync(abs)) throw new RepoError(3, `Section ${relPath} not found.`)
-    const markdown = readFileSync(abs, 'utf8')
+    const markdown = readLibraryText(abs)
     const { meta, body } = splitFrontmatter(markdown)
     return { path: relPath, meta, markdown, body }
   }
@@ -386,7 +387,7 @@ export class Repo {
   readChange(id: string): ChangeRecord {
     const file = this.abs('control', 'changes', `${id}.yaml`)
     if (!existsSync(file)) throw new RepoError(3, `Change ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const raw = parseYaml(readLibraryText(file)) as Record<string, unknown>
     const { reason, reason_meta } = normalizeReason(raw.reason as string | ChangeReasonMeta)
     const touched = ((raw.touched as Array<Record<string, string>>) ?? []).map((item) => {
       const workingMeta = existsSync(this.abs(item.working))
@@ -1284,7 +1285,7 @@ export class Repo {
   readTr(id: string): TrRecord {
     const file = this.abs('control', 'trs', `${id}.yaml`)
     if (!existsSync(file)) throw new RepoError(3, `TR ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as TrRecord
+    const raw = parseYaml(readLibraryText(file)) as TrRecord
     return {
       ...raw,
       expires: raw.expires ?? null,
@@ -1530,7 +1531,7 @@ export class Repo {
   readIssue(id: string): IssueRecord {
     const file = this.abs('control', 'issues', `${id}.yaml`)
     if (!existsSync(file)) throw new RepoError(3, `Issue ${id} not found.`)
-    const raw = parseYaml(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const raw = parseYaml(readLibraryText(file)) as Record<string, unknown>
 
     // Legacy Slice 1 shape → normalize
     if (!raw.kind) {
@@ -1708,7 +1709,7 @@ export class Repo {
   }
 
   private readFrontmatter(absPath: string): Frontmatter {
-    return splitFrontmatter(readFileSync(absPath, 'utf8')).meta
+    return splitFrontmatter(readLibraryText(absPath)).meta
   }
 
   private hydrateSection(file: SectionFile, manual: ManualDetail, ledger?: BookLedger): SectionFile {
