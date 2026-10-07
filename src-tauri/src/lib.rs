@@ -20,6 +20,9 @@ use std::{
     time::Duration,
 };
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     webview::{DownloadEvent, NewWindowResponse},
@@ -252,9 +255,16 @@ fn open_external(target: impl AsRef<std::ffi::OsStr>) {
 // ── Sidecar ─────────────────────────────────────────────────────────────────
 
 fn start_sidecar(app: &AppHandle, library: &Path) -> Result<Url, String> {
-    let node = find_node().ok_or(
-        "Revdesk needs Node.js 22 or newer. Install it (e.g. `brew install node`) and open Revdesk again.",
-    )?;
+    let node = find_node().ok_or_else(|| {
+        let install = if cfg!(target_os = "macos") {
+            "`brew install node`"
+        } else if cfg!(windows) {
+            "`winget install OpenJS.NodeJS.LTS`"
+        } else {
+            "your package manager"
+        };
+        format!("Revdesk needs Node.js 22 or newer. Install it (e.g. {install}) and open Revdesk again.")
+    })?;
 
     // Debug: run the TypeScript source from the repo. Release: the bundled
     // `server.mjs` + `dist/` copied into the app's resources.
@@ -266,8 +276,8 @@ fn start_sidecar(app: &AppHandle, library: &Path) -> Result<Url, String> {
         (resources, vec!["server.mjs"])
     };
 
-    let mut child = Command::new(&node)
-        .args(&args)
+    let mut cmd = Command::new(&node);
+    cmd.args(&args)
         .current_dir(&app_root)
         .env("REVDESK_APP_ROOT", &app_root)
         .env("REVDESK_DATA", library)
@@ -275,7 +285,10 @@ fn start_sidecar(app: &AppHandle, library: &Path) -> Result<Url, String> {
         .env("PATH", tool_path(&node))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console behind the app
+    let mut child = cmd
         .spawn()
         .map_err(|e| format!("Could not run {}: {e}", node.display()))?;
 
@@ -328,6 +341,9 @@ fn find_node() -> Option<PathBuf> {
             return Some(p);
         }
     }
+    if cfg!(windows) {
+        return windows_node();
+    }
     if let Some(p) = fixed.iter().map(PathBuf::from).find(|p| p.is_file()) {
         return Some(p);
     }
@@ -341,16 +357,37 @@ fn find_node() -> Option<PathBuf> {
     on_path("node")
 }
 
+/// winget's Node installer, a per-user install, then nvm-windows' symlink.
+/// PATH was already tried; a candidate whose env var is unset is skipped.
+fn windows_node() -> Option<PathBuf> {
+    [
+        ("ProgramFiles", "nodejs"),
+        ("LOCALAPPDATA", "Programs\\nodejs"),
+        ("NVM_SYMLINK", ""),
+    ]
+    .iter()
+    .filter_map(|(var, sub)| {
+        let base = PathBuf::from(env::var_os(var).filter(|v| !v.is_empty())?);
+        Some(base.join(sub).join("node.exe"))
+    })
+    .find(|p| p.is_file())
+}
+
 fn on_path(bin: &str) -> Option<PathBuf> {
     let exe = if cfg!(windows) { format!("{bin}.exe") } else { bin.to_owned() };
     env::split_paths(&env::var_os("PATH")?).map(|d| d.join(&exe)).find(|p| p.is_file())
 }
 
-/// PATH for the server: node's own dir plus Homebrew, so `git`, `qpdf`,
-/// `pdfinfo`, and `pdftotext` resolve when launched from Finder.
+/// PATH for the server: node's own dir plus Homebrew (Windows: Git's `cmd`
+/// dir), so `git`, `qpdf`, `pdfinfo`, and `pdftotext` resolve when launched
+/// from Finder or the Start menu.
 fn tool_path(node: &Path) -> OsString {
     let mut dirs: Vec<PathBuf> = node.parent().map(Path::to_path_buf).into_iter().collect();
-    dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    if cfg!(windows) {
+        dirs.extend(env::var_os("ProgramFiles").map(|p| Path::new(&p).join("Git").join("cmd")));
+    } else {
+        dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    }
     if let Some(existing) = env::var_os("PATH") {
         dirs.extend(env::split_paths(&existing));
     }

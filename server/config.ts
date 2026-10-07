@@ -23,8 +23,12 @@ export type LibraryInfo = {
 const EMPTY: DeskConfig = { remote: '' }
 
 export function userConfigPath(): string {
-  const xdg = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), '.config')
-  return path.join(xdg, 'revdesk', 'config.yaml')
+  const xdg = process.env.XDG_CONFIG_HOME?.trim()
+  if (!xdg && process.platform === 'win32') {
+    const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), 'AppData', 'Roaming')
+    return path.join(appData, 'revdesk', 'config.yaml')
+  }
+  return path.join(xdg || path.join(os.homedir(), '.config'), 'revdesk', 'config.yaml')
 }
 
 export function sampleConfigPath(appRoot: string): string {
@@ -61,8 +65,12 @@ export function dumpConfig(cfg: DeskConfig): string {
 }
 
 export function defaultClonePath(remote: string): string {
-  const xdg = process.env.XDG_DATA_HOME?.trim() || path.join(os.homedir(), '.local', 'share')
-  return path.join(xdg, 'revdesk', 'libraries', slugRemote(remote))
+  const xdg = process.env.XDG_DATA_HOME?.trim()
+  if (!xdg && process.platform === 'win32') {
+    const local = process.env.LOCALAPPDATA?.trim() || path.join(os.homedir(), 'AppData', 'Local')
+    return path.join(local, 'revdesk', 'libraries', slugRemote(remote))
+  }
+  return path.join(xdg || path.join(os.homedir(), '.local', 'share'), 'revdesk', 'libraries', slugRemote(remote))
 }
 
 export function resolveLibraryRoot(appRoot: string): string {
