@@ -58,9 +58,12 @@ function DeskApp() {
     void refresh()
   }, [location.pathname])
 
+  const startPath = location.pathname
   useEffect(() => {
     api.doctor().then(setDoctor, () => setDoctor(null))
-    if (firstPrereqsVisit()) navigate('/prerequisites')
+    // A deep link wins over the first-run screen; the banner still shows if a tool is missing.
+    if (startPath === '/' && firstPrereqsVisit()) navigate('/prerequisites')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
   }, [navigate])
 
   const openChanges = (desk?.changes ?? []).filter(
