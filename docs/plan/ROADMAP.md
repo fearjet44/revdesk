@@ -1,6 +1,6 @@
 # Revdesk — Roadmap
 
-Refreshed 2026-10-07, after PRs #12–#15 merged. Locked pillars 2026-09-03. Rules for agents are in [`AGENTS.md`](../../AGENTS.md). This file says **what** gets built, **who owns which files**, and **in what order**.
+Refreshed 2026-10-07, after PRs #12–#18 merged. Locked pillars 2026-09-03. Rules for agents are in [`AGENTS.md`](../../AGENTS.md). This file says **what** gets built, **who owns which files**, and **in what order**.
 
 ## Direction
 
@@ -26,7 +26,7 @@ One agent works one task in one track at a time. **A task edits only the files i
 
 | Track | Owns |
 |---|---|
-| **T1 Platform** (desktop shell, Windows/macOS/Linux, packaging, CI, dev tooling) | `src-tauri/**` · `.github/**` · `server/standalone.ts` · `server/tools.ts` · `scripts/tools-check.ts` · `server/config.ts` · `vite.server.config.ts` · `vite.config.ts` · `tsconfig*.json` · `.oxlintrc.json` · `bin/**` · `scripts/desk-deploy*` · `src/components/DoctorView.tsx` · `docs/runbook/desktop.md` |
+| **T1 Platform** (desktop shell, Windows/macOS/Linux, packaging, CI, dev tooling) | `src-tauri/**` · `.github/**` · `server/standalone.ts` · `server/tools.ts` · `scripts/tools-check.ts` · `server/config.ts` · `vite.server.config.ts` · `vite.config.ts` · `tsconfig*.json` · `.oxlintrc.json` · `bin/**` · `scripts/desk-deploy*` · `src/components/DoctorView.tsx` · `docs/runbook/desktop.md` · `docs/runbook/windows-smoke.md` |
 | **T2 Ingest** | `server/ingest.ts` · `server/ingest/**` · `fixtures/ingest/**` · `scripts/slice6*` · `scripts/slice7*` · `scripts/ingest-*` · `src/components/IngestDialog.tsx` · the generated practice books `data/manuals/gom-lep/**` and `data/manuals/tp/**` · the `ingest` verbs in `cli/revdesk.ts` (the `cmd === 'ingest'` branches, `ingestFileArg`, `formatIngestApply`, and the help lines) |
 | **T3 Editor & figures** | `src/schema/**` · `src/components/**` (except `IngestDialog.tsx` and `DoctorView.tsx`) · `src/index.css` · `src/status.ts` · `src/main.tsx` · `index.html` · `public/**` · `src/assets/**` · `server/print.ts` · `server/theme.ts` · `server/mermaid.ts` · `server/figures.ts` · `scripts/roundtrip.ts` · `scripts/steps-check.ts` · `scripts/pdf-check.ts` · `scripts/theme-check.ts` · `scripts/mermaid-check.ts` · `scripts/figures-check.ts` · `scripts/bullets-check.ts` |
 | **T4 Control & git** | `server/repo.ts` · `server/git.ts` · `server/ledger.ts` · `server/managed.ts` · `server/diff.ts` · `server/marks.ts` · the non-ingest verbs in `cli/revdesk.ts` · `scripts/compose-check.ts` · `findings-check.ts` · `instrument-bytes-check.ts` · `ledger-check.ts` · `managed-leaves-check.ts` · `review-comments-check.sh` · `slice2/3/9/10-acceptance.sh` · `fixtures/tiny-gom/**` · `data/**` (the sample library, except the two T2 practice books) |
@@ -84,7 +84,7 @@ A task starts when everything in its **Needs** column is merged. Tasks whose nee
 | T3.2 | Editor figure insert: toolbar **Figure** → file picker → POST → node; caption editing; width menu; replace image — [`T3.2-FIGURE-INSERT.md`](../handoffs/T3.2-FIGURE-INSERT.md) | T3 | M | T3.1 |
 | T1.2 | Prerequisites screen: `GET /api/doctor` + `DoctorView.tsx`, opened once at first run, with a banner linking to it whenever a tool is missing; per-OS install line (brew / winget / apt) — [`T1.2-PREREQUISITES-SCREEN.md`](../handoffs/T1.2-PREREQUISITES-SCREEN.md) | T1 | S | W0, T1.1 |
 | T1.4 | A `REVDESK_*` override pointing at a missing file shows as missing (no PATH fallback); doctor screen and CLI name the bad override — [`T1.4-OVERRIDE-CHECK.md`](../handoffs/T1.4-OVERRIDE-CHECK.md) | T1 | S | T1.2 |
-| T1.3 | Windows smoke checklist for the Windows user (install, prerequisites, open library, edit/submit, Issued PDF via Edge) | T1 | S | T1.1, T1.2 |
+| T1.3 | Windows smoke checklist for the Windows user (install, prerequisites, open library, edit/submit, Issued PDF via Edge) — [`T1.3-WINDOWS-SMOKE.md`](../handoffs/T1.3-WINDOWS-SMOKE.md) | T1 | S | T1.1, T1.2, T1.4 |
 | T4.1 | Private origin + `push_on_launch` for `issued/` tags (never force; never delete a tag) | T4 | M | D1 |
 
 ### Parked (not scheduled)
@@ -125,12 +125,12 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T2.1 | merged | #14 |
 | T3.3 | merged | #15 |
 | O1 | **waiting on operator** — `fixtures/ingest/samples/acrobat-gom-lep-practice.docx` not in hand yet | — |
-| T3.1 | in review — critical path | #18 |
+| T3.1 | merged | #18 |
 | T2.2 | blocked on O1 — critical path | — |
-| T1.2 | in review | #17 |
-| T3.2 | handoff written; starts after #18 merges | — |
-| T1.4 | handoff written; starts after #17 merges | — |
-| T1.3 | handoff not written; after T1.2 | — |
+| T1.2 | merged | #17 |
+| T3.2 | in progress | — |
+| T1.4 | in progress | — |
+| T1.3 | handoff written; starts after T1.4 is in review | — |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
 
