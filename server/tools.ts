@@ -4,7 +4,15 @@ import path from 'node:path'
 
 export type ToolName = 'chrome' | 'qpdf' | 'pdftotext' | 'pdfinfo' | 'pdffonts' | 'git'
 
-export type ToolStatus = { name: ToolName; path: string | null; version: string | null; needed_for: string }
+export type ToolStatus = {
+  name: ToolName
+  path: string | null
+  version: string | null
+  needed_for: string
+  install: string | null
+}
+
+export type DoctorReport = { ok: boolean; platform: NodeJS.Platform; tools: ToolStatus[] }
 
 const TOOLS: ToolName[] = ['chrome', 'qpdf', 'pdftotext', 'pdfinfo', 'pdffonts', 'git']
 
@@ -24,6 +32,40 @@ const VERSION_ARGS: Record<ToolName, string[]> = {
   pdfinfo: ['-v'],
   pdffonts: ['-v'],
   git: ['--version'],
+}
+
+const BREW: Record<ToolName, string> = {
+  chrome: 'Download Chrome from google.com/chrome',
+  qpdf: 'brew install qpdf',
+  pdftotext: 'brew install poppler',
+  pdfinfo: 'brew install poppler',
+  pdffonts: 'brew install poppler',
+  git: 'brew install git',
+}
+
+const WINGET: Record<ToolName, string | null> = {
+  chrome: null,
+  qpdf: 'winget install QPDF.QPDF',
+  pdftotext: 'winget install oschwartz10612.Poppler',
+  pdfinfo: 'winget install oschwartz10612.Poppler',
+  pdffonts: 'winget install oschwartz10612.Poppler',
+  git: 'winget install Git.Git',
+}
+
+const APT: Record<ToolName, string> = {
+  chrome: 'sudo apt install chromium',
+  qpdf: 'sudo apt install qpdf',
+  pdftotext: 'sudo apt install poppler-utils',
+  pdfinfo: 'sudo apt install poppler-utils',
+  pdffonts: 'sudo apt install poppler-utils',
+  git: 'sudo apt install git',
+}
+
+/** The one line that installs `name` on `platform`. Null when the OS ships it (Edge on Windows). */
+export function installHint(name: ToolName, platform: NodeJS.Platform): string | null {
+  if (platform === 'darwin') return BREW[name]
+  if (platform === 'win32') return WINGET[name]
+  return APT[name]
 }
 
 const MAC_CHROME = [
@@ -103,7 +145,7 @@ function probeVersion(name: ToolName, file: string): string | null {
   return first(result.stdout) ?? first(result.stderr)
 }
 
-export function doctor(): { ok: boolean; tools: ToolStatus[] } {
+export function doctor(): DoctorReport {
   const tools = TOOLS.map((name): ToolStatus => {
     const found = resolvedPath(name)
     return {
@@ -111,9 +153,10 @@ export function doctor(): { ok: boolean; tools: ToolStatus[] } {
       path: found,
       version: found ? probeVersion(name, found) : null,
       needed_for: NEEDED_FOR[name],
+      install: installHint(name, process.platform),
     }
   })
-  return { ok: tools.every((tool) => tool.path !== null), tools }
+  return { ok: tools.every((tool) => tool.path !== null), platform: process.platform, tools }
 }
 
 /** utf8, BOM stripped, CRLF/CR → LF. Use for every Markdown/YAML file under the library. */

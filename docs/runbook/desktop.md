@@ -20,6 +20,8 @@ The library is the same folder the web desk uses. Git, a bound remote, and tags 
 - **git**, **qpdf**, and **poppler** (`brew install git qpdf poppler`).
 - **Chrome or Chromium** for PDFs. The app tries Google Chrome.app, then Chromium.app, then `chromium` on PATH. `REVDESK_CHROME` overrides.
 
+Chrome has no brew line: download it from google.com/chrome. The Prerequisites screen shows the same lines as this page and installs nothing.
+
 Finder-launched apps on macOS get a bare PATH. The shell adds node's own directory, `/opt/homebrew/bin`, and `/usr/local/bin` before starting the server.
 
 ## Windows
@@ -53,7 +55,7 @@ Per-user data: the desk config is `%APPDATA%\revdesk\config.yaml` and a bound re
 Known gaps on Windows:
 
 - Unsigned installer (SmartScreen step above). No auto-update.
-- Node, git, qpdf, and poppler are prerequisites, not bundled. The in-app prerequisites screen comes later (T1.2). Until then a missing tool shows as an error when you use it.
+- Node, git, qpdf, and poppler are prerequisites, not bundled. The **Prerequisites** screen (mast, next to Config) lists each tool, where it was found, and the install line for this OS. It opens by itself at first run, and a banner shows on every page while a tool is missing. `revdesk doctor` prints the same list (exit `5` when anything is missing).
 - The qpdf installer may not add itself to PATH. If PDFs fail with a qpdf error, set `REVDESK_QPDF` (usually `C:\Program Files\qpdf <version>\bin\qpdf.exe`).
 - Not smoke-tested on a real Windows machine yet (T1.3). The `scripts/*.sh` acceptance scripts are bash and do not run there.
 - Downloads go to the Downloads folder with no prompt.

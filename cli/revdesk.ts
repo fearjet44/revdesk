@@ -13,6 +13,7 @@ import {
 } from '../server/ingest.ts'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
 import { type BookLedger } from '../server/ledger.ts'
+import { doctor, type DoctorReport } from '../server/tools.ts'
 import { renderIssuedPdf } from '../server/print.ts'
 import { parseDeskArgs, runDesk } from '../scripts/desk-deploy.mjs'
 import { Repo, RepoError } from '../server/repo.ts'
@@ -49,6 +50,12 @@ async function main(argv: string[]): Promise<number> {
 
   if (cmd === 'config') {
     return runConfig(json, sub, rest)
+  }
+
+  if (cmd === 'doctor') {
+    const report = doctor()
+    emit(json, report, formatDoctor)
+    return report.ok ? 0 : 5
   }
 
   const repo = new Repo(DATA)
@@ -668,6 +675,16 @@ function emit<T>(json: boolean, data: T, format: (data: T) => string): number {
   return 0
 }
 
+function formatDoctor(report: DoctorReport): string {
+  return report.tools
+    .map((tool) =>
+      tool.path
+        ? `ok       ${tool.name.padEnd(10)} ${tool.path}`
+        : `missing  ${tool.name.padEnd(10)} ${tool.install ?? 'no install line for this system'}`,
+    )
+    .join('\n')
+}
+
 function table(headers: string[], rows: string[][]): string {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)))
   const fmt = (row: string[]) => row.map((cell, i) => (cell ?? '').padEnd(widths[i])).join('  ')
@@ -831,6 +848,7 @@ Usage:
 
   revdesk git status
 
+  revdesk doctor [--json]
   revdesk config [show]
   revdesk config set remote <url|"">
 

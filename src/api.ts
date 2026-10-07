@@ -2,6 +2,7 @@ import type {
   ChangeAction,
   ChangeRecord,
   DeskPayload,
+  DoctorReport,
   InstrumentRecord,
   IngestApplyResult,
   IngestPreview,
@@ -158,6 +159,7 @@ export const api = {
   instrument: (_changeId: string): Promise<InstrumentRecord> => {
     throw new Error('Use change.instrument')
   },
+  doctor: () => request<DoctorReport>('/api/doctor'),
   config: () => request<LibraryInfo>('/api/config'),
   saveConfig: (remote: string) =>
     request<LibraryInfo>('/api/config', { method: 'PUT', body: JSON.stringify({ remote }) }),

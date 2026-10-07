@@ -329,3 +329,13 @@ export type SectionReview = {
   can_answer: boolean
   theme: DocTheme
 }
+
+export type DoctorTool = {
+  name: string
+  path: string | null
+  version: string | null
+  needed_for: string
+  install: string | null
+}
+
+export type DoctorReport = { ok: boolean; platform: string; tools: DoctorTool[] }
