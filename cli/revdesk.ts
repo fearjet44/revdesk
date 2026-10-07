@@ -687,7 +687,9 @@ function formatDoctor(report: DoctorReport): string {
     .map((tool) =>
       tool.path
         ? `ok       ${tool.name.padEnd(10)} ${tool.path}`
-        : `missing  ${tool.name.padEnd(10)} ${tool.install ?? 'no install line for this system'}`,
+        : tool.override
+          ? `missing  ${tool.name.padEnd(10)} ${tool.override.env} points at ${tool.override.path} (not found)`
+          : `missing  ${tool.name.padEnd(10)} ${tool.install ?? 'no install line for this system'}`,
     )
     .join('\n')
 }
