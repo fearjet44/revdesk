@@ -89,7 +89,7 @@ data/
 
 Fixture for acceptance: `fixtures/tiny-gom`.
 
-Sample section bodies in `data/` and `fixtures/` are **lorem ipsum**. Put real operator manuals for parser training in `corpus/` (gitignored). Do not commit them.
+Sample section bodies in `data/` and `fixtures/` are **practice** text (lorem ipsum). Real company manuals go into a private library outside this repo (see [`corpus/README.md`](corpus/README.md)); never commit them. Parser-training PDFs go in `corpus/` (gitignored).
 
 Nimbl-shaped samples `gom-lep` (LEP GOM) and `tp` (training program) keep the supplier’s section map; bodies are lorem. Record of Revisions, List of Effective Pages/Sections, and Table of Contents are automatically managed — not author pages. Classify a corpus PDF with `revdesk ingest classify <pdf>`. Bring a book onto the desk (structure + lorem) with `revdesk ingest <file>` or the Ingest dialog. Point the desk at the dummy library with `revdesk config set remote https://github.com/fearjet44/test-manual-repo.git` (`~/.config/revdesk/config.yaml`).
 
