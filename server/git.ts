@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import { toolPath } from './tools.ts'
 
 /** Git notes namespace for reviewer comments. Inspect with `git notes --ref=revdesk/review show <commit>`. */
 export const REVIEW_NOTES_REF = 'revdesk/review'
@@ -511,6 +512,7 @@ function isAllowedGitPath(gitRel: string, gitRoot: string, dataRoot: string): bo
   if (dataRel == null) return false
   if (dataRel === '' || dataRel === '.') return false
   const normalized = dataRel.replace(/\\/g, '/').replace(/^\.\//, '')
+  if (normalized === '.gitattributes') return true
   return ALLOWED_PREFIXES.some(
     (prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix),
   )
@@ -560,12 +562,13 @@ function spawnGit(
   extra?: { env?: Record<string, string | undefined>; input?: string },
 ): { status: number; stdout: string; stderr: string } {
   const result = spawnSync(
-    'git',
+    toolPath('git'),
     ['-c', `user.name=${cfg.author_name}`, '-c', `user.email=${cfg.author_email}`, ...args],
     {
       cwd: root,
       encoding: 'utf8',
       input: extra?.input,
+      windowsHide: true,
       env: {
         ...process.env,
         GIT_TERMINAL_PROMPT: '0',

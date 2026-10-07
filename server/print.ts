@@ -15,6 +15,7 @@ import {
 } from './ledger.ts'
 import { paperCalloutStyle, stepMarkerCss, type DocTheme } from './theme.ts'
 import { RepoError } from './repo.ts'
+import { toolPath } from './tools.ts'
 import type { ManualRecord, SectionFile, SectionSummary } from './types.ts'
 
 const execFileAsync = promisify(execFile)
@@ -236,22 +237,6 @@ ${sections}
   return { html, watermark }
 }
 
-const MAC_BROWSERS = [
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/Applications/Chromium.app/Contents/MacOS/Chromium',
-]
-
-/** Headless browser for HTML→PDF: `REVDESK_CHROME`, then a macOS app bundle, then `chromium` on PATH. */
-function chromeBinary(): string {
-  const override = process.env.REVDESK_CHROME?.trim()
-  if (override) return override
-  if (process.platform === 'darwin') {
-    const found = MAC_BROWSERS.find((p) => existsSync(p))
-    if (found) return found
-  }
-  return 'chromium'
-}
-
 export async function htmlToPdf(html: string): Promise<Buffer> {
   const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-pdf-'))
   const htmlPath = path.join(dir, 'manual.html')
@@ -265,7 +250,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     close = target.close
     try {
       await execFileAsync(
-        chromeBinary(),
+        toolPath('chrome'),
         [
           '--headless=new',
           '--disable-gpu',
@@ -275,7 +260,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
           `--print-to-pdf=${pdfPath}`,
           target.url,
         ],
-        { timeout: mermaid ? 90_000 : 60_000, maxBuffer: 4 * 1024 * 1024 },
+        { timeout: mermaid ? 90_000 : 60_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
       )
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -407,8 +392,9 @@ async function overlayWatermark(body: Buffer, watermark: string): Promise<Buffer
   writeFileSync(stampPath, await htmlToPdf(stampHtml(watermark)))
   try {
     try {
-      await execFileAsync('qpdf', ['--overlay', stampPath, '--repeat=1', '--', bodyPath, outPath], {
+      await execFileAsync(toolPath('qpdf'), ['--overlay', stampPath, '--repeat=1', '--', bodyPath, outPath], {
         timeout: 20_000,
+        windowsHide: true,
       })
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -459,21 +445,22 @@ async function assignPagesToLeaves(bytes: Buffer, ids: string[]): Promise<string
 
 async function pdfPageCount(file: string): Promise<number> {
   try {
-    const { stdout } = await execFileAsync('qpdf', ['--show-npages', file], { timeout: 15_000 })
+    const { stdout } = await execFileAsync(toolPath('qpdf'), ['--show-npages', file], { timeout: 15_000, windowsHide: true })
     const n = Number(String(stdout).trim())
     if (Number.isFinite(n) && n > 0) return n
   } catch {
     /* fall through */
   }
-  const { stdout } = await execFileAsync('pdfinfo', [file], { timeout: 15_000 })
+  const { stdout } = await execFileAsync(toolPath('pdfinfo'), [file], { timeout: 15_000, windowsHide: true })
   const n = Number(String(stdout).match(/^Pages:\s+(\d+)/m)?.[1] ?? '0')
   return n > 0 ? n : 1
 }
 
 async function pdfPageText(file: string, page: number): Promise<string> {
-  const { stdout } = await execFileAsync('pdftotext', ['-f', String(page), '-l', String(page), file, '-'], {
+  const { stdout } = await execFileAsync(toolPath('pdftotext'), ['-f', String(page), '-l', String(page), file, '-'], {
     timeout: 15_000,
     encoding: 'utf8',
+    windowsHide: true,
   })
   return String(stdout)
 }
@@ -490,16 +477,17 @@ async function stampSlotFooters(body: Buffer, labels: string[]): Promise<Buffer>
       const pagePath = path.join(dir, `p${page}.pdf`)
       const stamped = path.join(dir, `s${page}.pdf`)
       const stampPath = path.join(dir, `t${page}.pdf`)
-      await execFileAsync('qpdf', [bodyPath, '--pages', '.', `${page}`, '--', pagePath], { timeout: 15_000 })
+      await execFileAsync(toolPath('qpdf'), [bodyPath, '--pages', '.', `${page}`, '--', pagePath], { timeout: 15_000, windowsHide: true })
       const label = labels[page - 1] ?? labels.at(-1) ?? ''
       writeFileSync(stampPath, await htmlToPdf(footerStampHtml(label)))
-      await execFileAsync('qpdf', ['--overlay', stampPath, '--repeat=1', '--', pagePath, stamped], {
+      await execFileAsync(toolPath('qpdf'), ['--overlay', stampPath, '--repeat=1', '--', pagePath, stamped], {
         timeout: 15_000,
+        windowsHide: true,
       })
       parts.push(stamped)
     }
     const outPath = path.join(dir, 'out.pdf')
-    await execFileAsync('qpdf', ['--empty', '--pages', ...parts, '--', outPath], { timeout: 30_000 })
+    await execFileAsync(toolPath('qpdf'), ['--empty', '--pages', ...parts, '--', outPath], { timeout: 30_000, windowsHide: true })
     return readFileSync(outPath)
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
