@@ -82,7 +82,7 @@ A task starts when everything in its **Needs** column is merged. Tasks whose nee
 | T1.1 | Windows build in CI (`.exe` installer) + Windows runtime (node lookup, no console window, PATH, config dirs) — [`T1.1-WINDOWS-BUILD.md`](../handoffs/T1.1-WINDOWS-BUILD.md) | T1 | M | W0 |
 | T2.4 | Import report in the desk: IngestDialog shows per-leaf coverage and gaps before it writes; "Bring it in anyway" maps to `--accept-gaps`. Until it lands, D1 can read the report from the CLI | T2 | S | T2.2 |
 | T3.2 | Editor figure insert: toolbar **Figure** → file picker → POST → node; caption editing; width menu; replace image — [`T3.2-FIGURE-INSERT.md`](../handoffs/T3.2-FIGURE-INSERT.md) | T3 | M | T3.1 |
-| T1.2 | Prerequisites screen: `GET /api/doctor` + `DoctorView.tsx`, shown at first run and whenever a tool is missing; per-OS install line (brew / winget / apt) — [`T1.2-PREREQUISITES-SCREEN.md`](../handoffs/T1.2-PREREQUISITES-SCREEN.md) | T1 | S | W0, T1.1 |
+| T1.2 | Prerequisites screen: `GET /api/doctor` + `DoctorView.tsx`, opened once at first run, with a banner linking to it whenever a tool is missing; per-OS install line (brew / winget / apt) — [`T1.2-PREREQUISITES-SCREEN.md`](../handoffs/T1.2-PREREQUISITES-SCREEN.md) | T1 | S | W0, T1.1 |
 | T1.4 | A `REVDESK_*` override pointing at a missing file shows as missing (no PATH fallback); doctor screen and CLI name the bad override — [`T1.4-OVERRIDE-CHECK.md`](../handoffs/T1.4-OVERRIDE-CHECK.md) | T1 | S | T1.2 |
 | T1.3 | Windows smoke checklist for the Windows user (install, prerequisites, open library, edit/submit, Issued PDF via Edge) | T1 | S | T1.1, T1.2 |
 | T4.1 | Private origin + `push_on_launch` for `issued/` tags (never force; never delete a tag) | T4 | M | D1 |
@@ -125,11 +125,11 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T2.1 | merged | #14 |
 | T3.3 | merged | #15 |
 | O1 | **waiting on operator** — `fixtures/ingest/samples/acrobat-gom-lep-practice.docx` not in hand yet | — |
-| T3.1 | ready — critical path, start now | — |
+| T3.1 | in review — critical path | #18 |
 | T2.2 | blocked on O1 — critical path | — |
 | T1.2 | in review | #17 |
-| T3.2 | handoff written; starts after T3.1 merges | — |
-| T1.4 | handoff written; starts after T1.2 merges | — |
+| T3.2 | handoff written; starts after #18 merges | — |
+| T1.4 | handoff written; starts after #17 merges | — |
 | T1.3 | handoff not written; after T1.2 | — |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
