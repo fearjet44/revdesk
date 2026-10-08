@@ -88,6 +88,7 @@ A task starts when everything in its **Needs** column is merged. Tasks whose nee
 | T1.5 | Desktop: Prerequisites opens only when a tool is missing (port 0 makes a "seen" flag useless) — [`T1.5-FIRST-RUN-ON-DESKTOP.md`](../handoffs/T1.5-FIRST-RUN-ON-DESKTOP.md) | T1 | S | T1.4 |
 | T3.4 | Editors build once, with the manual id, before loading text (no missing-figure flash, no lost keystrokes) — [`T3.4-EDITOR-LOADS-ONCE.md`](../handoffs/T3.4-EDITOR-LOADS-ONCE.md) | T3 | S | T3.2 |
 | T3.5 | No Git words in the review screen; sweep UI copy — [`T3.5-REVIEW-COPY.md`](../handoffs/T3.5-REVIEW-COPY.md) | T3 | S | — (after T3.4, T3 serial) |
+| T3.6 | Drop a figure anywhere on the paper (gutter, margins, title); a dropped file never opens in the browser anywhere on the desk — [`T3.6-DROP-ANYWHERE.md`](../handoffs/T3.6-DROP-ANYWHERE.md) | T3 | S | T3.4 (T3 serial; before T3.5) |
 | T4.1 | Private origin + `push_on_launch` for `issued/` tags (never force; never delete a tag) | T4 | M | D1 |
 
 ### Parked (not scheduled)
@@ -131,12 +132,13 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T3.1 | merged | #18 |
 | T2.2 | blocked on O1 — critical path | — |
 | T1.2 | merged | #17 |
-| T3.2 | in review | #21 |
-| T1.4 | in review | #20 |
+| T3.2 | merged | #21 |
+| T1.4 | merged | #20 |
 | T1.3 | in review | #22 |
-| T1.5 | handoff written; after #20 | — |
-| T3.4 | handoff written; after #21 | — |
-| T3.5 | handoff written; after T3.4 | — |
+| T1.5 | handoff written; ready | — |
+| T3.4 | handoff written; ready | — |
+| T3.6 | handoff written; after T3.4 | — |
+| T3.5 | handoff written; after T3.6 | — |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
 
