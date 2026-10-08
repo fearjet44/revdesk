@@ -4,63 +4,60 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { buildEditorExtensions } from '../schema/extensions.ts'
 import { parseSection } from '../schema/markdown.ts'
-import { DEFAULT_THEME, paperCalloutStyle, stepMarkerCss, type DocTheme } from '../../server/theme.ts'
-import type { CrewFinding, Frontmatter, IssueRecord, ManualDetail, SlotStamp } from '../types.ts'
+import { DEFAULT_THEME, paperCalloutStyle, stepMarkerCss } from '../../server/theme.ts'
+import type { CrewSectionFile, CrewFinding, Frontmatter, IssueRecord, ManualDetail, SlotStamp } from '../types.ts'
 import { FindingList } from './FindingList.tsx'
 
 export function IssuedSection() {
   const { issueId, sectionId } = useParams()
-  const [meta, setMeta] = useState<Frontmatter | null>(null)
-  const [issue, setIssue] = useState<IssueRecord | null>(null)
-  const [manual, setManual] = useState<ManualDetail | null>(null)
-  const [theme, setTheme] = useState<DocTheme>(DEFAULT_THEME)
-  const [findings, setFindings] = useState<CrewFinding[]>([])
+  const [file, setFile] = useState<{ key: string; data: CrewSectionFile } | null>(null)
+  const [error, setError] = useState<{ key: string; message: string } | null>(null)
+  const key = `${issueId}/${sectionId}`
+
+  useEffect(() => {
+    if (!issueId || !sectionId) return
+    let cancelled = false
+    api
+      .crewSection(issueId, sectionId)
+      .then((data) => {
+        if (!cancelled) setFile({ key, data })
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError({ key, message: err instanceof Error ? err.message : 'Unable to open the issued page.' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [issueId, sectionId, key])
+
+  if (file?.key === key) return <IssuedSectionBody key={key} issueId={issueId!} sectionId={sectionId!} file={file.data} />
+  if (error?.key === key) return <div className="banner error">{error.message}</div>
+  return <div className="empty">Pulling the issued page…</div>
+}
+
+function IssuedSectionBody({ issueId, sectionId, file }: { issueId: string; sectionId: string; file: CrewSectionFile }) {
+  const parsed = useMemo(() => parseSection(file.markdown), [file])
+  const meta: Frontmatter = parsed.meta
+  const issue: IssueRecord = file.issue
+  const manual: ManualDetail = file.manual
+  const theme = file.theme ?? DEFAULT_THEME
+  const pages: SlotStamp[] = file.pages ?? []
+  const canFind = file.can_find
+  const [findings, setFindings] = useState<CrewFinding[]>(file.findings ?? [])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [canFind, setCanFind] = useState(false)
-  const [pages, setPages] = useState<SlotStamp[]>([])
 
-  const manualId = manual?.id ?? ''
-  const extensions = useMemo(() => buildEditorExtensions({ manualId }), [manualId])
+  const extensions = useMemo(() => buildEditorExtensions({ manualId: manual.id }), [manual.id])
   const editor = useEditor(
     {
       extensions,
       immediatelyRender: false,
       editable: false,
-      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+      content: parsed.doc,
     },
     [extensions],
   )
-
-  useEffect(() => {
-    editor?.setEditable(false)
-  }, [editor])
-
-  useEffect(() => {
-    if (!issueId || !sectionId || !editor) return
-    let cancelled = false
-    api
-      .crewSection(issueId, sectionId)
-      .then((file) => {
-        if (cancelled) return
-        const parsed = parseSection(file.markdown)
-        setMeta(parsed.meta)
-        setIssue(file.issue)
-        setManual(file.manual)
-        setTheme(file.theme ?? DEFAULT_THEME)
-        setFindings(file.findings ?? [])
-        setCanFind(file.can_find)
-        setPages(file.pages ?? [])
-        editor.commands.setContent(parsed.doc)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to open the issued page.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [issueId, sectionId, editor])
 
   async function leaveFinding() {
     if (!issueId || !sectionId || !draft.trim()) return
@@ -76,9 +73,6 @@ export function IssuedSection() {
       setBusy(false)
     }
   }
-
-  if (error && !meta) return <div className="banner error">{error}</div>
-  if (!meta || !issue || !manual) return <div className="empty">Pulling the issued page…</div>
 
   return (
     <div>

@@ -78,25 +78,60 @@ function workingLineForComment(comment: ReviewComment, rows: DiffRow[]): number 
   return comment.line
 }
 
-export function SectionEditor({
-  onChanged,
-  readOnly = false,
-  view = 'print',
-  onView,
-}: {
+type SectionEditorProps = {
   onChanged: () => Promise<void>
   readOnly?: boolean
   view?: SectionView
   onView?: (view: SectionView) => void
-}) {
+}
+
+// The manual id and the section text arrive before the editor is built, so it is built once.
+export function SectionEditor(props: SectionEditorProps) {
   const { changeId, sectionId } = useParams()
-  const [meta, setMeta] = useState<Frontmatter | null>(null)
-  const [path, setPath] = useState('')
+  const [loaded, setLoaded] = useState<{ key: string; manualId: string; file: SectionFile } | null>(null)
+  const [error, setError] = useState<{ key: string; message: string } | null>(null)
+  const key = `${changeId}/${sectionId}`
+
+  useEffect(() => {
+    if (!changeId || !sectionId) return
+    let cancelled = false
+    Promise.all([api.change(changeId), api.workingSection(changeId, sectionId)])
+      .then(([change, file]) => {
+        if (!cancelled) setLoaded({ key, manualId: change.manual, file })
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError({ key, message: err instanceof Error ? err.message : 'Unable to open working copy.' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [changeId, sectionId, key])
+
+  if (!changeId || !sectionId) return null
+  if (loaded?.key === key) {
+    return <SectionEditorBody key={key} {...props} manualId={loaded.manualId} initial={loaded.file} />
+  }
+  if (error?.key === key) return <div className="banner error">{error.message}</div>
+  return <div className="empty">Opening the working copy…</div>
+}
+
+function SectionEditorBody({
+  onChanged,
+  readOnly = false,
+  view = 'print',
+  onView,
+  manualId,
+  initial,
+}: SectionEditorProps & { manualId: string; initial: SectionFile }) {
+  const { changeId, sectionId } = useParams()
+  const initialParsed = useMemo(() => parseSection(initial.markdown), [initial])
+  const [meta, setMeta] = useState<Frontmatter | null>(initialParsed.meta)
+  const path = initial.path
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(true)
   const [busy, setBusy] = useState(false)
   const [comments, setComments] = useState<ReviewComment[]>([])
-  const [markdown, setMarkdown] = useState('')
+  const markdown = initial.markdown
   const [diffRows, setDiffRows] = useState<DiffRow[]>([])
   const [gutterMarks, setGutterMarks] = useState<GutterMark[]>([])
   const [canAnswer, setCanAnswer] = useState(false)
@@ -108,7 +143,6 @@ export function SectionEditor({
   const [findings, setFindings] = useState<CrewFinding[]>([])
   const paperRef = useRef<HTMLDivElement>(null)
 
-  const [manualId, setManualId] = useState('')
   const [uploading, setUploading] = useState(false)
   const manualIdRef = useRef('')
   manualIdRef.current = manualId
@@ -137,7 +171,7 @@ export function SectionEditor({
       immediatelyRender: false,
       shouldRerenderOnTransaction: true,
       editable: !readOnly,
-      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+      content: initialParsed.doc,
       onUpdate: () => {
         if (!readOnly) setSaved(false)
       },
@@ -150,57 +184,43 @@ export function SectionEditor({
   }, [editor, readOnly])
 
   useEffect(() => {
-    if (!changeId || !sectionId || !editor) return
+    if (!changeId || !sectionId) return
     let cancelled = false
-    api
-      .workingSection(changeId, sectionId)
-      .then(async (file: SectionFile) => {
+    ;(async () => {
+      try {
+        const review = await api.reviewSection(changeId, sectionId)
         if (cancelled) return
-        const parsed = parseSection(file.markdown)
-        setMeta(parsed.meta)
-        setPath(file.path)
-        setMarkdown(file.markdown)
-        editor.commands.setContent(parsed.doc)
-        setSaved(true)
+        setComments(review.comments)
+        setDiffRows(review.rows)
+        setCanAnswer(review.can_answer)
+        setTheme(review.theme ?? DEFAULT_THEME)
         try {
-          const review = await api.reviewSection(changeId, sectionId)
-          if (!cancelled) {
-            setManualId(review.change.manual)
-            setComments(review.comments)
-            setDiffRows(review.rows)
-            setCanAnswer(review.can_answer)
-            setTheme(review.theme ?? DEFAULT_THEME)
-            try {
-              const notes = await api.findings(review.change.manual, sectionId)
-              if (!cancelled) setFindings(notes)
-            } catch {
-              if (!cancelled) setFindings([])
-            }
-            const touch = review.change.touched.find((item) => item.id === sectionId)
-            if (touch?.mark) {
-              setWriteMark(touch.mark)
-              setWriteNote(touch.mark_note ?? '')
-              setHasPriorMark(true)
-            } else {
-              setHasPriorMark(false)
-            }
-          }
+          const notes = await api.findings(manualId, sectionId)
+          if (!cancelled) setFindings(notes)
         } catch {
-          if (!cancelled) {
-            setComments([])
-            setDiffRows([])
-            setCanAnswer(false)
-            setFindings([])
-          }
+          if (!cancelled) setFindings([])
         }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to open working copy.')
-      })
+        const touch = review.change.touched.find((item) => item.id === sectionId)
+        if (touch?.mark) {
+          setWriteMark(touch.mark)
+          setWriteNote(touch.mark_note ?? '')
+          setHasPriorMark(true)
+        } else {
+          setHasPriorMark(false)
+        }
+      } catch {
+        if (!cancelled) {
+          setComments([])
+          setDiffRows([])
+          setCanAnswer(false)
+          setFindings([])
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [changeId, sectionId, editor])
+  }, [changeId, sectionId, manualId])
 
   const markRow = WRITE_MARKS.find((row) => row.code === writeMark)
   const markVisible = WRITE_MARKS.filter((row) => !writeMarkAfterFirst(row) || hasPriorMark)
