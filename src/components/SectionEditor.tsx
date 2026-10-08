@@ -1,9 +1,9 @@
 import { useEditor, EditorContent } from '@tiptap/react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { buildEditorExtensions } from '../schema/extensions.ts'
-import { FIGURE_ACCEPT, FIGURE_MAX_BYTES, FIGURE_TOO_BIG, insertFigure, uploadOrReport } from '../schema/figure-insert.ts'
+import { FIGURE_ACCEPT, FIGURE_MAX_BYTES, FIGURE_TOO_BIG, dropFigure, insertFigure, uploadOrReport } from '../schema/figure-insert.ts'
 import { DEFAULT_MERMAID } from '../schema/mermaid.ts'
 import {
   blockIndexForLine,
@@ -62,6 +62,8 @@ function ToolBtn({
     </button>
   )
 }
+
+const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files')
 
 function workingLineForComment(comment: ReviewComment, rows: DiffRow[]): number {
   if (comment.side === 'new') return comment.line
@@ -386,6 +388,27 @@ function SectionEditorBody({
     if (src && editor) insertFigure(editor.view, src)
   }
 
+  const [fileOver, setFileOver] = useState(false)
+  const fileDepth = useRef(0)
+  const takesFiles = !readOnly && Boolean(editor?.isEditable)
+
+  function fileDrag(event: DragEvent, enter?: boolean) {
+    if (!takesFiles || !hasFiles(event)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    if (enter === undefined) return
+    fileDepth.current = Math.max(0, fileDepth.current + (enter ? 1 : -1))
+    setFileOver(fileDepth.current > 0)
+  }
+
+  function paperDrop(event: DragEvent) {
+    fileDepth.current = 0
+    setFileOver(false)
+    if (!takesFiles || !hasFiles(event) || event.nativeEvent.defaultPrevented || !editor) return
+    event.preventDefault()
+    dropFigure(editor.view, figureHooks, event.dataTransfer.files, event.clientX, event.clientY)
+  }
+
   function applyHeading(level: 1 | 2 | 3 | 4 | 5) {
     if (!editor) return
     if (editor.isActive('heading', { level })) {
@@ -660,8 +683,16 @@ function SectionEditorBody({
 
       <style>{stepMarkerCss(theme.steps.markers)}</style>
       <div
-        className={`paper-wrap${readOnly ? ' is-readonly' : ''}`}
+        className={`paper-wrap${readOnly ? ' is-readonly' : ''}${fileOver ? ' is-file-over' : ''}`}
         ref={paperRef}
+        onDragEnter={(event) => fileDrag(event, true)}
+        onDragOver={(event) => fileDrag(event)}
+        onDragLeave={(event) => fileDrag(event, false)}
+        onDrop={paperDrop}
+        onDragEnd={() => {
+          fileDepth.current = 0
+          setFileOver(false)
+        }}
         style={paperCalloutStyle(theme) as CSSProperties}
       >
         {gutterMarks.map((mark) => (

@@ -720,6 +720,8 @@ textarea { min-height: 88px; resize: vertical; }
   font-family: var(--paper-body, var(--font-ui));
 }
 
+.paper-wrap.is-file-over { outline: 2px dashed var(--paper-edge, #b9b19e); outline-offset: -6px; }
+
 .print-gutter-ln {
   position: absolute;
   left: 6px;
