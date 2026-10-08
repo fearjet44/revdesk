@@ -1,8 +1,11 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import { createFigureView } from './figure-view.ts'
+import { imageFiles, insertFigure, uploadOrReport, type FigureHooks } from './figure-insert.ts'
 import { DEFAULT_MERMAID } from './mermaid.ts'
 import { createMermaidView } from './mermaid-view.ts'
 
@@ -99,14 +102,49 @@ function callout(name: (typeof CALLOUTS)[number]) {
 
   export const FIGURE_WIDTHS = ['25%', '50%', '75%', '100%'] as const
 
-  export const Figure = Node.create<{ manualId: string }>({
+  export const Figure = Node.create<{ manualId: string } & FigureHooks>({
     name: 'figure',
     group: 'block',
     atom: true,
     selectable: true,
     draggable: false,
     addOptions() {
-      return { manualId: '' }
+      return { manualId: '', upload: null, onError: null }
+    },
+    addProseMirrorPlugins() {
+      const hooks = this.options
+      const take = (view: EditorView, files: File[], pos: number | null) => {
+        void uploadOrReport(hooks, files[0]).then((src) => {
+          if (src) insertFigure(view, src, pos)
+        })
+      }
+      return [
+        new Plugin({
+          key: new PluginKey('figureFiles'),
+          props: {
+            handlePaste(view, event) {
+              if (!view.editable || !hooks.upload) return false
+              const files = imageFiles(event.clipboardData?.files)
+              if (!files.length) {
+                // A pasted <img> URL is never fetched; do not let it replace a selected figure with nothing.
+                const data = event.clipboardData
+                return Boolean(data && !data.getData('text/plain') && /<img\b/i.test(data.getData('text/html')))
+              }
+              event.preventDefault()
+              take(view, files, null)
+              return true
+            },
+            handleDrop(view, event) {
+              if (!view.editable || !hooks.upload) return false
+              const files = imageFiles(event.dataTransfer?.files)
+              if (!files.length) return false
+              event.preventDefault()
+              take(view, files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null)
+              return true
+            },
+          },
+        }),
+      ]
     },
     addAttributes() {
       return {
@@ -135,11 +173,16 @@ function callout(name: (typeof CALLOUTS)[number]) {
     },
     addNodeView() {
       const manualId = this.options.manualId
-      return (props) => createFigureView(props, manualId)
+      const hooks = this.options
+      return (props) => createFigureView(props, manualId, hooks)
     },
   })
 
-  export function buildEditorExtensions({ manualId }: { manualId: string }) {
+  export function buildEditorExtensions({
+    manualId,
+    upload = null,
+    onError = null,
+  }: { manualId: string } & Partial<FigureHooks>) {
     return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5] },
@@ -159,7 +202,7 @@ function callout(name: (typeof CALLOUTS)[number]) {
     Caution,
     Warning,
     Mermaid,
-    Figure.configure({ manualId }),
+    Figure.configure({ manualId, upload, onError }),
     Placeholder.configure({
       placeholder: 'Write the controlled text…',
     }),
