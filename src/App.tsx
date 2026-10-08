@@ -13,9 +13,11 @@ import { ManagedSection } from './components/ManagedSection.tsx'
 import { ManualView } from './components/ManualView.tsx'
 import { SectionDesk } from './components/SectionDesk.tsx'
 import { StatusLamp } from './components/StatusLamp.tsx'
+import { useFileDropGuard } from './components/useFileDropGuard.ts'
 import type { DeskPayload, DoctorReport, LibraryInfo } from './types.ts'
 
 export default function App() {
+  useFileDropGuard()
   return (
     <Routes>
       <Route path="/issues/:issueId/pdf" element={<ManualPdfView />} />
