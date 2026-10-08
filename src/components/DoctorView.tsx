@@ -74,7 +74,12 @@ export function DoctorView({ onChecked }: { onChecked?: (report: DoctorReport) =
                 <td className="doctor-path">{tool.path ?? 'Not found'}</td>
                 <td className="doctor-version">{tool.version ?? '—'}</td>
                 <td>
-                  {tool.install ? (
+                  {!tool.path && tool.override ? (
+                    <span className="doctor-override">
+                      <code>{tool.override.env}</code> points at <code>{tool.override.path}</code>, which does not exist.
+                      Fix or unset it.
+                    </span>
+                  ) : tool.install ? (
                     <span className="doctor-install">
                       <code>{tool.install}</code>
                       <button className="btn ghost" type="button" onClick={() => void copy(tool.name, tool.install ?? '')}>

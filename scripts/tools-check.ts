@@ -51,11 +51,46 @@ try {
     JSON.stringify(parseBody(lf.body.replace(/\n/g, '\r\n'))) === JSON.stringify(parseBody(lf.body)),
   )
 
-  const saved = process.env.REVDESK_CHROME
-  process.env.REVDESK_CHROME = '/opt/test/chrome'
-  check('REVDESK_CHROME override', toolPath('chrome') === '/opt/test/chrome')
-  if (saved === undefined) delete process.env.REVDESK_CHROME
-  else process.env.REVDESK_CHROME = saved
+  const envKeys = ['REVDESK_CHROME', 'REVDESK_QPDF', 'REVDESK_POPPLER_DIR']
+  const savedEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]))
+  const restoreEnv = () => {
+    for (const key of envKeys) {
+      if (savedEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = savedEnv[key]
+    }
+  }
+  const fakeTool = path.join(dir, 'fake-tool')
+  writeFileSync(fakeTool, '')
+  const find = (name: string) => doctor().tools.find((tool) => tool.name === name)
+  try {
+    for (const key of envKeys) delete process.env[key]
+    process.env.REVDESK_CHROME = fakeTool
+    check('REVDESK_CHROME override', toolPath('chrome') === fakeTool)
+    check('existing override is found', find('chrome')?.path === fakeTool && find('chrome')?.override?.env === 'REVDESK_CHROME')
+    delete process.env.REVDESK_CHROME
+
+    const missing = path.join(dir, 'no-such', 'qpdf')
+    process.env.REVDESK_QPDF = missing
+    const qpdf = find('qpdf')
+    check('missing override: path null', qpdf?.path === null)
+    check('missing override: names env and path', qpdf?.override?.env === 'REVDESK_QPDF' && qpdf.override.path === missing)
+    check('missing override: doctor not ok', doctor().ok === false)
+    check('missing override: toolPath keeps bad path', toolPath('qpdf') === missing)
+    process.env.REVDESK_QPDF = fakeTool
+    check('existing qpdf override is found', find('qpdf')?.path === fakeTool)
+    process.env.REVDESK_QPDF = '   '
+    check('whitespace override ignored', find('qpdf')?.override === null && toolPath('qpdf') !== '   ')
+    delete process.env.REVDESK_QPDF
+
+    process.env.REVDESK_POPPLER_DIR = path.join(dir, 'no-such-poppler')
+    const poppler = ['pdftotext', 'pdfinfo', 'pdffonts'].map(find)
+    check(
+      'missing REVDESK_POPPLER_DIR: all three missing',
+      poppler.every((tool) => tool?.path === null && tool.override?.env === 'REVDESK_POPPLER_DIR'),
+    )
+  } finally {
+    restoreEnv()
+  }
 
   const git = spawnSync(toolPath('git'), ['--version'], { encoding: 'utf8', windowsHide: true })
   check('toolPath(git) runs', git.status === 0 && /git version/.test(git.stdout), git.error?.message)

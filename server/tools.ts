@@ -10,6 +10,7 @@ export type ToolStatus = {
   version: string | null
   needed_for: string
   install: string | null
+  override: { env: string; path: string } | null
 }
 
 export type DoctorReport = { ok: boolean; platform: NodeJS.Platform; tools: ToolStatus[] }
@@ -89,20 +90,27 @@ const isWindows = () => process.platform === 'win32'
 
 /** Absolute path when found, else the bare command name (so the caller's ENOENT message still fires). */
 export function toolPath(name: ToolName): string {
+  const override = envOverride(name)
+  if (override) return override.path
   return resolvedPath(name) ?? (name === 'chrome' ? 'chromium' : name)
 }
 
 function resolvedPath(name: ToolName): string | null {
-  return envOverride(name) ?? knownLocation(name) ?? searchPath(name)
+  return knownLocation(name) ?? searchPath(name)
 }
 
-function envOverride(name: ToolName): string | null {
+/** An override is the user's explicit choice: it wins even when the file is missing. */
+function envOverride(name: ToolName): { env: string; path: string } | null {
   const env = (key: string) => process.env[key]?.trim() || null
-  if (name === 'chrome') return env('REVDESK_CHROME')
-  if (name === 'qpdf') return env('REVDESK_QPDF')
-  if (name === 'git') return env('REVDESK_GIT')
+  const named = (key: string) => {
+    const value = env(key)
+    return value ? { env: key, path: value } : null
+  }
+  if (name === 'chrome') return named('REVDESK_CHROME')
+  if (name === 'qpdf') return named('REVDESK_QPDF')
+  if (name === 'git') return named('REVDESK_GIT')
   const dir = env('REVDESK_POPPLER_DIR')
-  return dir ? path.join(dir, name + (isWindows() ? '.exe' : '')) : null
+  return dir ? { env: 'REVDESK_POPPLER_DIR', path: path.join(dir, name + (isWindows() ? '.exe' : '')) } : null
 }
 
 function knownLocation(name: ToolName): string | null {
@@ -147,13 +155,15 @@ function probeVersion(name: ToolName, file: string): string | null {
 
 export function doctor(): DoctorReport {
   const tools = TOOLS.map((name): ToolStatus => {
-    const found = resolvedPath(name)
+    const override = envOverride(name)
+    const found = override ? (existsSync(override.path) ? override.path : null) : resolvedPath(name)
     return {
       name,
       path: found,
       version: found ? probeVersion(name, found) : null,
       needed_for: NEEDED_FOR[name],
       install: installHint(name, process.platform),
+      override,
     }
   })
   return { ok: tools.every((tool) => tool.path !== null), platform: process.platform, tools }

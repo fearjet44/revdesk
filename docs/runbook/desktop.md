@@ -48,6 +48,8 @@ Where the app looks:
 - **qpdf**, **poppler** (`pdfinfo`, `pdftotext`, `pdffonts`): PATH. winget links poppler into `%LOCALAPPDATA%\Microsoft\WinGet\Links`, which is on your user PATH. `REVDESK_QPDF` points at `qpdf.exe`; `REVDESK_POPPLER_DIR` points at the folder holding the `pdf*.exe` files (for the zip from oschwartz10612/poppler-windows if winget is not an option).
 - **Chrome or Edge**: `REVDESK_CHROME`, then Chrome, then Edge under `Program Files`.
 
+If an override points at a missing file, the tool shows as missing; Revdesk does not fall back to PATH.
+
 Set an override as a user environment variable (Settings → System → About → Advanced system settings → Environment Variables), then reopen Revdesk.
 
 Per-user data: the desk config is `%APPDATA%\revdesk\config.yaml` and a bound remote is cloned under `%LOCALAPPDATA%\revdesk\libraries\`. `XDG_CONFIG_HOME` and `XDG_DATA_HOME` still win when set. The last-opened library is remembered by the app itself, as on macOS.

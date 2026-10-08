@@ -336,6 +336,7 @@ export type DoctorTool = {
   version: string | null
   needed_for: string
   install: string | null
+  override: { env: string; path: string } | null
 }
 
 export type DoctorReport = { ok: boolean; platform: string; tools: DoctorTool[] }
