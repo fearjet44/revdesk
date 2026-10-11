@@ -136,9 +136,9 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T1.4 | merged | #20 |
 | T1.3 | in review | #22 |
 | T1.5 | handoff written; ready | — |
-| T3.4 | handoff written; ready | — |
-| T3.6 | handoff written; after T3.4 | — |
-| T3.5 | handoff written; after T3.6 | — |
+| T3.4 | merged | #24 |
+| T3.6 | merged | #25 |
+| T3.5 | in progress | — |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
 
