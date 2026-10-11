@@ -90,6 +90,7 @@ A task starts when everything in its **Needs** column is merged. Tasks whose nee
 | T3.5 | No Git words in the review screen; sweep UI copy — [`T3.5-REVIEW-COPY.md`](../handoffs/T3.5-REVIEW-COPY.md) | T3 | S | — (after T3.4, T3 serial) |
 | T3.6 | Drop a figure anywhere on the paper (gutter, margins, title); a dropped file never opens in the browser anywhere on the desk — [`T3.6-DROP-ANYWHERE.md`](../handoffs/T3.6-DROP-ANYWHERE.md) | T3 | S | T3.4 (T3 serial; before T3.5) |
 | T4.1 | Private origin + `push_on_launch` for `issued/` tags (never force; never delete a tag) | T4 | M | D1 |
+| T4.2 | Review comments on a change with no edits are kept and shown (#28) — [`T4.2-COMMENTS-ON-UNEDITED-CHANGE.md`](../handoffs/T4.2-COMMENTS-ON-UNEDITED-CHANGE.md) | T4 | S | — |
 
 ### Parked (not scheduled)
 
@@ -138,9 +139,10 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T1.5 | handoff written; ready | — |
 | T3.4 | merged | #24 |
 | T3.6 | merged | #25 |
-| T3.5 | in progress | — |
+| T3.5 | merged | #27 |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
+| T4.2 | in progress (#28) | — |
 
 ## Done (history)
 
