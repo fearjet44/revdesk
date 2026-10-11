@@ -175,6 +175,40 @@ expect_ok change answer "$DONE_CHG" --comment "$DONE_RC" --status done
 DONE_JSON="$("${REVDESK[@]}" --json change comments "$DONE_CHG")"
 contains "$DONE_JSON" '"status": "done"' "Done after a text change"
 
+echo "=== Comments on a change with no edits ==="
+expect_ok change withdraw "$DONE_CHG" --why "Free the leaf for the unedited check."
+expect_ok change start --manual gom --title "Unedited smoke" --reason "notes" --section gom.2.4.3
+UN_CHG="$("${REVDESK[@]}" change list --json | node -e "
+  let s=''; process.stdin.on('data', d => s += d)
+  process.stdin.on('end', () => {
+    const rows = JSON.parse(s)
+    console.log(rows.find(c => c.title === 'Unedited smoke').id)
+  })
+")"
+# change start skips the branch when the library sits in the app checkout; drop it to match.
+git -C "$WORK" branch -D "change/$UN_CHG" >/dev/null
+expect_ok change submit "$UN_CHG"
+expect_ok change comment "$UN_CHG" --section gom.2.4.3 --line 1 --side new --body "First unedited remark."
+expect_ok change comment "$UN_CHG" --section gom.2.4.3 --line 2 --side new --body "Second unedited remark."
+UN_JSON="$("${REVDESK[@]}" --json change comments "$UN_CHG")"
+contains "$UN_JSON" "First unedited remark." "unedited change keeps first comment"
+contains "$UN_JSON" "Second unedited remark." "unedited change keeps second comment"
+expect_ok change return-to-edit "$UN_CHG"
+UN_JSON="$("${REVDESK[@]}" --json change comments "$UN_CHG")"
+contains "$UN_JSON" "First unedited remark." "author side lists first comment"
+contains "$UN_JSON" "Second unedited remark." "author side lists second comment"
+UN_RC="$(printf '%s' "$UN_JSON" | node -e "
+  let s=''; process.stdin.on('data', d => s += d)
+  process.stdin.on('end', () => console.log(JSON.parse(s)[0].id))
+")"
+expect_ok change answer "$UN_CHG" --comment "$UN_RC" --status stand --reason "Kept as written."
+UN_FILE="$(ls "$WORK/control/working/$UN_CHG/"*.md | head -1)"
+printf '\nunedited-then-edited line\n' >> "$UN_FILE"
+expect_ok change submit "$UN_CHG"
+UN_JSON="$("${REVDESK[@]}" --json change comments "$UN_CHG")"
+contains "$UN_JSON" "First unedited remark." "resubmit carries first comment"
+contains "$UN_JSON" "Second unedited remark." "resubmit carries second comment"
+
 echo
 echo "pass=$pass fail=$fail"
 if [[ "$fail" -ne 0 ]]; then exit 1; fi

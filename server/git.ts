@@ -685,6 +685,7 @@ export function snapshotReview(
     const tree = treeResult.stdout.trim()
     const parentTree = revParse(root, cfg, `${parent}^{tree}`)
     if (parentTree && tree === parentTree) {
+      if (!refExists(root, cfg, branchRef)) runGit(root, cfg, ['update-ref', branchRef, parent])
       return { commit: parent, branch, git_root: root, reused: true }
     }
     const commitResult = spawnGit(root, cfg, ['commit-tree', tree, '-p', parent, '-m', message], {
