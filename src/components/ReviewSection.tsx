@@ -159,9 +159,7 @@ export function ReviewSection({
           <h1>{review.section.title}</h1>
           <p className="lede">
             Incoming lines are green, outgoing lines are red. Line numbers match the markdown file.
-            Click a line and type to leave a comment for the author. Comments are git notes on{' '}
-            <span className="mono">{review.branch ?? 'change/' + changeId}</span>
-            {review.commit ? ` @ ${review.commit.slice(0, 7)}` : ''}.
+            Click a line and type to leave a comment for the author. Comments stay with this change.
           </p>
         </div>
         <div className="actions">
@@ -181,8 +179,7 @@ export function ReviewSection({
           {review.section.id} · {removed} outgoing · {added} incoming
         </span>
         <span>
-          {review.notes_ref}
-          {review.commit ? ` · ${review.commit.slice(0, 12)}` : ' · no snapshot yet'}
+          {review.commit ? `snapshot ${review.commit.slice(0, 7)}` : 'no snapshot yet'}
         </span>
       </div>
 
