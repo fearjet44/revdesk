@@ -5,7 +5,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import { createFigureView } from './figure-view.ts'
-import { imageFiles, insertFigure, uploadOrReport, type FigureHooks } from './figure-insert.ts'
+import { dropFigure, imageFiles, insertFigure, uploadOrReport, type FigureHooks } from './figure-insert.ts'
 import { DEFAULT_MERMAID } from './mermaid.ts'
 import { createMermaidView } from './mermaid-view.ts'
 
@@ -135,11 +135,8 @@ function callout(name: (typeof CALLOUTS)[number]) {
               return true
             },
             handleDrop(view, event) {
-              if (!view.editable || !hooks.upload) return false
-              const files = imageFiles(event.dataTransfer?.files)
-              if (!files.length) return false
+              if (!dropFigure(view, hooks, event.dataTransfer?.files, event.clientX, event.clientY)) return false
               event.preventDefault()
-              take(view, files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null)
               return true
             },
           },
