@@ -66,10 +66,10 @@ export function ConfigView({ onChanged }: { onChanged: () => Promise<void> }) {
       <div className="page-head">
         <div>
           <p className="kicker">Desk config</p>
-          <h1>Library origin</h1>
+          <h1>Shared library</h1>
           <p className="lede">
-            Solo uses this checkout’s books and needs no account. Paste a manuals-library URL to
-            bind a remote. Identities stay off until company mode.
+            Solo uses the sample books in this library and needs no account. Paste a manuals-library URL to
+            bind a shared library. Identities stay off until company mode.
           </p>
         </div>
       </div>
@@ -85,7 +85,7 @@ export function ConfigView({ onChanged }: { onChanged: () => Promise<void> }) {
             <input
               type="text"
               value={remote}
-              placeholder="https://github.com/fearjet44/test-manual-repo.git"
+              placeholder="https://example.com/your-company/manuals"
               disabled={busy}
               onChange={(event) => {
                 setRemote(event.target.value)
@@ -95,8 +95,8 @@ export function ConfigView({ onChanged }: { onChanged: () => Promise<void> }) {
           </label>
           <p className="modal-note">
             {info?.bound
-              ? 'This desk is bound to a remote library. Empty the field and save to return to the solo tree.'
-              : 'Empty is solo: the sample books in this checkout.'}
+              ? 'This desk is bound to a shared library. Empty the field and save to return to solo.'
+              : 'Empty is solo: the sample books on this desk.'}
           </p>
           <div className="config-actions">
             <button className="btn primary" type="button" disabled={busy} onClick={() => void save()}>
