@@ -175,6 +175,7 @@ export const api = {
     content: string
     bodies?: 'source' | 'practice'
     replace?: boolean
+    accept_gaps?: boolean
   }) =>
     request<IngestApplyResult>('/api/ingest', { method: 'POST', body: JSON.stringify(body) }),
 }

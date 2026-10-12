@@ -11,6 +11,7 @@ import {
   scaffoldCatalog,
   type IngestApplyResult,
 } from '../server/ingest.ts'
+import { formatReportSummary } from '../server/ingest/report.ts'
 import { bindRemote, libraryInfo, resolveLibraryRoot } from '../server/config.ts'
 import { figureResolver } from '../server/figures.ts'
 import { type BookLedger } from '../server/ledger.ts'
@@ -97,8 +98,8 @@ async function main(argv: string[]): Promise<number> {
     }
 
     if (cmd === 'ingest' && sub === 'classify') {
-      const file = requirePositional(rest, 0, 'pdf or text file')
-      return emit(json, classifySource(path.resolve(file)), formatClassification)
+      const file = requirePositional(rest, 0, 'docx, pdf, or text file')
+      return emit(json, await classifySource(path.resolve(file)), formatClassification)
     }
 
     if (cmd === 'ingest' && sub === 'scaffold') {
@@ -132,15 +133,16 @@ async function main(argv: string[]): Promise<number> {
 
     if (cmd === 'ingest') {
       const all = sub ? [sub, ...rest] : rest
-      const tokens = all.filter((token) => token !== '--practice' && token !== '--replace')
+      const tokens = all.filter((token) => token !== '--practice' && token !== '--replace' && token !== '--accept-gaps')
       const opts = parseOpts(tokens)
       const file = ingestFileArg(tokens[0], tokens.slice(1), opts)
       const out = opts.out ? path.resolve(opts.out) : dataRoot()
-      const result = applyIngest(
+      const result = await applyIngest(
         {
           file,
           bodies: all.includes('--practice') ? 'practice' : 'source',
           replace: all.includes('--replace'),
+          accept_gaps: all.includes('--accept-gaps'),
         },
         out,
       )
@@ -771,11 +773,11 @@ function runConfig(json: boolean, sub: string | undefined, rest: string[]): numb
 
 function ingestFileArg(sub: string | undefined, rest: string[], opts: Record<string, string>): string {
   if (opts.file) return path.resolve(opts.file)
-  if (sub === 'apply') return path.resolve(requirePositional(rest, 0, 'pdf or text file'))
+  if (sub === 'apply') return path.resolve(requirePositional(rest, 0, 'docx, pdf, or text file'))
   if (sub && !sub.startsWith('--')) return path.resolve(sub)
   throw new RepoError(
     2,
-    'Usage: revdesk ingest <file> [--practice] [--replace] | ingest apply <file> | ingest classify <file> | ingest scaffold --catalog <id> | ingest catalogs',
+    'Usage: revdesk ingest <file> [--practice] [--replace] [--accept-gaps] | ingest apply <file> | ingest classify <file> | ingest scaffold --catalog <id> | ingest catalogs',
   )
 }
 
@@ -791,6 +793,7 @@ function formatIngestApply(row: IngestApplyResult): string {
     `${row.abbrev}  ${row.title}  ${row.sections} sections  ${gold}  ${bodies}`,
     `root ${row.root}`,
     snap,
+    ...(row.report ? [formatReportSummary(row.report), `report control/ingest/${row.id}.yaml`] : []),
     ...row.files.map((file) => `  ${file}`),
   ].join('\n')
 }
@@ -861,10 +864,10 @@ Usage:
   revdesk config [show]
   revdesk config set remote <url|"">
 
-  revdesk ingest <pdf|txt> [--practice] [--replace] [--out dir]
-  revdesk ingest apply <pdf|txt> [--practice] [--replace] [--out dir]
+  revdesk ingest <docx|pdf|txt> [--practice] [--replace] [--accept-gaps] [--out dir]
+  revdesk ingest apply <docx|pdf|txt> [--practice] [--replace] [--accept-gaps] [--out dir]
   revdesk ingest catalogs
-  revdesk ingest classify <pdf|txt> [--json]
+  revdesk ingest classify <docx|pdf|txt> [--json]
   revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
 
 Exit: 0 ok · 2 validation · 3 not found · 4 not allowed · 5 pipeline

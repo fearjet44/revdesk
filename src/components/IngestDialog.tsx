@@ -5,6 +5,7 @@ import type { IngestApplyResult, IngestPreview } from '../types.ts'
 const ACCEPT =
   '.pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const EXISTS_NOTE = 'is already in this library'
+const GAPS_NOTE = 'Text would be lost'
 
 export function IngestDialog({
   onClose,
@@ -23,6 +24,8 @@ export function IngestDialog({
   const [practice, setPractice] = useState(false)
   const [replace, setReplace] = useState(false)
   const [exists, setExists] = useState(false)
+  const [gaps, setGaps] = useState(false)
+  const [acceptGaps, setAcceptGaps] = useState(false)
 
   async function inspect() {
     if (!file) return
@@ -45,6 +48,7 @@ export function IngestDialog({
     setBusy('ingest')
     setError(null)
     setExists(false)
+    setGaps(false)
     try {
       const content = await encodeLetterFile(file)
       const written = await api.ingestBook({
@@ -52,12 +56,14 @@ export function IngestDialog({
         content,
         bodies: practice ? 'practice' : 'source',
         replace,
+        accept_gaps: acceptGaps,
       })
       setResult(written)
       await onDone()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not bring the book onto the desk.'
       setExists(message.includes(EXISTS_NOTE))
+      setGaps(message.includes(GAPS_NOTE))
       setError(message)
     } finally {
       setBusy(null)
@@ -92,6 +98,8 @@ export function IngestDialog({
                   setError(null)
                   setExists(false)
                   setReplace(false)
+                  setGaps(false)
+                  setAcceptGaps(false)
                 }}
               />
               <button
@@ -126,6 +134,17 @@ export function IngestDialog({
               Replace the existing book
             </label>
           ) : null}
+          {gaps || acceptGaps ? (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={acceptGaps}
+                disabled={busy !== null}
+                onChange={(event) => setAcceptGaps(event.target.checked)}
+              />{' '}
+              Bring it in anyway (the gaps are listed in the import report)
+            </label>
+          ) : null}
           {preview ? (
             <div className="ingest-preview">
               <p className="kicker">Section map</p>
@@ -152,7 +171,8 @@ export function IngestDialog({
           {result ? (
             <div className="banner ok">
               {result.abbrev} · {result.title} · {result.sections} sections on the desk
-              {result.matched_gold ? ' · known book map' : ''}.
+              {result.matched_gold ? ' · known book map' : ''}
+              {result.report ? ` · ${(Math.floor(result.report.coverage.overall * 1000) / 10).toFixed(1)}% of the text came through` : ''}.
             </div>
           ) : null}
         </div>

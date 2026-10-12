@@ -87,7 +87,7 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
   if (method === 'POST' && parts[0] === 'ingest' && parts[1] === 'classify') {
     const body = await readJson<{ file?: string; filename?: string; content?: string }>(req)
     const source = uploadedBook(body)
-    sendJson(res, 200, classifyUpload(source.filename, source.bytes))
+    sendJson(res, 200, await classifyUpload(source.filename, source.bytes))
     return
   }
 
@@ -98,17 +98,19 @@ async function handle(repo: Repo, appRoot: string, req: IncomingMessage, res: Se
       content?: string
       bodies?: 'source' | 'practice'
       replace?: boolean
+      accept_gaps?: boolean
     }>(req)
     const source = uploadedBook(body)
     sendJson(
       res,
       201,
-      applyIngest(
+      await applyIngest(
         {
           filename: source.filename,
           bytes: source.bytes,
           bodies: body.bodies === 'practice' ? 'practice' : 'source',
           replace: body.replace === true,
+          accept_gaps: body.accept_gaps === true,
         },
         repo.root,
       ),

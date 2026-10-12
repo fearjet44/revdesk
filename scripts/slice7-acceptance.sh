@@ -75,9 +75,13 @@ echo "OK  gold ingest wrote manuals + baseline"
 
 echo "=== 3 lorem only — no operator prose ==="
 set +e
-hits="$(rg -n -i "Premier Air Charter|Palomar Airport|Carlsbad, CA|Operations@Premier" "$WORK/manuals" || true)"
+hits="$(grep -rniE "Premier Air Charter|Palomar Airport|Carlsbad, CA|Operations@Premier" "$WORK/manuals")"
+grep_code=$?
 set -e
-if [[ -z "$hits" ]]; then
+if [[ "$grep_code" -ge 2 ]]; then
+  fail=$((fail + 1))
+  echo "FAIL leak check could not run (grep exit $grep_code)"
+elif [[ -z "$hits" ]]; then
   pass=$((pass + 1))
   echo "OK  sample bodies have no corpus operator prose"
 else

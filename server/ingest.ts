@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
@@ -14,7 +15,23 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
+import { serializeBody } from '../src/schema/markdown.ts'
+import { writeFigure } from './figures.ts'
 import { GitAdapterError, snapshotLibrary } from './git.ts'
+import { docxRawText, readDocx, roundTrips, walkDocx, type DocxLeaf } from './ingest/docx.ts'
+import {
+  bag,
+  bagSize,
+  coverageFor,
+  GATE,
+  gateProblem,
+  minus,
+  overlap,
+  round,
+  tokens,
+  type Bag,
+  type ImportReport,
+} from './ingest/report.ts'
 import { ledgerOnDisk, seedLedger } from './ledger.ts'
 import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
@@ -88,6 +105,8 @@ export type CatalogHeading = {
 }
 
 export type CatalogLeaf = {
+  /** Set when the leaf id is not derived from the title (imported books). */
+  id?: string
   kind: 'front' | 'section' | 'appendix'
   number: string | null
   title: string
@@ -139,6 +158,10 @@ export type IngestApplyInput = {
   bodies?: 'source' | 'practice'
   /** Bring in a manual that already exists again. Default false. */
   replace?: boolean
+  /** Write the book even when the completeness report is below the gate. Default false. */
+  accept_gaps?: boolean
+  /** Tests only: change the walked leaves before the report is built. */
+  beforeReport?: (leaves: DocxLeaf[]) => void
 }
 
 export type IngestApplyResult = {
@@ -153,6 +176,8 @@ export type IngestApplyResult = {
   files: string[]
   classification: IngestClassification
   snapshot: { source_commit: string | null; skipped: boolean; pushed: boolean }
+  /** Completeness report for a book brought in with its text; null for a practice copy. */
+  report: ImportReport | null
 }
 
 const OPERATOR_PROSE =
@@ -320,16 +345,32 @@ function guessTheme(
   }
 }
 
-export function classifyUpload(filename: string, bytes: Buffer): IngestClassification {
+export async function classifyUpload(filename: string, bytes: Buffer): Promise<IngestClassification> {
   const source = materializeSource({ filename, bytes })
   try {
-    return classifySource(source.path, source.filename)
+    return await classifySource(source.path, source.filename)
   } finally {
     if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
   }
 }
 
-export function classifySource(file: string, displayName?: string): IngestClassification {
+export async function classifySource(file: string, displayName?: string): Promise<IngestClassification> {
+  const abs = path.resolve(file)
+  if (!existsSync(abs)) throw new RepoError(3, `Source ${file} not found.`)
+  const name = displayName ?? path.basename(abs)
+  if (isDocx(name)) return classifyDocxText(await docxRawText(readFileSync(abs)), name)
+  return classifySync(abs, name)
+}
+
+function isDocx(name: string): boolean {
+  return name.toLowerCase().endsWith('.docx')
+}
+
+function classifyDocxText(raw: string, filename: string): IngestClassification {
+  return classifyFromText(raw, { filename, pages: null, creator: 'docx', producer: null })
+}
+
+function classifySync(file: string, displayName?: string): IngestClassification {
   const abs = path.resolve(file)
   if (!existsSync(abs)) throw new RepoError(3, `Source ${file} not found.`)
   const name = displayName ?? path.basename(abs)
@@ -405,25 +446,30 @@ export function catalogFromClassification(report: IngestClassification): IngestC
   }
 }
 
-export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestApplyResult {
-  const bodies = input.bodies ?? 'source'
+export async function applyIngest(input: IngestApplyInput, dataRoot: string): Promise<IngestApplyResult> {
+  if (input.bodies === 'practice') return applyPractice(input, dataRoot)
+  return applySource(input, dataRoot)
+}
+
+const SAMPLE_LIBRARY_REFUSAL =
+  'This is the practice library that ships with Revdesk. Open your own library folder to bring in a real book, or choose a practice copy.'
+
+function applyPractice(input: IngestApplyInput, dataRoot: string): IngestApplyResult {
+  const bodies = 'practice'
   const replace = input.replace ?? false
-  if (bodies === 'source' && insideSampleLibrary(dataRoot)) {
-    throw new RepoError(
-      4,
-      'This is the practice library that ships with Revdesk. Open your own library folder to bring in a real book, or choose a practice copy.',
-    )
-  }
   const source = materializeSource(input)
   try {
-    const classification = classifySource(source.path, source.filename)
+    if (isDocx(source.filename)) {
+      throw new RepoError(
+        2,
+        'A practice copy takes a PDF or a text export. Bring a Word file in with its text, or export it to PDF for a practice copy.',
+      )
+    }
+    const classification = classifySync(source.path, source.filename)
     // A real book is never swapped for the sanitized gold map.
-    const gold = bodies === 'practice' ? matchGoldCatalog(classification) : null
+    const gold = matchGoldCatalog(classification)
     const catalog = gold ? loadCatalog(gold) : catalogFromClassification(classification)
     guardExisting(dataRoot, catalog.id, replace)
-    if (bodies === 'source') {
-      throw new RepoError(5, 'Bringing in the source text is not built yet. Choose a practice copy for now.')
-    }
     ensureLibraryGitConfig(dataRoot)
     if (replace) {
       rmSync(path.join(dataRoot, 'manuals', catalog.id, 'sections'), { recursive: true, force: true })
@@ -452,10 +498,228 @@ export function applyIngest(input: IngestApplyInput, dataRoot: string): IngestAp
         skipped: snapshot.git_skipped,
         pushed: snapshot.pushed,
       },
+      report: null,
     }
   } finally {
     if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
   }
+}
+
+async function applySource(input: IngestApplyInput, dataRoot: string): Promise<IngestApplyResult> {
+  const replace = input.replace ?? false
+  if (insideSampleLibrary(dataRoot)) throw new RepoError(4, SAMPLE_LIBRARY_REFUSAL)
+  const source = materializeSource(input)
+  try {
+    const docx = isDocx(source.filename)
+    const bytes = readFileSync(source.path)
+    const model = docx ? await readDocx(bytes) : null
+    const classification = model ? classifyDocxText(model.raw, source.filename) : classifySync(source.path, source.filename)
+    const catalog = catalogFromClassification(classification)
+    guardExisting(dataRoot, catalog.id, replace)
+    if (!model) {
+      throw new RepoError(
+        5,
+        'Bring in a PDF by exporting it to Word first (Acrobat: Export PDF → Word). Native PDF import is not built yet.',
+      )
+    }
+
+    const walk = await walkDocx(model.doc, { sections: classification.sections })
+    applyWalkToCatalog(catalog, classification, walk, source.filename)
+    input.beforeReport?.(walk.leaves)
+
+    const prefix = idPrefix(catalog.id)
+    const bodies = walk.leaves.map((leaf, index) => {
+      const markdown = leaf.managed || !leaf.doc.content?.length ? '' : serializeBody(leaf.doc)
+      if (markdown && !roundTrips(leaf.doc)) {
+        throw new RepoError(
+          5,
+          `Leaf ${leafId(prefix, catalog.leaves[index])} would not read back the same in the editor. Nothing was written.`,
+        )
+      }
+      return markdown
+    })
+
+    const report = buildImportReport(catalog, walk, bodies, model, source.filename, bytes, input.accept_gaps === true)
+    const problem = gateProblem(report)
+    if (problem && !report.accepted_gaps) throw new RepoError(2, problem)
+
+    ensureLibraryGitConfig(dataRoot)
+    if (replace) {
+      rmSync(path.join(dataRoot, 'manuals', catalog.id, 'sections'), { recursive: true, force: true })
+    }
+    const figureFiles = new Set<string>()
+    for (const leaf of walk.leaves) {
+      for (const fig of leaf.figures) {
+        const written = writeFigure(dataRoot, catalog.id, fig.bytes, fig.ext)
+        if (!written.existed) figureFiles.add(`manuals/${catalog.id}/${written.src}`)
+      }
+    }
+    const written = writeCatalog(catalog, dataRoot, {
+      bodyFor: (_leaf, index) => bodies[index],
+      source: { path: source.path, filename: source.filename },
+    })
+    written.files.push(...figureFiles)
+    const reportRel = `control/ingest/${catalog.id}.yaml`
+    mkdirSync(path.join(dataRoot, 'control', 'ingest'), { recursive: true })
+    writeFileSync(path.join(dataRoot, reportRel), stringifyYaml(report, { lineWidth: 120 }))
+    written.files.push(reportRel)
+
+    let snapshot
+    try {
+      snapshot = snapshotLibrary(dataRoot, `Ingest ${catalog.id} (source text)`)
+    } catch (error) {
+      if (error instanceof GitAdapterError) throw new RepoError(error.status, error.message)
+      throw error
+    }
+    return {
+      id: catalog.id,
+      title: catalog.title,
+      abbrev: catalog.abbrev,
+      catalog: null,
+      matched_gold: false,
+      bodies: 'source',
+      root: dataRoot,
+      sections: written.sections,
+      files: written.files,
+      classification,
+      snapshot: {
+        source_commit: snapshot.source_commit,
+        skipped: snapshot.git_skipped,
+        pushed: snapshot.pushed,
+      },
+      report,
+    }
+  } finally {
+    if (source.cleanup) rmSync(source.cleanup, { recursive: true, force: true })
+  }
+}
+
+function applyWalkToCatalog(
+  catalog: IngestCatalog,
+  classification: IngestClassification,
+  walk: Awaited<ReturnType<typeof walkDocx>>,
+  filename: string,
+): void {
+  if (classification.revision.number === null && walk.revision.number !== null) {
+    const number = walk.revision.number
+    catalog.current_issued = `${catalog.abbrev}-R${number}`
+    catalog.next_revision = number + 1
+    catalog.revision = { number, date: walk.revision.date ?? catalog.effective, label: `Revision ${number}` }
+  }
+  if (classification.revision.date === null && walk.revision.date) {
+    catalog.effective = walk.revision.date
+    catalog.revision.date = walk.revision.date
+  }
+  if (walk.regions.length) catalog.pagination = { ...catalog.pagination, regions: walk.regions }
+  catalog.source = { supplier: 'ingest', template: catalog.house_style, note: `Structure and text from ${filename}.` }
+  const prefix = idPrefix(catalog.id)
+  const seen = new Set<string>()
+  catalog.leaves = walk.leaves.map((leaf) => {
+    const draft: CatalogLeaf = { kind: leaf.kind, number: leaf.number, title: leaf.title, start: leaf.start, headings: [] }
+    const base = leafId(prefix, draft)
+    let id = base
+    for (let n = 2; seen.has(id); n += 1) id = `${base}-${n}`
+    seen.add(id)
+    return { ...draft, id }
+  })
+}
+
+function buildImportReport(
+  catalog: IngestCatalog,
+  walk: Awaited<ReturnType<typeof walkDocx>>,
+  bodies: string[],
+  model: { raw: string; ignored: string[] },
+  filename: string,
+  bytes: Buffer,
+  acceptGaps: boolean,
+): ImportReport {
+  const prefix = idPrefix(catalog.id)
+  const leaves: ImportReport['leaves'] = []
+  const managed: ImportReport['managed'] = []
+  const bulletins: ImportReport['bulletins'] = []
+  let output: Bag = new Map()
+  let excluded: Bag = new Map()
+  const byLeaf: Record<string, number> = {}
+  let flattened = 0
+  const placeholders: ImportReport['figures']['placeholders'] = []
+  const figureNames = new Set<string>()
+
+  walk.leaves.forEach((leaf, index) => {
+    const catalogLeaf = catalog.leaves[index]
+    const id = leafId(prefix, catalogLeaf)
+    const title = leafTitle(catalogLeaf)
+    if (leaf.managed) {
+      excluded = addBags(excluded, bag(leaf.source.flatMap(tokens)))
+      managed.push({
+        id,
+        title,
+        managed: leaf.managed,
+        note: 'managed, regenerated',
+        source_words: bagSize(bag(leaf.source.flatMap(tokens))),
+        figures: leaf.managed_figures,
+      })
+      return
+    }
+    excluded = addBags(excluded, bag(leaf.converted.flatMap(tokens)))
+    const cov = coverageFor({
+      id,
+      title,
+      kind: leaf.kind,
+      managed: null,
+      bulletin: leaf.bulletin,
+      source: leaf.source,
+      converted: leaf.converted,
+      markdown: bodies[index],
+    })
+    output = addBags(output, cov.output)
+    leaves.push(leaf.bulletin ? { ...cov.report, note: 'bulletin, kept as front matter' } : cov.report)
+    if (leaf.bulletin) bulletins.push({ id, title, note: 'bulletin, kept as front matter' })
+    if (leaf.flattened) byLeaf[id] = leaf.flattened
+    flattened += leaf.flattened
+    for (const p of leaf.placeholders) placeholders.push({ leaf: id, ...p })
+    for (const f of leaf.figures) figureNames.add(f.name)
+  })
+
+  for (const row of walk.dropped) {
+    const words = tokens(row.text)
+    for (let n = 0; n < row.count; n += 1) excluded = addBags(excluded, bag(words))
+  }
+  const source = minus(bag(tokens(model.raw)), excluded)
+  const total = bagSize(source)
+  const matched = overlap(source, output)
+  const report: ImportReport = {
+    manual: catalog.id,
+    source: { filename, sha256: createHash('sha256').update(bytes).digest('hex') },
+    gate: { ...GATE },
+    passed: true,
+    accepted_gaps: false,
+    coverage: { overall: total ? round(matched / total) : 1, source_words: total, matched_words: matched },
+    leaves,
+    dropped_lines: walk.dropped,
+    repeated_lines: walk.repeated_lines,
+    managed,
+    bulletins,
+    flattened_cells: { count: flattened, by_leaf: byLeaf },
+    figures: { written: figureNames.size, placeholders },
+    converted: { typed_numbers: walk.stats.typed_numbers, callout_labels: walk.stats.callout_labels },
+    substituted: {
+      asterisks: walk.stats.asterisks,
+      table_pipes: walk.stats.table_pipes,
+      guarded_line_starts: walk.stats.guarded_line_starts,
+      marks_dropped: walk.stats.marks_dropped,
+    },
+    lep: { rows: walk.lep_rows.length, unmatched_rows: walk.lep_unmatched },
+    ignored_elements: model.ignored,
+  }
+  report.passed = gateProblem(report) === null
+  report.accepted_gaps = !report.passed && acceptGaps
+  return report
+}
+
+function addBags(a: Bag, b: Bag): Bag {
+  const out: Bag = new Map(a)
+  for (const [token, n] of b) out.set(token, (out.get(token) ?? 0) + n)
+  return out
 }
 
 function insideSampleLibrary(dataRoot: string): boolean {
@@ -510,7 +774,15 @@ export function scaffoldCatalog(id: string, dataRoot: string): ScaffoldResult {
   return writeCatalog(loadCatalog(id), dataRoot)
 }
 
-function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult {
+type WriteOptions = {
+  /** Leaf body; practice copies use `loremBody`. */
+  bodyFor?: (leaf: CatalogLeaf, index: number) => string
+  /** The book this came from, for an honest baseline. */
+  source?: { path: string; filename: string }
+}
+
+function writeCatalog(catalog: IngestCatalog, dataRoot: string, options: WriteOptions = {}): ScaffoldResult {
+  const bodyFor = options.bodyFor ?? loremBody
   const files: string[] = []
   const manualDir = path.join(dataRoot, 'manuals', catalog.id)
   const sectionDir = path.join(manualDir, 'sections')
@@ -530,7 +802,7 @@ function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult 
     const filename = leafFilename(index, leaf)
     const title = leafTitle(leaf)
     const managed = inferManagedKind(title)
-    const body = loremBody(leaf, index)
+    const body = bodyFor(leaf, index)
     const markdown = [
       '---',
       `id: ${leafId(prefix, leaf)}`,
@@ -550,7 +822,7 @@ function writeCatalog(catalog: IngestCatalog, dataRoot: string): ScaffoldResult 
   writeFileSync(path.join(manualDir, 'ledger.yaml'), stringifyYaml(ledgerOnDisk(ledger), { lineWidth: 100 }))
   files.push(`manuals/${catalog.id}/ledger.yaml`)
 
-  writeBaseline(dataRoot, catalog, files)
+  writeBaseline(dataRoot, catalog, files, options.source)
   return { id: catalog.id, root: dataRoot, sections: catalog.leaves.length, files }
 }
 
@@ -650,12 +922,16 @@ function extractSections(text: string): IngestSection[] {
   let blob = text.slice(tocAt)
   const body = blob.search(/\f[^\f]{0,200}Section\s+1:\s+(?!.*\.{3})/)
   if (body > 200) blob = blob.slice(0, body)
-  const lines = joinWrapped(blob.split(/\r?\n/).map((line) => line.replace(/[ \t]+/g, ' ').trim()))
+  const lines = joinWrapped(
+    blob
+      .split(/\r?\n/)
+      .flatMap((line) => splitTocRun(line.replace(/[^\S\t]+/g, ' ').replace(/ ?\t[\t ]*/g, '\t').trim())),
+  )
   const sections: IngestSection[] = []
   const seen = new Set<string>()
   for (const line of lines) {
     const front = line.match(
-      /^(Record of Revision|List of Effective Pages|Table of Contents|Source of Training Document|Contract Training Partner.{0,80}?)\s*\.{2,}\s*([ivx]+)\s*$/i,
+      /^(Record of Revision|List of Effective Pages|Table of Contents|Source of Training Document|Contract Training Partner.{0,80}?)\s*(?:\.{2,}|\t+)\s*([ivx]+)\s*$/i,
     )
     if (front) {
       const title = front[1].replace(/\.{2,}.*$/, '').trim()
@@ -665,7 +941,7 @@ function extractSections(text: string): IngestSection[] {
       sections.push({ kind: 'front', number: null, title, start: front[2].toLowerCase() })
       continue
     }
-    const section = line.match(/^Section\s+(\d+):\s+(.+?)\s*\.{2,}\s*(\d+-\d+)\s*$/i)
+    const section = line.match(/^Section\s+(\d+):\s+(.+?)\s*(?:\.{2,}|\t+)\s*(\d+-\d+)\s*$/i)
     if (section) {
       const key = `section:${section[1]}`
       if (seen.has(key)) continue
@@ -678,7 +954,18 @@ function extractSections(text: string): IngestSection[] {
       })
       continue
     }
-    const appendix = line.match(/^Appendix\s+([A-Z]):\s+(.+?)\s*\.{2,}\s*([A-Z]-\d+)\s*$/i)
+    const lettered = line.match(
+      /^(?:Section|SECTION)\s+([A-Z](?:\s+(?:THRU|thru|THROUGH|through)\s+[A-Z])?)(?![A-Za-z0-9]):?\s*(.*?)\s*(?:\.{2,}|\t+)\s*([A-Z]{1,2}(?:-[A-Z])?-\d+)\s*$/,
+    )
+    if (lettered) {
+      const number = lettered[1].split(/\s+(?:THRU|THROUGH)\s+/i).join('-').toUpperCase()
+      const key = `section:${number}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      sections.push({ kind: 'section', number, title: lettered[2].replace(/^[:\s]+/, '').trim(), start: lettered[3] })
+      continue
+    }
+    const appendix = line.match(/^Appendix\s+([A-Z])(?![A-Za-z0-9]):?\s*(.*?)\s*(?:\.{2,}|\t+)\s*([A-Z]{1,2}-\d+)\s*$/i)
     if (appendix) {
       const key = `appendix:${appendix[1]}`
       if (seen.has(key)) continue
@@ -741,6 +1028,13 @@ function normalizeSlot(raw: string): string | null {
   }
   if (/^[A-Z]-\d{1,2}$/.test(raw)) return raw
   return null
+}
+
+/** "… A-10 Next entry …… A-11" printed on one line: one entry per line. */
+function splitTocRun(line: string): string[] {
+  return line
+    .replace(/((?:\.{2,}|\t+)\s*(?:[A-Z]{1,2}(?:-[A-Z])?-\d+|\d+-\d+|[ivxlc]+|[IVXLC]+))\s+(?=\S)/g, '$1\n')
+    .split('\n')
 }
 
 function joinWrapped(lines: string[]): string[] {
@@ -826,15 +1120,41 @@ function dumpManualYaml(catalog: IngestCatalog): string {
   )
 }
 
-// T2.2: the baseline is still the sample one (placeholder instrument, fake sha, placeholder PDF).
-// For a real book it must say "not on file" instead.
-function writeBaseline(dataRoot: string, catalog: IngestCatalog, files: string[]): void {
-  const instrumentsDir = path.join(dataRoot, 'control', 'instruments')
+/**
+ * Practice copies get the sample baseline (placeholder instrument and PDF).
+ * A real book keeps its source file and says the approving letter is not on file.
+ */
+function writeBaseline(
+  dataRoot: string,
+  catalog: IngestCatalog,
+  files: string[],
+  source?: { path: string; filename: string },
+): void {
   const issuesDir = path.join(dataRoot, 'control', 'issues')
   const artifactsDir = path.join(dataRoot, 'artifacts')
-  mkdirSync(instrumentsDir, { recursive: true })
   mkdirSync(issuesDir, { recursive: true })
   mkdirSync(artifactsDir, { recursive: true })
+  if (source) {
+    const artifactRel = `artifacts/${catalog.current_issued}-source${path.extname(source.filename).toLowerCase()}`
+    const bytes = readFileSync(source.path)
+    writeFileSync(path.join(dataRoot, artifactRel), bytes)
+    files.push(artifactRel)
+    writeIssue(dataRoot, catalog, files, {
+      instrument: {
+        type: 'not-on-file',
+        authority: catalog.authority,
+        file: null,
+        sha256: null,
+        dated: catalog.effective,
+        reference: `Brought in from ${source.filename}; the approving letter is not on file in Revdesk.`,
+      },
+      manual_artifact: { file: artifactRel, sha256: createHash('sha256').update(bytes).digest('hex') },
+      summary: `Baseline brought in from ${source.filename}.`,
+    })
+    return
+  }
+  const instrumentsDir = path.join(dataRoot, 'control', 'instruments')
+  mkdirSync(instrumentsDir, { recursive: true })
 
   const instrumentRel = `control/instruments/${catalog.current_issued}-baseline.txt`
   const artifactRel = `artifacts/${catalog.current_issued}.pdf`
@@ -850,6 +1170,26 @@ function writeBaseline(dataRoot: string, catalog: IngestCatalog, files: string[]
   else if (!existsSync(artifactAbs)) writeFileSync(artifactAbs, '')
   files.push(artifactRel)
 
+  writeIssue(dataRoot, catalog, files, {
+    instrument: {
+      type: catalog.control_class === 'faa-approved' ? 'approval-letter' : 'acceptance-letter',
+      authority: catalog.authority,
+      file: instrumentRel,
+      sha256: INSTRUMENT_SHA,
+      dated: catalog.effective,
+      reference: `Sample baseline for ${catalog.abbrev}`,
+    },
+    manual_artifact: { file: artifactRel, sha256: PLACEHOLDER_SHA },
+    summary: `Baseline launched revision for the sample ${catalog.abbrev}.`,
+  })
+}
+
+function writeIssue(
+  dataRoot: string,
+  catalog: IngestCatalog,
+  files: string[],
+  record: { instrument: Record<string, unknown>; manual_artifact: Record<string, unknown>; summary: string },
+): void {
   const prefix = idPrefix(catalog.id)
   const issue = {
     id: catalog.current_issued,
@@ -861,28 +1201,24 @@ function writeBaseline(dataRoot: string, catalog: IngestCatalog, files: string[]
     supersedes: null,
     change: 'CHG-BASELINE',
     effective: catalog.effective,
-    instrument: {
-      type: catalog.control_class === 'faa-approved' ? 'approval-letter' : 'acceptance-letter',
-      authority: catalog.authority,
-      file: instrumentRel,
-      sha256: INSTRUMENT_SHA,
-      dated: catalog.effective,
-      reference: `Sample baseline for ${catalog.abbrev}`,
-    },
-    manual_artifact: { file: artifactRel, sha256: PLACEHOLDER_SHA },
+    instrument: record.instrument,
+    manual_artifact: record.manual_artifact,
     git_tag: `issued/${catalog.abbrev}/${catalog.revision.number}`,
     source_commit: null,
     git_skipped: true,
     incorporated_trs: [],
     launched_at: `${catalog.effective}T00:00:00.000Z`,
-    summary: `Baseline launched revision for the sample ${catalog.abbrev}.`,
+    summary: record.summary,
     sections: catalog.leaves.map((leaf) => ({
       id: leafId(prefix, leaf),
       title: leafTitle(leaf),
       rev_last_changed: `R${catalog.revision.number}`,
     })),
   }
-  writeFileSync(path.join(issuesDir, `${catalog.current_issued}.yaml`), stringifyYaml(issue, { lineWidth: 100 }))
+  writeFileSync(
+    path.join(dataRoot, 'control', 'issues', `${catalog.current_issued}.yaml`),
+    stringifyYaml(issue, { lineWidth: 100 }),
+  )
   files.push(`control/issues/${catalog.current_issued}.yaml`)
 }
 
@@ -944,8 +1280,8 @@ function lorem(n: number): string {
 }
 
 function leafTitle(leaf: CatalogLeaf): string {
-  if (leaf.kind === 'section') return `Section ${leaf.number} — ${leaf.title}`
-  if (leaf.kind === 'appendix') return `Appendix ${leaf.number} — ${leaf.title}`
+  if (leaf.kind === 'section') return leaf.title ? `Section ${leaf.number} — ${leaf.title}` : `Section ${leaf.number}`
+  if (leaf.kind === 'appendix') return leaf.title ? `Appendix ${leaf.number} — ${leaf.title}` : `Appendix ${leaf.number}`
   return leaf.title
 }
 
@@ -956,7 +1292,8 @@ function headingLabel(leaf: CatalogLeaf, title: string): string {
 }
 
 function leafId(prefix: string, leaf: CatalogLeaf): string {
-  if (leaf.kind === 'section') return `${prefix}-${leaf.number}`
+  if (leaf.id) return leaf.id
+  if (leaf.kind === 'section') return `${prefix}-${slug(String(leaf.number))}`
   if (leaf.kind === 'appendix') return `${prefix}-${String(leaf.number).toLowerCase()}`
   const map: Record<string, string> = {
     'Record of Revision': 'ror',
@@ -966,14 +1303,19 @@ function leafId(prefix: string, leaf: CatalogLeaf): string {
     'Source of Training Document': 'source',
     'Contract Training Partner – Training Center Information': 'ctp',
   }
-  return `${prefix}-${map[leaf.title] ?? slug(leaf.title).slice(0, 24)}`
+  return `${prefix}-${map[leaf.title] ?? inferManagedKind(leaf.title) ?? (slug(leaf.title).slice(0, 24).replace(/-+$/, '') || 'leaf')}`
 }
 
 function leafFilename(index: number, leaf: CatalogLeaf): string {
   const n = String(index * 10).padStart(3, '0')
-  if (leaf.kind === 'section') return `${n}-section-${String(leaf.number).padStart(2, '0')}-${slug(leaf.title)}.md`
-  if (leaf.kind === 'appendix') return `${n}-appendix-${String(leaf.number).toLowerCase()}-${slug(leaf.title)}.md`
-  return `${n}-${slug(leaf.title)}.md`
+  if (leaf.kind === 'section') {
+    const number = /^\d+$/.test(String(leaf.number)) ? String(leaf.number).padStart(2, '0') : slug(String(leaf.number))
+    return `${n}-section-${number}${leaf.title ? `-${slug(leaf.title)}` : ''}.md`
+  }
+  if (leaf.kind === 'appendix') {
+    return `${n}-appendix-${String(leaf.number).toLowerCase()}${leaf.title ? `-${slug(leaf.title)}` : ''}.md`
+  }
+  return `${n}-${slug(leaf.title) || 'leaf'}.md`
 }
 
 function idPrefix(manualId: string): string {
@@ -1060,7 +1402,9 @@ function materializeSource(input: IngestApplyInput): { path: string; filename: s
   if (!filename) throw new RepoError(2, 'filename is required.')
   if (!input.bytes?.length) throw new RepoError(2, 'content is required.')
   const ext = path.extname(filename).toLowerCase()
-  if (ext !== '.pdf' && ext !== '.txt') throw new RepoError(2, 'Ingest accepts a PDF or a text file.')
+  if (ext !== '.pdf' && ext !== '.txt' && ext !== '.docx') {
+    throw new RepoError(2, 'Ingest accepts a Word file (.docx), a PDF, or a text file.')
+  }
   const dir = mkdtempSync(path.join(tmpdir(), 'revdesk-ingest-'))
   const dest = path.join(dir, filename.replace(/[^a-zA-Z0-9._-]+/g, '_'))
   writeFileSync(dest, input.bytes)

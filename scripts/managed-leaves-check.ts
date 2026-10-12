@@ -182,7 +182,7 @@ try {
   const lep = repo.issuedSection('gom-lep', 'gomlep-lep')
   check('hydrated lep lists 1-1', lep.markdown.includes('| 1-1 |'))
 
-  const viaFile = applyIngest(
+  const viaFile = await applyIngest(
     {
       file: path.join(root, 'fixtures', 'ingest', 'samples', 'nimbl-lep.txt'),
       bodies: 'practice',

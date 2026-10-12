@@ -113,10 +113,10 @@ revdesk tr show <GOM-Rn-TRk>
 revdesk git status
 
 revdesk ingest catalogs
-revdesk ingest classify <pdf|txt> [--json]
+revdesk ingest classify <docx|pdf|txt> [--json]
 revdesk ingest scaffold --catalog gom-lep|tp [--out dir]
-revdesk ingest <pdf|txt> [--practice] [--replace] [--out dir]
-revdesk ingest apply <pdf|txt> [--practice] [--replace]
+revdesk ingest <docx|pdf|txt> [--practice] [--replace] [--accept-gaps] [--out dir]
+revdesk ingest apply <docx|pdf|txt> [--practice] [--replace] [--accept-gaps]
 revdesk config [show]
 revdesk config set remote <url|"">
 ```
@@ -130,7 +130,9 @@ git notes --ref=revdesk/review show change/CHG-2026-003
 git show change/CHG-2026-003
 ```
 
-`ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`. `ingest <file>` (same as `ingest apply`) classifies a PDF or text export and keeps the section map. Source text is the default and is not built yet (T2.2), so for now it stops with exit 5; it also refuses the sample library under `data/` (exit 4). `--practice` is practice mode: the gold catalog is used when it matches `gom-lep` / `tp`, and bodies are placeholder text. A manual that already exists is refused (exit 4) unless `--replace`, and `--replace` is refused when the manual has changes, temporary revisions, or launches. The desk dialog uploads `filename` + bytes; it refuses a server path.
+`ingest classify` inspects control surface (LEP / LES / rev-only) and Nimbl Word house style. It does not copy PDF prose. `ingest scaffold` writes lorem sample books from `fixtures/ingest/catalogs/`. `ingest <file>` (same as `ingest apply`) classifies the book and keeps the section map. Source text is the default and comes from a Word file (`.docx`): headings, steps, bullets, NOTE/CAUTION/WARNING callouts, tables, and figures become leaves, and ROR, LEP, LES, and TOC are written as managed leaves with empty bodies. A PDF or text export with source text stops with exit 5: export the PDF to Word first (Acrobat: Export PDF → Word, "Retain Flowing Text"). Source text refuses the sample library under `data/` (exit 4).
+
+Every Word import writes a completeness report to `control/ingest/<manual-id>.yaml` and prints a summary (overall %, worst five leaves, counts; `--json` prints it all). The gate is 98% of the source words overall and 95% per leaf; below it the import stops with exit 2, names the worst leaves, and writes nothing. `--accept-gaps` brings it in anyway and the report keeps the gaps. Running headers and page labels that landed in the body are dropped and listed with counts. The baseline keeps the source file under `artifacts/` with its sha256 and records the approving letter as not on file. `--practice` is practice mode: the gold catalog is used when it matches `gom-lep` / `tp`, and bodies are placeholder text. A manual that already exists is refused (exit 4) unless `--replace`, and `--replace` is refused when the manual has changes, temporary revisions, or launches. The desk dialog uploads `filename` + bytes; it refuses a server path.
 
 `config.yaml` is the human desk config (later the Config screen). Empty `remote` is solo `data/`. Set `remote` to the manuals-library URL (dummy: `https://github.com/fearjet44/test-manual-repo.git`). Operator file: `~/.config/revdesk/config.yaml`. In-tree default: `data/.revdesk/config.yaml`.
 
@@ -356,6 +358,7 @@ npm run test:slice2    # fixtures/tiny-gom copy; launch + TR YAML
 npm run test:slice3    # throwaway git repo in $TMPDIR; does not tag this checkout
 npm run test:slice6    # ingest classify + lorem Nimbl sample books
 npm run test:slice7    # dummy remote bind + ingest from file
+npm run test:ingest-docx   # .docx import: practice fixture, model rules, completeness gate
 npm run test:desk      # desk deploy drop-in / worktree (no systemd)
 ```
 
