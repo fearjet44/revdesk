@@ -72,7 +72,8 @@ A task starts when everything in its **Needs** column is merged. Tasks whose nee
 | T3.3 | Bullet lists: `- ` items in the schema, nesting with steps; editor button; paper styling. The schema has none today, so Word bullets would collapse | T3 | S–M | W0 | [`T3.3-BULLET-LISTS.md`](../handoffs/T3.3-BULLET-LISTS.md) |
 | T3.1 | Figure node: markdown ↔ node, read-only render in the editor and Issued, print as data URI, `server/figures.ts`, figure GET/POST | T3 | M | T3.3 (same file; T3 runs serially) | [`T3.1-FIGURE-SCHEMA.md`](../handoffs/T3.1-FIGURE-SCHEMA.md) |
 | T2.2 ★ | **.docx import**, including Acrobat exports: leaves, headings, steps, callouts, tables, figures; completeness report gate; honest baseline | T2 | L | T2.1, O1 (T3.3 before its list step, T3.1 before its figure step) | [`T2.2-DOCX-IMPORT.md`](../handoffs/T2.2-DOCX-IMPORT.md) |
-| D1 | **Operator dogfood:** import one real GOM into a **private** library, check the report, and work a real correction through launch | operator | — | T2.2 | — |
+| T4.3 ★ | **LEP into the page ledger:** copy the book's LEP rows (slot as printed, revision per row) into `ledger.yaml`; multi-part prefixes (`E-I`, `AC`); cover letters; unpaginated leaves; held rows and unknown starts reported | T4 | M | T2.2 | [`T4.3-LEP-INTO-LEDGER.md`](../handoffs/T4.3-LEP-INTO-LEDGER.md) |
+| D1 | **Operator dogfood:** import one real GOM into a **private** library, check the report, and work a real correction through launch | operator | — | T2.2, T4.3 | — |
 | D2 | Planner triages what broke into fix tasks with handoffs (these jump the queue) | planner | — | D1 | — |
 
 ### Alongside (only in slots the critical path doesn't need)
@@ -131,18 +132,19 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T3.3 | merged | #15 |
 | O1 | done — `fixtures/ingest/samples/foobar-gom-practice.docx` (sanitized, approved 2026-10-11); corpus has GOM ONE + Bulletin 1 and ERP Rev Five | #31 |
 | T3.1 | merged | #18 |
-| T2.2 | in progress — critical path | — |
+| T2.2 | merged | #34 |
 | T1.2 | merged | #17 |
 | T3.2 | merged | #21 |
 | T1.4 | merged | #20 |
 | T1.3 | in review | #22 |
-| T1.5 | in progress | — |
+| T1.5 | merged | #33 |
 | T3.4 | merged | #24 |
 | T3.6 | merged | #25 |
 | T3.5 | merged | #27 |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
 | T4.2 | merged (#28) | #30 |
+| T4.3 | in progress — critical path | — |
 
 ## Done (history)
 
