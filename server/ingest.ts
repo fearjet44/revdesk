@@ -446,16 +446,7 @@ export function catalogFromClassification(report: IngestClassification): IngestC
   }
 }
 
-/**
- * A practice copy is written synchronously (placeholder text needs no Word reader).
- * Source text is async: the .docx is read with mammoth.
- */
-export function applyIngest(input: IngestApplyInput & { bodies: 'practice' }, dataRoot: string): IngestApplyResult
-export function applyIngest(input: IngestApplyInput, dataRoot: string): Promise<IngestApplyResult>
-export function applyIngest(
-  input: IngestApplyInput,
-  dataRoot: string,
-): IngestApplyResult | Promise<IngestApplyResult> {
+export async function applyIngest(input: IngestApplyInput, dataRoot: string): Promise<IngestApplyResult> {
   if (input.bodies === 'practice') return applyPractice(input, dataRoot)
   return applySource(input, dataRoot)
 }

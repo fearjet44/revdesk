@@ -48,12 +48,12 @@ try {
   const classified = await classifySource(fixture)
   check('gold match nimbl-lep', matchGoldCatalog(classified) === 'gom-lep')
 
-  const viaFile = applyIngest({ file: fixture, bodies: 'practice' }, dir)
+  const viaFile = await applyIngest({ file: fixture, bodies: 'practice' }, dir)
   check('file ingest gold', viaFile.matched_gold && viaFile.id === 'gom-lep')
   check('file ingest sections', viaFile.sections > 10)
 
   check('practice result says practice', viaFile.bodies === 'practice')
-  const viaBytes = applyIngest({ filename: 'nimbl-lep.txt', bytes, bodies: 'practice', replace: true }, dir)
+  const viaBytes = await applyIngest({ filename: 'nimbl-lep.txt', bytes, bodies: 'practice', replace: true }, dir)
   check('bytes ingest gold', viaBytes.matched_gold && viaBytes.id === 'gom-lep')
   const sectionFile = viaBytes.files.find((file) => file.includes('section-01'))
   check('wrote section-01', Boolean(sectionFile))
@@ -67,7 +67,7 @@ try {
   const stale = path.join(gold, 'sections', 'stale-leaf.md')
   const goldSections = readdirSync(path.join(gold, 'sections')).length
   writeFileSync(stale, 'stale\n')
-  applyIngest({ file: fixture, bodies: 'practice', replace: true }, dir)
+  await applyIngest({ file: fixture, bodies: 'practice', replace: true }, dir)
   check('replace drops stale leaves', !existsSync(stale))
   check('replace rewrites the same leaves', readdirSync(path.join(gold, 'sections')).length === goldSections)
 
@@ -95,7 +95,7 @@ try {
   const history = async (name: string, files: Record<string, string>) => {
     const lib = mkdtempSync(path.join(tmpdir(), `revdesk-slice7-${name}-`))
     try {
-      applyIngest({ file: fixture, bodies: 'practice' }, lib)
+      await applyIngest({ file: fixture, bodies: 'practice' }, lib)
       for (const [rel, text] of Object.entries(files)) {
         mkdirSync(path.dirname(path.join(lib, rel)), { recursive: true })
         writeFileSync(path.join(lib, rel), text)
@@ -116,10 +116,10 @@ try {
   await history('launch', { 'control/issues/GOML-R12.yaml': 'id: GOML-R12\nmanual: gom-lep\nchange: CHG-2026-901\n' })
   const otherLib = mkdtempSync(path.join(tmpdir(), 'revdesk-slice7-other-'))
   try {
-    applyIngest({ file: fixture, bodies: 'practice' }, otherLib)
+    await applyIngest({ file: fixture, bodies: 'practice' }, otherLib)
     mkdirSync(path.join(otherLib, 'control', 'changes'), { recursive: true })
     writeFileSync(path.join(otherLib, 'control', 'changes', 'CHG-2026-902.yaml'), 'id: CHG-2026-902\nmanual: tp\n')
-    applyIngest({ file: fixture, bodies: 'practice', replace: true }, otherLib)
+    await applyIngest({ file: fixture, bodies: 'practice', replace: true }, otherLib)
     check('another manual\'s history does not block replace', true)
   } finally {
     rmSync(otherLib, { recursive: true, force: true })
