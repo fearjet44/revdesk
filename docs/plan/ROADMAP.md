@@ -129,9 +129,9 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T1.1 | merged | #13 |
 | T2.1 | merged | #14 |
 | T3.3 | merged | #15 |
-| O1 | done — `fixtures/ingest/samples/foobar-gom-practice.docx` (sanitized, approved 2026-10-11); corpus has GOM ONE + Bulletin 1 and ERP Rev Five | this PR |
+| O1 | done — `fixtures/ingest/samples/foobar-gom-practice.docx` (sanitized, approved 2026-10-11); corpus has GOM ONE + Bulletin 1 and ERP Rev Five | #31 |
 | T3.1 | merged | #18 |
-| T2.2 | ready — critical path | — |
+| T2.2 | in progress — critical path | — |
 | T1.2 | merged | #17 |
 | T3.2 | merged | #21 |
 | T1.4 | merged | #20 |
@@ -142,7 +142,7 @@ The planner updates this table when a PR merges. Workers report status in their 
 | T3.5 | merged | #27 |
 | T2.4 | handoff not written; written once T2.2's report shape lands | — |
 | T4.1 | handoff not written; after D1 | — |
-| T4.2 | in review (#28) | #30 |
+| T4.2 | merged (#28) | #30 |
 
 ## Done (history)
 
