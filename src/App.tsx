@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api.ts'
 import { ChangeView } from './components/ChangeView.tsx'
@@ -26,16 +26,6 @@ export default function App() {
   )
 }
 
-function firstPrereqsVisit(): boolean {
-  try {
-    if (localStorage.getItem('revdesk.prereqsSeen')) return false
-    localStorage.setItem('revdesk.prereqsSeen', '1')
-    return true
-  } catch {
-    return false
-  }
-}
-
 function DeskApp() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -60,12 +50,19 @@ function DeskApp() {
     void refresh()
   }, [location.pathname])
 
-  const startPath = location.pathname
+  const pathRef = useRef(location.pathname)
   useEffect(() => {
-    api.doctor().then(setDoctor, () => setDoctor(null))
-    // A deep link wins over the first-run screen; the banner still shows if a tool is missing.
-    if (startPath === '/' && firstPrereqsVisit()) navigate('/prerequisites')
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
+    pathRef.current = location.pathname
+  }, [location.pathname])
+  useEffect(() => {
+    api.doctor().then(
+      (report) => {
+        setDoctor(report)
+        // Only a desk still at "/" is taken over; a deep link or a page the user already chose wins.
+        if (!report.ok && pathRef.current === '/') navigate('/prerequisites')
+      },
+      () => setDoctor(null),
+    )
   }, [navigate])
 
   const openChanges = (desk?.changes ?? []).filter(
