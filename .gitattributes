@@ -4,6 +4,7 @@
 *.jpg  binary
 *.gif  binary
 *.webp binary
+*.docx binary
 *.ico  binary
 *.icns binary
 *.eml  -text
