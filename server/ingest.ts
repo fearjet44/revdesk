@@ -705,6 +705,7 @@ function buildImportReport(
     coverage: { overall: total ? round(matched / total) : 1, source_words: total, matched_words: matched },
     leaves,
     dropped_lines: walk.dropped,
+    repeated_lines: walk.repeated_lines,
     managed,
     bulletins,
     flattened_cells: { count: flattened, by_leaf: byLeaf },

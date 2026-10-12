@@ -4,7 +4,7 @@ import { FIGURE_MAX_BYTES, figureName } from '../figures.ts'
 import { inferManagedKind } from '../managed.ts'
 import { RepoError } from '../repo.ts'
 import type { ManagedKind } from '../types.ts'
-import type { DroppedLine } from './report.ts'
+import type { DroppedLine, RepeatedLine } from './report.ts'
 
 /* ---------- The slice of mammoth's document model this importer reads ---------- */
 
@@ -217,6 +217,7 @@ export function isRoman(token: string): boolean {
 }
 
 const PAGE_LABEL = [/^\d+-\d+$/, /^[A-Z]{1,2}(-[A-Z])?-\d+$/, /^[ivxlc]+$/i, /^Page \d+( of \d+)?$/i]
+const BLANK_PAGE = /^[\p{P}\s]*intentionally\s+left\s+blank[\p{P}\s]*$/iu
 const REVISION_FOOTER = [/Revision \d+ \d{2}-[A-Za-z]{3}-\d{4}/i, /\bRevision:?\s+\S+.*\bPage:?\s*[A-Za-z0-9-]+$/i]
 
 const SECTION_LINE =
@@ -325,6 +326,7 @@ export type PendingFigure = { name: string; ext: string; bytes: Buffer }
 export type DocxWalk = {
   leaves: DocxLeaf[]
   dropped: DroppedLine[]
+  repeated_lines: RepeatedLine[]
   regions: Array<{ name: string; scheme: 'letter-cover' | 'roman-front' | 'section-page' | 'chapter-page'; slots?: string[] }>
   lep_rows: string[]
   lep_unmatched: string[]
@@ -343,7 +345,7 @@ export type WalkOptions = { sections?: DocxSectionRef[] }
 
 export async function walkDocx(root: DocxNode, options: WalkOptions = {}): Promise<DocxWalk> {
   const blocks = flatten(root.children ?? [], true)
-  markRunningLines(blocks)
+  const repeated = markRunningLines(blocks)
   const toc = findToc(blocks)
   const entries = toc?.entries ?? []
   const median = medianSize(blocks)
@@ -388,6 +390,7 @@ export async function walkDocx(root: DocxNode, options: WalkOptions = {}): Promi
   return {
     leaves,
     dropped,
+    repeated_lines: repeated,
     regions,
     lep_rows: lep.rows,
     lep_unmatched: lep.unmatched,
@@ -396,7 +399,11 @@ export async function walkDocx(root: DocxNode, options: WalkOptions = {}): Promi
   }
 }
 
-function markRunningLines(blocks: Block[]): void {
+/**
+ * Running heads sit in Word's header parts, which the reader skips. What lands in the body and is dropped:
+ * page labels, revision footers, and the blank-page marker. Short lines that repeat are kept and listed.
+ */
+function markRunningLines(blocks: Block[]): RepeatedLine[] {
   const counts = new Map<string, number>()
   const candidates = blocks.filter(
     (b): b is Para => b.kind === 'para' && b.top && !b.numbering && collapse(b.text).length > 0 && collapse(b.text).length <= 80,
@@ -409,8 +416,12 @@ function markRunningLines(blocks: Block[]): void {
     const key = collapse(para.text)
     if (PAGE_LABEL.some((re) => re.test(key))) para.dropped = 'page-label'
     else if (REVISION_FOOTER.some((re) => re.test(key))) para.dropped = 'revision-footer'
-    else if ((counts.get(key) ?? 0) >= 3) para.dropped = 'repeats'
+    else if (BLANK_PAGE.test(key)) para.dropped = 'blank-page'
   }
+  const kept = candidates.filter((para) => !para.dropped).map((para) => collapse(para.text))
+  return [...new Set(kept)]
+    .filter((text) => (counts.get(text) ?? 0) >= 3)
+    .map((text) => ({ text, count: counts.get(text) ?? 0 }))
 }
 
 function droppedLines(blocks: Block[]): DroppedLine[] {

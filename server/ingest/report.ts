@@ -111,7 +111,10 @@ export type LeafReport = {
   unmatched: string[]
 }
 
-export type DroppedLine = { text: string; count: number; reason: 'repeats' | 'page-label' | 'revision-footer' }
+export type DroppedLine = { text: string; count: number; reason: 'page-label' | 'revision-footer' | 'blank-page' }
+
+/** Short lines that repeat; kept in the leaves and listed so the author can clean them up. */
+export type RepeatedLine = { text: string; count: number }
 
 export type ImportReport = {
   manual: string
@@ -122,6 +125,7 @@ export type ImportReport = {
   coverage: { overall: number; source_words: number; matched_words: number }
   leaves: LeafReport[]
   dropped_lines: DroppedLine[]
+  repeated_lines: RepeatedLine[]
   managed: Array<{ id: string; title: string; managed: string; note: string; source_words: number; figures: number }>
   bulletins: Array<{ id: string; title: string; note: string }>
   flattened_cells: { count: number; by_leaf: Record<string, number> }
@@ -213,6 +217,7 @@ export function formatReportSummary(report: ImportReport): string {
     `coverage ${percent(report.coverage.overall)}  (${report.coverage.matched_words}/${report.coverage.source_words} words)${report.passed ? '' : '  BELOW GATE, gaps accepted'}`,
     `leaves ${report.leaves.length}  managed ${report.managed.length}  bulletins ${report.bulletins.length}`,
     `dropped running lines ${report.dropped_lines.length} (${report.dropped_lines.reduce((n, row) => n + row.count, 0)} times)`,
+    `repeated lines kept ${report.repeated_lines.length} (check for leftover running heads)`,
     `flattened table cells ${report.flattened_cells.count}`,
     `figures ${report.figures.written}  placeholders ${report.figures.placeholders.length}`,
   ]

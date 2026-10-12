@@ -30,7 +30,7 @@ if (!files.length) {
 
 const pct = (n: number) => `${(Math.floor(n * 1000) / 10).toFixed(1)}%`
 const rows: string[][] = [
-  ['book', 'leaves', 'managed', 'coverage', 'below gate', 'worst leaf', 'dropped lines (times)', 'flattened cells', 'figures', 'placeholders', 'gate'],
+  ['book', 'leaves', 'managed', 'coverage', 'below gate', 'worst leaf', 'dropped lines (times)', 'repeated kept', 'flattened cells', 'figures', 'placeholders', 'gate'],
 ]
 let n = 0
 for (const file of files) {
@@ -52,6 +52,7 @@ for (const file of files) {
       String(below),
       pct(worst),
       `${report.dropped_lines.length} (${report.dropped_lines.reduce((sum, row) => sum + row.count, 0)})`,
+      String(report.repeated_lines.length),
       String(report.flattened_cells.count),
       String(report.figures.written),
       String(report.figures.placeholders.length),
@@ -60,7 +61,7 @@ for (const file of files) {
   } catch (error) {
     // Messages can name leaves, which come from titles: print the exit code only.
     const code = error instanceof RepoError ? error.status : 5
-    rows.push([tag, '—', '—', '—', '—', '—', '—', '—', '—', '—', `error exit ${code}`])
+    rows.push([tag, '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', `error exit ${code}`])
   } finally {
     rmSync(lib, { recursive: true, force: true })
   }

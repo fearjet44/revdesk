@@ -175,7 +175,9 @@ try {
 
   check('coverage meets the gate', report.passed && report.coverage.overall >= 0.98, String(report.coverage.overall))
   check('every leaf meets the gate', report.leaves.every((leaf) => leaf.coverage === null || leaf.coverage >= 0.95))
-  check('running lines dropped and listed', report.dropped_lines.some((d) => d.text === 'Intentionally Left Blank'))
+  check('blank-page marker dropped and listed', report.dropped_lines.some((d) => d.text === 'Intentionally Left Blank' && d.reason === 'blank-page'))
+  check('no other kind of line dropped', report.dropped_lines.every((d) => ['blank-page', 'page-label', 'revision-footer'].includes(d.reason)))
+  check('repeated lines listed, not dropped', Array.isArray(report.repeated_lines))
 
   const running = /^(Intentionally Left Blank|\d+-\d+|[A-Z]{1,2}(-[A-Z])?-\d+|[ivxlc]+|Page \d+( of \d+)?)$/i
   // Block paragraphs only: table cells legitimately hold page numbers (the bulletin's corrections table).
@@ -357,20 +359,40 @@ const blockTypes = (doc: JSONContent) => (doc.content ?? []).map((n) => (n.type 
 }
 {
   const head = 'FOO BAR AIR GENERAL OPERATIONS MANUAL'
-  const long = 'A long line that repeats verbatim three times but is longer than eighty characters, so it is never dropped.'
+  const sentence = 'Check the aircraft log before each flight.'
+  const lead = 'The PIC shall:'
+  const long = 'A long line that repeats verbatim three times but is longer than eighty characters, so it is never listed.'
   const { walk, leaf } = await walkOne(
-    P(head), P('Para one.'), P('A-12'), P(long),
-    P(head), P('Para two.'), P('iv'), P(long),
-    P(head), P('Para three.'), P('Revision 3 01-Jan-2026'), P(long),
-    T([[cell([P(head)]), cell([P('kept in a table')])], [cell([P('x')]), cell([P('y')])]]),
+    P(head), P(sentence), P(lead), P('A-12'), P(long), P('— Intentionally left blank —'),
+    P(head), P(sentence), P(lead), P('iv'), P(long), P('INTENTIONALLY LEFT BLANK'),
+    P(head), P(sentence), P(lead), P('Revision 3 01-Jan-2026'), P(long),
+    T([[cell([P('A-12')]), cell([P('kept in a table')])], [cell([P('x')]), cell([P('y')])]]),
   )
+  const blocks = (leaf.doc.content ?? []).filter((p) => p.type === 'paragraph').map((p) => text(p))
   const all = nodes(leaf.doc, 'text').map((n) => n.text).join(' ')
-  check('model: repeated short line dropped', !(leaf.doc.content ?? []).some((p) => p.type === 'paragraph' && text(p) === head))
-  check('model: page labels and revision footers dropped', !/\bA-12\b|\biv\b|Revision 3/.test(all))
-  check('model: long repeated line kept', nodes(leaf.doc, 'paragraph').filter((p) => text(p) === long).length === 3)
-  check('model: line inside a table kept', all.includes(head))
-  const dropped = walk.dropped.find((d) => d.text === head)
-  check('model: dropped lines reported with counts', dropped?.count === 3 && walk.dropped.length === 4)
+  check('model: a repeated short line is kept', blocks.filter((t) => t === head).length === 3)
+  check('model: a repeated sentence is kept', blocks.filter((t) => t === sentence).length === 3)
+  check('model: a repeated line ending in ":" is kept', blocks.filter((t) => t === lead).length === 3)
+  check('model: a long repeated line is kept', blocks.filter((t) => t === long).length === 3)
+  check('model: page labels and revision footers dropped', !blocks.some((t) => /^(A-12|iv)$|Revision 3/.test(t)))
+  check('model: blank-page marker dropped', !/intentionally left blank/i.test(all))
+  check('model: page label inside a table kept', all.includes('A-12'))
+  const reasons = Object.fromEntries(walk.dropped.map((d) => [d.text, `${d.reason}:${d.count}`]))
+  check(
+    'model: dropped lines reported with reason and count',
+    reasons['— Intentionally left blank —'] === 'blank-page:1' &&
+      reasons['INTENTIONALLY LEFT BLANK'] === 'blank-page:1' &&
+      reasons['A-12'] === 'page-label:1' &&
+      reasons['Revision 3 01-Jan-2026'] === 'revision-footer:1' &&
+      walk.dropped.length === 5,
+    JSON.stringify(reasons),
+  )
+  const repeated = Object.fromEntries(walk.repeated_lines.map((r) => [r.text, r.count]))
+  check(
+    'model: short repeated lines listed, not dropped',
+    repeated[head] === 3 && repeated[sentence] === 3 && repeated[lead] === 3 && !(long in repeated),
+    JSON.stringify(repeated),
+  )
 }
 {
   const { leaf } = await walkOne(P('1. Looks like a step but is one paragraph'), P('Stars * and *more* stay text'), P('a | b'))
