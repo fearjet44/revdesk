@@ -25,10 +25,10 @@ function listing(root: string): string[] {
     .sort()
 }
 
-function refuses(label: string, run: () => unknown, status: number, text: string, root: string) {
+async function refuses(label: string, run: () => unknown, status: number, text: string, root: string) {
   const before = listing(root)
   try {
-    run()
+    await run()
     check(label, false, 'did not throw')
   } catch (error) {
     check(
@@ -45,7 +45,7 @@ const fixture = path.join(ROOT, 'fixtures', 'ingest', 'samples', 'nimbl-lep.txt'
 const bytes = readFileSync(fixture)
 
 try {
-  const classified = classifySource(fixture)
+  const classified = await classifySource(fixture)
   check('gold match nimbl-lep', matchGoldCatalog(classified) === 'gom-lep')
 
   const viaFile = applyIngest({ file: fixture, bodies: 'practice' }, dir)
@@ -73,8 +73,8 @@ try {
 
   // Guard 1: the in-repo sample library takes no source text.
   const sample = path.join(ROOT, 'data')
-  refuses('sample library guard', () => applyIngest({ file: fixture }, sample), 4, 'practice library that ships with Revdesk', sample)
-  refuses(
+  await refuses('sample library guard', () => applyIngest({ file: fixture }, sample), 4, 'practice library that ships with Revdesk', sample)
+  await refuses(
     'sample library guard (inside data/)',
     () => applyIngest({ file: fixture, bodies: 'source' }, path.join(sample, 'manuals')),
     4,
@@ -83,7 +83,7 @@ try {
   )
 
   // Guard 2: no silent overwrite.
-  refuses(
+  await refuses(
     'overwrite guard (practice)',
     () => applyIngest({ file: fixture, bodies: 'practice' }, dir),
     4,
@@ -92,7 +92,7 @@ try {
   )
 
   // Guard 3: history blocks replace.
-  const history = (name: string, files: Record<string, string>) => {
+  const history = async (name: string, files: Record<string, string>) => {
     const lib = mkdtempSync(path.join(tmpdir(), `revdesk-slice7-${name}-`))
     try {
       applyIngest({ file: fixture, bodies: 'practice' }, lib)
@@ -100,7 +100,7 @@ try {
         mkdirSync(path.dirname(path.join(lib, rel)), { recursive: true })
         writeFileSync(path.join(lib, rel), text)
       }
-      refuses(
+      await refuses(
         `history guard (${name})`,
         () => applyIngest({ file: fixture, bodies: 'practice', replace: true }, lib),
         4,
@@ -111,9 +111,9 @@ try {
       rmSync(lib, { recursive: true, force: true })
     }
   }
-  history('change', { 'control/changes/CHG-2026-900.yaml': 'id: CHG-2026-900\nmanual: gom-lep\n' })
-  history('tr', { 'control/trs/GOML-R11-TR1.yaml': 'id: GOML-R11-TR1\nmanual: gom-lep\n' })
-  history('launch', { 'control/issues/GOML-R12.yaml': 'id: GOML-R12\nmanual: gom-lep\nchange: CHG-2026-901\n' })
+  await history('change', { 'control/changes/CHG-2026-900.yaml': 'id: CHG-2026-900\nmanual: gom-lep\n' })
+  await history('tr', { 'control/trs/GOML-R11-TR1.yaml': 'id: GOML-R11-TR1\nmanual: gom-lep\n' })
+  await history('launch', { 'control/issues/GOML-R12.yaml': 'id: GOML-R12\nmanual: gom-lep\nchange: CHG-2026-901\n' })
   const otherLib = mkdtempSync(path.join(tmpdir(), 'revdesk-slice7-other-'))
   try {
     applyIngest({ file: fixture, bodies: 'practice' }, otherLib)
@@ -125,22 +125,29 @@ try {
     rmSync(otherLib, { recursive: true, force: true })
   }
 
-  // Guard 4 + gold: source text never takes the sanitized map; until T2.2 it stops here.
+  // Guard 4 + gold: source text never takes the sanitized map; a text or PDF export stops here (.docx only).
   const fresh = mkdtempSync(path.join(tmpdir(), 'revdesk-slice7-source-'))
   try {
     check('source classify still matches gold (guard is in apply)', matchGoldCatalog(classified) === 'gom-lep')
-    refuses(
-      'source text not built yet',
+    await refuses(
+      'source text from a text export is refused',
       () => applyIngest({ file: fixture }, fresh),
       5,
-      'Bringing in the source text is not built yet',
+      'Bring in a PDF by exporting it to Word first (Acrobat: Export PDF → Word). Native PDF import is not built yet.',
       fresh,
     )
-    refuses(
-      'source text not built yet (bytes)',
+    await refuses(
+      'source text from a text export is refused (bytes)',
       () => applyIngest({ filename: 'nimbl-lep.txt', bytes, bodies: 'source' }, fresh),
       5,
-      'not built yet',
+      'Native PDF import is not built yet',
+      fresh,
+    )
+    await refuses(
+      'practice copy of a Word file is refused',
+      () => applyIngest({ filename: 'book.docx', bytes: Buffer.from('x'), bodies: 'practice' }, fresh),
+      2,
+      'A practice copy takes a PDF or a text export',
       fresh,
     )
   } finally {
@@ -148,7 +155,7 @@ try {
   }
 
   try {
-    applyIngest({ filename: 'book.doc', bytes: Buffer.from('x') }, dir)
+    await applyIngest({ filename: 'book.doc', bytes: Buffer.from('x') }, dir)
     check('rejects non pdf/txt', false)
   } catch (error) {
     check('rejects non pdf/txt', error instanceof RepoError && error.status === 2)

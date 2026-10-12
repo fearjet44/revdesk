@@ -246,6 +246,12 @@ export type IngestApplyResult = {
   matched_gold: boolean
   bodies: 'source' | 'practice'
   sections: number
+  /** Completeness report for a book brought in with its text; null for a practice copy. */
+  report: {
+    passed: boolean
+    accepted_gaps: boolean
+    coverage: { overall: number; source_words: number; matched_words: number }
+  } | null
 }
 
 export type SectionFile = {
