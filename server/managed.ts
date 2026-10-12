@@ -247,9 +247,10 @@ export function inferStart(leaf: { id: string; title: string; lep_start?: string
   if (sectionTitle) return `${sectionTitle[1]}-1`
   const appendixTitle = leaf.title.match(/^Appendix\s+([A-Z])\b/i)
   if (appendixTitle) return `${appendixTitle[1].toUpperCase()}-1`
-  const sectionId = leaf.id.match(/-(\d+)$/)
+  // Only a bare `<prefix>-N` / `<prefix>-x` id names a section; `gom-gom-bulletin-no-1` does not.
+  const sectionId = leaf.id.match(/^[^-]+-(\d+)$/)
   if (sectionId) return `${sectionId[1]}-1`
-  const appendixId = leaf.id.match(/-([a-z])$/)
+  const appendixId = leaf.id.match(/^[^-]+-([a-z])$/)
   if (appendixId) return `${appendixId[1].toUpperCase()}-1`
   return null
 }
@@ -281,12 +282,15 @@ function bookRev(manual: ManualRecord): string {
   return match ? `R${match[1]}` : current
 }
 
-function slotFamily(slot: string): string {
+/** `A-1`, `AC-4`, `E-I-9`: the whole prefix before the page number is one unit. */
+const LETTER_SLOT = /^([A-Za-z]+(?:-[A-Za-z])?)-(\d+)$/
+
+export function slotFamily(slot: string): string {
   if (/^[ivxlcdm]+$/i.test(slot)) return 'roman'
-  if (/^c$/i.test(slot) || /^cover$/i.test(slot)) return 'cover'
+  if (/^c$/i.test(slot) || /^cover$/i.test(slot) || /^[a-z]$/i.test(slot)) return 'cover'
   const chapter = slot.match(/^(\d+)-(\d+)$/)
   if (chapter) return `ch-${chapter[1]}`
-  const letter = slot.match(/^([A-Za-z]+)-(\d+)$/)
+  const letter = slot.match(LETTER_SLOT)
   if (letter) return `let-${letter[1].toUpperCase()}`
   return `other-${slot}`
 }
@@ -295,7 +299,7 @@ function slotGte(a: string, b: string): boolean {
   return slotCompare(a, b) >= 0
 }
 
-function slotCompare(a: string, b: string): number {
+export function slotCompare(a: string, b: string): number {
   const left = slotRank(a)
   const right = slotRank(b)
   if (left.family !== right.family) return left.family.localeCompare(right.family)
@@ -303,12 +307,13 @@ function slotCompare(a: string, b: string): number {
   return left.b - right.b
 }
 
-function slotRank(slot: string): { family: string; a: number; b: number } {
+export function slotRank(slot: string): { family: string; a: number; b: number } {
   if (/^[ivxlcdm]+$/i.test(slot)) return { family: 'roman', a: romanToInt(slot), b: 0 }
   if (/^c$/i.test(slot) || /^cover$/i.test(slot)) return { family: 'cover', a: 0, b: 0 }
+  if (/^[a-z]$/i.test(slot)) return { family: 'cover', a: slot.toUpperCase().charCodeAt(0), b: 0 }
   const chapter = slot.match(/^(\d+)-(\d+)$/)
   if (chapter) return { family: `ch-${chapter[1]}`, a: Number(chapter[1]), b: Number(chapter[2]) }
-  const letter = slot.match(/^([A-Za-z]+)-(\d+)$/)
+  const letter = slot.match(LETTER_SLOT)
   if (letter) return { family: `let-${letter[1].toUpperCase()}`, a: 0, b: Number(letter[2]) }
   return { family: slot, a: 0, b: 0 }
 }

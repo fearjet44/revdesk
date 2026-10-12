@@ -8,7 +8,7 @@ import { htmlHasMermaid, servePrintDir, stageMermaidAssets, withMermaidBoot } fr
 import {
   applyCounts,
   effectivePages,
-  formatRevNumber,
+  formatPageRev,
   parseRevNumber,
   seedLedger,
   type BookLedger,
@@ -357,12 +357,15 @@ function lepLeafId(book: IssuedBook): string | null {
 
 function footerLabels(book: IssuedBook, ledger: BookLedger, assignment: string[]): string[] {
   if (ledger.control_surface === 'lep') {
-    const rows = effectivePages(ledger)
-    return assignment.map((leafId, index) => {
-      const page = rows[index]
+    // The n-th printed page of a leaf takes that leaf's n-th slot; an unpaginated leaf has none.
+    const used = new Map<string, number>()
+    return assignment.map((leafId) => {
+      const n = used.get(leafId) ?? 0
+      used.set(leafId, n + 1)
+      const page = ledger.leaves.find((leaf) => leaf.id === leafId)?.pages.filter((item) => !item.omitted)[n]
       if (page) {
         const mark = page.dagger ? ' †' : ''
-        return `${page.slot}${mark} · ${formatRevNumber(page.rev_page)} · ${book.manual.abbrev}`
+        return `${page.slot}${mark} · ${formatPageRev(page.rev_page)} · ${book.manual.abbrev}`
       }
       const file = book.files.find((item) => item.meta.id === leafId)
       return `${file?.meta.rev_last_changed ?? ''} · ${book.manual.abbrev}`.trim()

@@ -6,6 +6,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parse as parseYaml } from 'yaml'
 import { applyIngest } from '../server/ingest.ts'
 import { RepoError } from '../server/repo.ts'
 
@@ -30,7 +31,8 @@ if (!files.length) {
 
 const pct = (n: number) => `${(Math.floor(n * 1000) / 10).toFixed(1)}%`
 const rows: string[][] = [
-  ['book', 'leaves', 'managed', 'coverage', 'below gate', 'worst leaf', 'dropped lines (times)', 'repeated kept', 'flattened cells', 'figures', 'placeholders', 'gate'],
+  ['book', 'leaves', 'managed', 'coverage', 'below gate', 'worst leaf', 'dropped lines (times)', 'repeated kept', 'flattened cells', 'figures', 'placeholders', 'gate',
+    'LEP copied', 'held', 'rev guessed', 'unpaginated', 'start unknown', 'dup slots'],
 ]
 let n = 0
 for (const file of files) {
@@ -44,6 +46,11 @@ for (const file of files) {
     const scored = report.leaves.filter((leaf) => leaf.coverage !== null)
     const below = scored.filter((leaf) => (leaf.coverage ?? 1) < report.gate.leaf).length
     const worst = scored.reduce((min, leaf) => Math.min(min, leaf.coverage ?? 1), 1)
+    // T4.3: the page ledger. Slots are counted, never printed.
+    const ledger = parseYaml(readFileSync(path.join(lib, 'manuals', result.id, 'ledger.yaml'), 'utf8')) as {
+      leaves: Array<{ pages: Array<{ slot: string }> }>
+    }
+    const slots = ledger.leaves.flatMap((leaf) => leaf.pages.map((page) => page.slot))
     rows.push([
       tag,
       String(report.leaves.length + report.managed.length),
@@ -57,11 +64,17 @@ for (const file of files) {
       String(report.figures.written),
       String(report.figures.placeholders.length),
       report.passed ? 'pass' : 'below',
+      String(report.lep.copied),
+      String(report.lep.held.length),
+      String(report.lep.revision_guessed.length),
+      String(report.pages.unpaginated.length),
+      String(report.pages.start_unknown.length),
+      String(slots.length - new Set(slots).size),
     ])
   } catch (error) {
     // Messages can name leaves, which come from titles: print the exit code only.
     const code = error instanceof RepoError ? error.status : 5
-    rows.push([tag, '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', `error exit ${code}`])
+    rows.push([tag, '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', `error exit ${code}`, '—', '—', '—', '—', '—', '—'])
   } finally {
     rmSync(lib, { recursive: true, force: true })
   }
