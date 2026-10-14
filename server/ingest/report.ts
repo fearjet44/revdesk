@@ -132,7 +132,18 @@ export type ImportReport = {
   figures: { written: number; placeholders: Array<{ leaf: string; name: string; content_type: string; reason: string }> }
   converted: { typed_numbers: number; callout_labels: number }
   substituted: { asterisks: number; table_pipes: number; guarded_line_starts: number; marks_dropped: number }
-  lep: { rows: number; unmatched_rows: string[] }
+  lep: {
+    rows: number
+    unmatched_rows: string[]
+    /** Rows copied into the page ledger. */
+    copied: number
+    /** Rows not copied, with the reason. */
+    held: Array<{ slot: string; reason: string }>
+    /** Rows whose revision cell did not read, and how the revision was set. */
+    revision_guessed: Array<{ slot: string; how: string }>
+  }
+  /** Leaves with no page slot; those inside one LEP group need a lep_start from the operator. */
+  pages: { unpaginated: string[]; start_unknown: string[] }
   /** Word elements the reader skipped (WordArt, shapes); their text is not in the count. */
   ignored_elements: string[]
 }
@@ -222,6 +233,10 @@ export function formatReportSummary(report: ImportReport): string {
     `figures ${report.figures.written}  placeholders ${report.figures.placeholders.length}`,
   ]
   if (report.lep.unmatched_rows.length) lines.push(`LEP rows that match no section: ${report.lep.unmatched_rows.join(', ')}`)
+  lines.push(
+    `LEP rows copied ${report.lep.copied}  held ${report.lep.held.length}  revision guessed ${report.lep.revision_guessed.length}`,
+    `pages unpaginated ${report.pages.unpaginated.length}  start unknown ${report.pages.start_unknown.length}`,
+  )
   lines.push('worst leaves:')
   for (const leaf of worstLeaves(report)) lines.push(`  ${percent(leaf.coverage).padStart(6)}  ${leaf.id}`)
   return lines.join('\n')

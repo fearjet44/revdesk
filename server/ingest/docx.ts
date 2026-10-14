@@ -328,7 +328,10 @@ export type DocxWalk = {
   dropped: DroppedLine[]
   repeated_lines: RepeatedLine[]
   regions: Array<{ name: string; scheme: 'letter-cover' | 'roman-front' | 'section-page' | 'chapter-page'; slots?: string[] }>
-  lep_rows: string[]
+  /** LEP rows whose page cell parses, in LEP order. */
+  lep_rows: LepRow[]
+  /** LEP rows whose page cell does not fit the book; held, not copied. */
+  lep_held: Array<{ slot: string; reason: string }>
   lep_unmatched: string[]
   revision: { number: number | null; date: string | null }
   stats: {
@@ -340,6 +343,12 @@ export type DocxWalk = {
     callout_labels: number
   }
 }
+
+/**
+ * One LEP row as printed. `rev` is null when the revision cell does not read as a revision
+ * (`rev_text` keeps the cell); `date` is ISO when the date cell reads; `group` is the SECTION label it sits under.
+ */
+export type LepRow = { slot: string; rev: number | null; rev_text: string; date: string | null; group: string | null }
 
 export type WalkOptions = { sections?: DocxSectionRef[] }
 
@@ -393,6 +402,7 @@ export async function walkDocx(root: DocxNode, options: WalkOptions = {}): Promi
     repeated_lines: repeated,
     regions,
     lep_rows: lep.rows,
+    lep_held: lep.held,
     lep_unmatched: lep.unmatched,
     revision: coverRevision(drafts),
     stats,
@@ -585,27 +595,170 @@ function hasContent(block: Block): boolean {
   return !block.dropped && collapse(block.text).length > 0
 }
 
-/** LEP rows from the List of Effective Pages leaf's tables, as printed. */
+type LepColumns = { group: number; page: number; date: number; rev: number }
+
+/** Column sets of an LEP header row: SECTION | PAGE(S) | DATE OF REVISION | REVISION NUMBER, once or more. */
+function lepHeader(cells: string[]): LepColumns[] | null {
+  const pages = cells.flatMap((cell, i) => (/^PAGES?\b|^PAGE\s*\(S\)/i.test(cell) ? [i] : []))
+  if (!pages.length) return null
+  return pages.map((page, n) => {
+    const from = n ? pages[n - 1] + 1 : 0
+    const to = pages[n + 1] ?? cells.length
+    const find = (lo: number, hi: number, test: (cell: string) => boolean) => {
+      for (let i = lo; i < hi; i += 1) if (test(cells[i])) return i
+      return -1
+    }
+    let group = -1
+    for (let i = page - 1; i >= from; i -= 1) {
+      if (/^(SECTION|CHAPTER|PART)\b/i.test(cells[i])) {
+        group = i
+        break
+      }
+    }
+    return {
+      group,
+      page,
+      date: find(page + 1, to, (cell) => /DATE/i.test(cell)),
+      rev: find(page + 1, to, (cell) => /REV/i.test(cell) && !/DATE/i.test(cell)),
+    }
+  })
+}
+
+/** A table as a grid of cell text; a merged cell's text sits in its first column and row only. */
+function grid(table: Tbl): string[][] {
+  const rows: string[][] = []
+  const carry: number[] = []
+  table.rows.forEach((row, r) => {
+    const out: string[] = []
+    let col = 0
+    const skip = () => {
+      while ((carry[col] ?? 0) > r) {
+        out[col] = ''
+        col += 1
+      }
+    }
+    for (const cell of row) {
+      skip()
+      out[col] = collapse(cellText(cell.blocks))
+      for (let k = 0; k < cell.colSpan; k += 1) {
+        if (k) out[col + k] = ''
+        if (cell.rowSpan > 1) carry[col + k] = r + cell.rowSpan
+      }
+      col += cell.colSpan
+    }
+    skip()
+    rows.push(out)
+  })
+  return rows
+}
+
+function cellText(blocks: Block[]): string {
+  return blocks
+    .map((block) => (block.kind === 'para' ? block.text : block.kind === 'table' ? block.rows.flat().map((c) => cellText(c.blocks)).join(' ') : ''))
+    .join(' ')
+}
+
+const MONTH_NUMBER: Record<string, string> = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+}
+
+/** `12/31/2025` or `31-Dec-2025` as ISO; anything else null. */
+export function lepDate(text: string): string | null {
+  const us = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (us) return `${us[3]}-${us[1].padStart(2, '0')}-${us[2].padStart(2, '0')}`
+  const dmy = text.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[A-Za-z]*[-\s,]+(\d{4})$/)
+  const month = dmy ? MONTH_NUMBER[dmy[2].toLowerCase()] : undefined
+  if (dmy && month) return `${dmy[3]}-${month}-${dmy[1].padStart(2, '0')}`
+  return null
+}
+
+/** `ORIGINAL` is 0; `ONE` … `TWENTY`, `3`, `Rev 3`, `R3`, `Revision Three` are that number; anything else null. */
+export function lepRevision(text: string): number | null {
+  const cell = text.trim().replace(/\.$/, '')
+  if (/^orig(inal)?$/i.test(cell)) return 0
+  const body = cell.replace(/^(?:rev(?:ision)?\.?\s*(?:no\.?\s*)?|r(?=\d))/i, '').trim()
+  if (/^\d{1,3}$/.test(body)) return Number(body)
+  return WORD_NUMBERS[body.toLowerCase()] ?? null
+}
+
+/**
+ * LEP rows from the List of Effective Pages leaf's tables, as printed. A row whose page cell does not fit
+ * the book (a typo, a prefix no section has) is held. With no header row, page-like cells are read alone.
+ */
 function lepSlots(drafts: DocxLeafDraft[], prefixes: Set<string>) {
-  const out = { rows: [] as string[], cover: [] as string[], roman: [] as string[], section: false, chapter: false, unmatched: [] as string[] }
+  const out = {
+    rows: [] as LepRow[],
+    held: [] as Array<{ slot: string; reason: string }>,
+    cover: [] as string[],
+    roman: [] as string[],
+    section: false,
+    chapter: false,
+    unmatched: [] as string[],
+  }
   const lep = drafts.find((d) => d.managed === 'lep')
   if (!lep) return out
-  const cells: string[] = []
-  const visit = (block: Block) => {
-    if (block.kind === 'table') for (const row of block.rows) for (const cell of row) cell.blocks.forEach(visit)
-    else if (block.kind === 'para' && !block.top) cells.push(collapse(block.text))
+  const tables: Tbl[] = []
+  const collect = (block: Block) => {
+    if (block.kind !== 'table') return
+    tables.push(block)
+    for (const row of block.rows) for (const cell of row) cell.blocks.forEach(collect)
   }
-  lep.blocks.forEach(visit)
-  const seen = new Set<string>()
-  for (const cell of cells) {
-    if (!/^(?:[A-Za-z]|[IVXLCivxlc]{1,7}|[A-Z0-9]{1,3}(?:-[A-Z0-9]{1,3}){1,2})$/.test(cell) || seen.has(cell)) continue
-    seen.add(cell)
-    out.rows.push(cell)
-    if (isRoman(cell)) out.roman.push(cell)
-    else if (/^[A-Za-z]$/.test(cell)) out.cover.push(cell.toLowerCase())
-    else if (/^\d+-\d+$/.test(cell)) out.chapter = true
-    else if (/^[A-Z]{1,3}(?:-[A-Z]{1,2})?-\d+$/.test(cell) && (!prefixes.size || prefixes.has(cell.replace(/-\d+$/, '')))) out.section = true
-    else out.unmatched.push(cell)
+  lep.blocks.forEach(collect)
+
+  const take = (page: string, cells: { rev: string; date: string; group: string | null } | null) => {
+    if (isRoman(page)) {
+      if (!out.roman.includes(page)) out.roman.push(page)
+    } else if (/^[A-Za-z]$/.test(page)) {
+      if (!out.cover.includes(page)) out.cover.push(page)
+    } else if (/^\d+-\d+$/.test(page)) out.chapter = true
+    else if (/^[A-Z]{1,2}(?:-[A-Z])?-\d+$/.test(page)) {
+      if (prefixes.size && !prefixes.has(page.replace(/-\d+$/, ''))) {
+        out.unmatched.push(page)
+        out.held.push({ slot: page, reason: 'no section prints this page prefix' })
+        return
+      }
+      out.section = true
+    } else {
+      out.unmatched.push(page)
+      out.held.push({ slot: page, reason: 'page label does not read as a page of this book' })
+      return
+    }
+    out.rows.push({
+      slot: page,
+      rev: cells ? lepRevision(cells.rev) : null,
+      rev_text: cells?.rev ?? '',
+      date: cells ? lepDate(cells.date) : null,
+      group: cells?.group ?? null,
+    })
+  }
+
+  let header: LepColumns[] | null = null
+  let group: string | null = null
+  const loose = new Set<string>()
+  for (const table of tables) {
+    const rows = grid(table)
+    const at = rows.findIndex((row) => lepHeader(row))
+    if (at >= 0) header = lepHeader(rows[at])
+    const body = at >= 0 ? rows.slice(at + 1) : rows
+    if (!header) {
+      // No header seen yet: page-like cells only, with no revision to copy.
+      for (const cell of body.flat()) {
+        if (!/^(?:[A-Za-z]|[IVXLCivxlc]{1,7}|[A-Z0-9]{1,3}(?:-[A-Z0-9]{1,3}){1,2})$/.test(cell) || loose.has(cell)) continue
+        loose.add(cell)
+        take(cell, null)
+      }
+      continue
+    }
+    for (const set of header) {
+      for (const row of body) {
+        if (lepHeader(row)) continue
+        const label = set.group >= 0 ? row[set.group] ?? '' : ''
+        if (label && !/^SECTION$/i.test(label)) group = label
+        const page = row[set.page] ?? ''
+        if (!page) continue
+        take(page, { rev: row[set.rev] ?? '', date: row[set.date] ?? '', group })
+      }
+    }
   }
   return out
 }

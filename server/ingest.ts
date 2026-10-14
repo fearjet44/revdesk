@@ -32,7 +32,7 @@ import {
   type Bag,
   type ImportReport,
 } from './ingest/report.ts'
-import { ledgerOnDisk, seedLedger } from './ledger.ts'
+import { assignLepRows, ledgerOnDisk, seedLedger, type LepSourceRow } from './ledger.ts'
 import { inferManagedKind } from './managed.ts'
 import { RepoError } from './repo.ts'
 import { readLibraryText, toolPath } from './tools.ts'
@@ -525,6 +525,7 @@ async function applySource(input: IngestApplyInput, dataRoot: string): Promise<I
 
     const walk = await walkDocx(model.doc, { sections: classification.sections })
     applyWalkToCatalog(catalog, classification, walk, source.filename)
+    const lep = copyLep(catalog, walk)
     input.beforeReport?.(walk.leaves)
 
     const prefix = idPrefix(catalog.id)
@@ -539,7 +540,7 @@ async function applySource(input: IngestApplyInput, dataRoot: string): Promise<I
       return markdown
     })
 
-    const report = buildImportReport(catalog, walk, bodies, model, source.filename, bytes, input.accept_gaps === true)
+    const report = buildImportReport(catalog, walk, lep, bodies, model, source.filename, bytes, input.accept_gaps === true)
     const problem = gateProblem(report)
     if (problem && !report.accepted_gaps) throw new RepoError(2, problem)
 
@@ -557,6 +558,7 @@ async function applySource(input: IngestApplyInput, dataRoot: string): Promise<I
     const written = writeCatalog(catalog, dataRoot, {
       bodyFor: (_leaf, index) => bodies[index],
       source: { path: source.path, filename: source.filename },
+      lep: lep.rows,
     })
     written.files.push(...figureFiles)
     const reportRel = `control/ingest/${catalog.id}.yaml`
@@ -624,9 +626,69 @@ function applyWalkToCatalog(
   })
 }
 
+type LepCopy = {
+  /** Rows the ledger copies; empty when the book's LEP is not copied. */
+  rows: LepSourceRow[]
+  copied: string[]
+  held: Array<{ slot: string; reason: string }>
+  guessed: Array<{ slot: string; how: string }>
+  unpaginated: string[]
+  start_unknown: string[]
+}
+
+/**
+ * Lock step 4: the book's own LEP rows become the ledger. Each row keeps its slot as printed and its own
+ * revision. A revision cell that does not read takes the current revision only when the row carries the
+ * book's effective date; otherwise the row is held. Starts take the LEP's spelling (lock step 5).
+ */
+function copyLep(catalog: IngestCatalog, walk: Awaited<ReturnType<typeof walkDocx>>): LepCopy {
+  const held = [...walk.lep_held]
+  const none: LepCopy = { rows: [], copied: [], held, guessed: [], unpaginated: [], start_unknown: [] }
+  if (catalog.pagination.control_surface !== 'lep' || !walk.lep_rows.length) return none
+  const current = catalog.revision.number
+  const rows: LepSourceRow[] = []
+  const guessed: LepCopy['guessed'] = []
+  for (const row of walk.lep_rows) {
+    if (row.rev !== null) {
+      rows.push({ slot: row.slot, rev: row.rev, group: row.group })
+    } else if (!row.rev_text && !row.date) {
+      rows.push({ slot: row.slot, rev: current, group: row.group })
+      guessed.push({ slot: row.slot, how: `no revision on the row; current revision R${current}` })
+    } else if (row.date && row.date === catalog.effective) {
+      rows.push({ slot: row.slot, rev: current, group: row.group })
+      guessed.push({
+        slot: row.slot,
+        how: `revision "${row.rev_text}" does not read; dated the book's effective date ${row.date}, so current revision R${current}`,
+      })
+    } else {
+      held.push({
+        slot: row.slot,
+        reason: `revision "${row.rev_text}" does not read and the row is not dated the book's effective date`,
+      })
+    }
+  }
+  const spelling = new Map(rows.map((row) => [row.slot.toLowerCase(), row.slot]))
+  for (const leaf of catalog.leaves) {
+    if (leaf.start) leaf.start = spelling.get(leaf.start.toLowerCase()) ?? leaf.start
+  }
+  const assignment = assignLepRows(rows, summariesFromCatalog(catalog))
+  if (!assignment.copied.length) return { ...none, held: [...held, ...assignment.held], guessed }
+  catalog.lep_slots = assignment.copied
+  catalog.pagination = { ...catalog.pagination, lep_inferred: false }
+  return {
+    rows,
+    copied: assignment.copied,
+    held: [...held, ...assignment.held],
+    guessed,
+    unpaginated: assignment.unpaginated,
+    start_unknown: assignment.start_unknown,
+  }
+}
+
 function buildImportReport(
   catalog: IngestCatalog,
   walk: Awaited<ReturnType<typeof walkDocx>>,
+  lep: LepCopy,
   bodies: string[],
   model: { raw: string; ignored: string[] },
   filename: string,
@@ -708,7 +770,14 @@ function buildImportReport(
       guarded_line_starts: walk.stats.guarded_line_starts,
       marks_dropped: walk.stats.marks_dropped,
     },
-    lep: { rows: walk.lep_rows.length, unmatched_rows: walk.lep_unmatched },
+    lep: {
+      rows: walk.lep_rows.length,
+      unmatched_rows: walk.lep_unmatched,
+      copied: lep.copied.length,
+      held: lep.held,
+      revision_guessed: lep.guessed,
+    },
+    pages: { unpaginated: lep.unpaginated, start_unknown: lep.start_unknown },
     ignored_elements: model.ignored,
   }
   report.passed = gateProblem(report) === null
@@ -779,6 +848,8 @@ type WriteOptions = {
   bodyFor?: (leaf: CatalogLeaf, index: number) => string
   /** The book this came from, for an honest baseline. */
   source?: { path: string; filename: string }
+  /** The book's own LEP rows, copied into the ledger. */
+  lep?: LepSourceRow[]
 }
 
 function writeCatalog(catalog: IngestCatalog, dataRoot: string, options: WriteOptions = {}): ScaffoldResult {
@@ -818,7 +889,7 @@ function writeCatalog(catalog: IngestCatalog, dataRoot: string, options: WriteOp
     files.push(`manuals/${catalog.id}/sections/${filename}`)
   })
 
-  const ledger = seedLedger(manualFromCatalog(catalog), summariesFromCatalog(catalog))
+  const ledger = seedLedger(manualFromCatalog(catalog), summariesFromCatalog(catalog), { lep: options.lep })
   writeFileSync(path.join(manualDir, 'ledger.yaml'), stringifyYaml(ledgerOnDisk(ledger), { lineWidth: 100 }))
   files.push(`manuals/${catalog.id}/ledger.yaml`)
 

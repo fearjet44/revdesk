@@ -1,4 +1,4 @@
-import { inferStart, slotOwners, type ManagedLeafInput } from './managed.ts'
+import { inferStart, slotCompare, slotFamily, slotOwners, type ManagedLeafInput } from './managed.ts'
 import type { ControlSurface, ManualRecord, SectionSummary } from './types.ts'
 
 export type OverflowStyle = 'seq' | 'suffix'
@@ -22,6 +22,8 @@ export type LedgerLeaf = {
   letter: string | null
   rev_content: number
   pages: LedgerPage[]
+  /** The leaf's lep_start when the ledger was built from the sections. Not written to disk. */
+  start?: string | null
 }
 
 export type BookLedger = {
@@ -40,6 +42,11 @@ export function formatRevNumber(n: number): string {
   return n > 0 ? `R${n}` : '—'
 }
 
+/** A page's revision as the LEP and the page footer print it: revision 0 is the original page. */
+export function formatPageRev(n: number): string {
+  return n === 0 ? 'Original' : formatRevNumber(n)
+}
+
 export function nextSlot(
   slot: string,
   style: OverflowStyle,
@@ -48,11 +55,12 @@ export function nextSlot(
 ): string {
   if (style === 'suffix') return nextSuffix(slot)
   if (scheme === 'roman-front' || /^[ivxlcdm]+$/i.test(slot)) {
-    return toRoman(romanToInt(slot) + 1)
+    const next = toRoman(romanToInt(slot) + 1)
+    return /^[IVXLCDM]+$/.test(slot) ? next.toUpperCase() : next
   }
   const chapter = slot.match(/^(\d+)-(\d+)$/)
   if (chapter) return `${chapter[1]}-${Number(chapter[2]) + 1}`
-  const section = slot.match(/^([A-Za-z]+)-(\d+)$/)
+  const section = slot.match(/^([A-Za-z]+(?:-[A-Za-z])?)-(\d+)$/)
   if (section) return `${section[1].toUpperCase()}-${Number(section[2]) + 1}`
   if (/^\d+$/.test(slot)) return String(Number(slot) + 1)
   if (letter && scheme === 'chapter-page') return `${letter}-2`
@@ -84,7 +92,9 @@ export function schemeForLeaf(leaf: ManagedLeafInput, regions: Array<{ name: str
   const start = leaf.lep_start || inferStart(leaf)
   if (start && /^[ivxlcdm]+$/i.test(start)) return 'roman-front'
   if (start && /^c$/i.test(start)) return 'letter-cover'
+  if (start && /^[a-z]$/i.test(start)) return 'letter-cover'
   if (start && /^[A-Z]-/i.test(start) && !/^\d/.test(start)) return 'section-page'
+  if (start && /^[A-Z]{1,2}(?:-[A-Z])?-\d/i.test(start)) return 'section-page'
   if (start && /^\d+-\d+$/.test(start)) return 'chapter-page'
   if (leaf.managed === 'ror' || leaf.managed === 'lep' || leaf.managed === 'toc' || leaf.managed === 'les') {
     return 'roman-front'
@@ -102,7 +112,11 @@ export function letterForLeaf(leaf: ManagedLeafInput, scheme: string): string | 
     return n ? n[1] : null
   }
   if (scheme === 'section-page') {
-    const n = start?.match(/^([A-Z])-/i) ?? leaf.title.match(/^Appendix\s+([A-Z])\b/i) ?? leaf.id.match(/-([a-z])$/)
+    const n =
+      start?.match(/^([A-Z]{1,2}(?:-[A-Z])?)-\d/i) ??
+      start?.match(/^([A-Z])-/i) ??
+      leaf.title.match(/^Appendix\s+([A-Z])\b/i) ??
+      leaf.id.match(/-([a-z])$/)
     return n ? n[1].toUpperCase() : null
   }
   return null
@@ -114,6 +128,7 @@ export function applyPageCount(
   bookRev: number,
   style: OverflowStyle,
 ): LedgerLeaf {
+  if (leaf.scheme === 'none' && !leaf.pages.length) return leaf
   const want = Math.max(1, pageCount)
   const pages = leaf.pages.map((page) => ({ ...page }))
   const visible = () => pages.filter((page) => !page.omitted)
@@ -199,13 +214,120 @@ export function lepRows(
 ): Array<{ slot: string; rev: string; section: string; dagger: boolean }> {
   return effectivePages(ledger).map((page) => ({
     slot: page.slot,
-    rev: formatRevNumber(page.rev_page),
+    rev: formatPageRev(page.rev_page),
     section: page.title,
     dagger: page.dagger,
   }))
 }
 
-export function seedLedger(manual: ManualRecord, sections: SectionSummary[]): BookLedger {
+/** One row of the book's own LEP: the slot as printed, its revision, and the SECTION group it is listed under. */
+export type LepSourceRow = { slot: string; rev: number; group: string | null }
+
+export type LepAssignment = {
+  /** Pages per leaf id, in LEP order. `rev: null` is a start slot the LEP does not list (takes the leaf's rev). */
+  pages: Map<string, Array<{ slot: string; rev: number | null }>>
+  /** Slots that went to a leaf, in LEP order. */
+  copied: string[]
+  held: Array<{ slot: string; reason: string }>
+  /** Leaves with no page: no slot in the LEP and no start from the source. */
+  unpaginated: string[]
+  /** Unpaginated leaves inside one SECTION group's run; the operator sets their lep_start. */
+  start_unknown: string[]
+}
+
+/**
+ * Copy LEP rows onto leaves. Within a SECTION group a slot belongs to the leaf with the greatest start
+ * at or before it; a slot never goes to a leaf outside its group. Nothing is guessed: a row with no owner
+ * is held, and a leaf with no start and no row stays unpaginated.
+ */
+export function assignLepRows(rows: LepSourceRow[], leaves: ManagedLeafInput[]): LepAssignment {
+  const out: LepAssignment = { pages: new Map(), copied: [], held: [], unpaginated: [], start_unknown: [] }
+  const seen = new Set<string>()
+  const unique: LepSourceRow[] = []
+  for (const row of rows) {
+    if (seen.has(row.slot)) {
+      out.held.push({ slot: row.slot, reason: 'listed twice in the LEP' })
+      continue
+    }
+    seen.add(row.slot)
+    unique.push(row)
+  }
+
+  // Each group's slots per family, as a rank interval, in LEP order.
+  const groupKey = (row: LepSourceRow) => (row.group ?? '').replace(/\s+/g, ' ').trim().toUpperCase()
+  const runs: Array<{ key: string; family: string; min: string; max: string }> = []
+  for (const row of unique) {
+    const key = groupKey(row)
+    const family = slotFamily(row.slot)
+    const run = runs.find((r) => r.key === key && r.family === family)
+    if (!run) runs.push({ key, family, min: row.slot, max: row.slot })
+    else {
+      if (slotCompare(row.slot, run.min) < 0) run.min = row.slot
+      if (slotCompare(row.slot, run.max) > 0) run.max = row.slot
+    }
+  }
+  const starts = leaves.map((leaf) => ({ leaf, start: leaf.lep_start || inferStart(leaf) || null }))
+  const runFor = (start: string) => {
+    const family = slotFamily(start)
+    const inFamily = runs.filter((r) => r.family === family)
+    return (
+      inFamily.find((r) => slotCompare(r.min, start) <= 0 && slotCompare(start, r.max) <= 0) ??
+      inFamily
+        .filter((r) => slotCompare(r.min, start) > 0)
+        .sort((a, b) => slotCompare(a.min, b.min))[0] ??
+      null
+    )
+  }
+  const members = new Map<string, Array<{ id: string; start: string }>>()
+  for (const { leaf, start } of starts) {
+    if (!start) continue
+    const run = runFor(start)
+    if (!run) continue
+    const id = `${run.key}\u0000${run.family}`
+    members.set(id, [...(members.get(id) ?? []), { id: leaf.id, start }])
+  }
+
+  const groupOf = new Map<string, string>()
+  for (const row of unique) {
+    const candidates = (members.get(`${groupKey(row)}\u0000${slotFamily(row.slot)}`) ?? []).filter(
+      (m) => slotCompare(m.start, row.slot) <= 0,
+    )
+    const owner = candidates.sort((a, b) => slotCompare(a.start, b.start)).at(-1)
+    if (!owner) {
+      out.held.push({ slot: row.slot, reason: 'no leaf in its LEP group starts at or before this page' })
+      continue
+    }
+    out.pages.set(owner.id, [...(out.pages.get(owner.id) ?? []), { slot: row.slot, rev: row.rev }])
+    out.copied.push(row.slot)
+    if (!groupOf.has(owner.id)) groupOf.set(owner.id, groupKey(row))
+  }
+
+  // A start the LEP does not list still places the leaf, unless another leaf already has that slot.
+  const taken = new Set(out.copied)
+  for (const { leaf, start } of starts) {
+    if (out.pages.has(leaf.id)) continue
+    if (start && !taken.has(start)) {
+      out.pages.set(leaf.id, [{ slot: start, rev: null }])
+      taken.add(start)
+      continue
+    }
+    out.unpaginated.push(leaf.id)
+  }
+
+  for (let i = 0; i < leaves.length; i += 1) {
+    if (!out.unpaginated.includes(leaves[i].id) || (starts[i].start && taken.has(starts[i].start!))) continue
+    const before = leaves.slice(0, i).reverse().find((leaf) => groupOf.has(leaf.id))
+    const after = leaves.slice(i + 1).find((leaf) => groupOf.has(leaf.id))
+    if (before && after && groupOf.get(before.id) === groupOf.get(after.id)) out.start_unknown.push(leaves[i].id)
+  }
+  return out
+}
+
+export function seedLedger(
+  manual: ManualRecord,
+  sections: SectionSummary[],
+  options: { lep?: LepSourceRow[] } = {},
+): BookLedger {
   const surface = manual.pagination?.control_surface ?? 'rev-only'
   const style: OverflowStyle = 'seq'
   const bookRev = parseRevNumber(manual.current_issued) || parseRevNumber(sections[0]?.rev_last_changed)
@@ -217,6 +339,26 @@ export function seedLedger(manual: ManualRecord, sections: SectionSummary[]): Bo
     lep_start: section.lep_start,
   }))
   const regions = manual.pagination?.regions ?? []
+
+  if (surface === 'lep' && options.lep?.length) {
+    const copy = assignLepRows(options.lep, leavesInput)
+    const leaves: LedgerLeaf[] = sections.map((section, index) => {
+      const input = leavesInput[index]
+      const rev = parseRevNumber(section.rev_last_changed) || bookRev
+      const start = section.lep_start || inferStart(input) || null
+      const owned = copy.pages.get(section.id)
+      if (!owned?.length) {
+        return { id: section.id, title: section.title, scheme: 'none', letter: null, rev_content: rev, pages: [], start }
+      }
+      const placed = { ...input, lep_start: start ?? owned[0].slot }
+      const scheme = schemeForLeaf(placed, regions)
+      const pages = owned.map((page, seq) =>
+        makePage(page.slot, seq + 1, page.rev ?? rev, page.rev ?? rev, false, false, null),
+      )
+      return { id: section.id, title: section.title, scheme, letter: letterForLeaf(placed, scheme), rev_content: rev, pages, start }
+    })
+    return { control_surface: 'lep', overflow_style: style, leaves }
+  }
 
   if (surface !== 'lep') {
     return {
@@ -238,6 +380,7 @@ export function seedLedger(manual: ManualRecord, sections: SectionSummary[]): Bo
           letter: letterForLeaf(input, scheme),
           rev_content: parseRevNumber(section.rev_last_changed) || bookRev,
           pages: [],
+          start: section.lep_start || inferStart(input) || null,
         }
       }),
     }
@@ -261,11 +404,11 @@ export function seedLedger(manual: ManualRecord, sections: SectionSummary[]): Bo
     const letter = letterForLeaf(input, scheme)
     const rev = parseRevNumber(section.rev_last_changed) || bookRev
     let pages = byLeaf.get(section.id) ?? []
+    const start = section.lep_start || inferStart(input) || null
     if (!pages.length) {
-      const start = firstSlot(scheme, letter, section.lep_start || inferStart(input))
-      pages = [makePage(start, 1, rev, rev, false, false, null)]
+      pages = [makePage(firstSlot(scheme, letter, start), 1, rev, rev, false, false, null)]
     }
-    return { id: section.id, title: section.title, scheme, letter, rev_content: rev, pages }
+    return { id: section.id, title: section.title, scheme, letter, rev_content: rev, pages, start }
   })
 
   return { control_surface: 'lep', overflow_style: style, leaves }
@@ -295,7 +438,39 @@ export function parseLedger(raw: unknown, fallback: BookLedger): BookLedger {
     }
   })
   if (!leaves.length) return { ...fallback, control_surface: surface, overflow_style }
+  if (surface === 'lep') placeNewStarts(leaves, fallback)
   return { control_surface: surface, overflow_style, leaves }
+}
+
+/**
+ * An unpaginated leaf whose lep_start has since been set takes its slot from that start, and the
+ * slots after it that the leaf before it held (greatest start at or before the slot owns it).
+ */
+function placeNewStarts(leaves: LedgerLeaf[], fallback: BookLedger): void {
+  for (const leaf of leaves) {
+    if (leaf.scheme !== 'none' || leaf.pages.length) continue
+    const seeded = fallback.leaves.find((item) => item.id === leaf.id)
+    const start = seeded?.start
+    if (!start) continue
+    const family = slotFamily(start)
+    const sameRun = (slot: string) => slotFamily(slot) === family && slotCompare(slot, start) >= 0
+    const startsHere = (other: LedgerLeaf) => other.pages[0] && slotFamily(other.pages[0].slot) === family && slotCompare(other.pages[0].slot, start) === 0
+    if (leaves.some(startsHere)) continue
+    const moved: LedgerPage[] = []
+    for (const other of leaves) {
+      const first = other.pages[0]
+      if (other === leaf || !first || slotFamily(first.slot) !== family || slotCompare(first.slot, start) >= 0) continue
+      moved.push(...other.pages.filter((page) => sameRun(page.slot)))
+      other.pages = other.pages.filter((page) => !sameRun(page.slot)).map((page, i) => ({ ...page, seq: i + 1 }))
+    }
+    if (!moved.some((page) => page.slot === start)) {
+      moved.unshift(makePage(start, 1, leaf.rev_content, leaf.rev_content, false, false, null))
+    }
+    moved.sort((a, b) => slotCompare(a.slot, b.slot))
+    leaf.pages = moved.map((page, i) => ({ ...page, seq: i + 1 }))
+    leaf.scheme = seeded.scheme
+    leaf.letter = seeded.letter
+  }
 }
 
 function parsePage(raw: unknown, seq: number): LedgerPage {

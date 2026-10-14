@@ -9,9 +9,9 @@ import { fileURLToPath } from 'node:url'
 import { parse as parseYaml } from 'yaml'
 import { parseBody, splitFrontmatter, type JSONContent } from '../src/schema/markdown.ts'
 import { applyIngest, classifySource } from '../server/ingest.ts'
-import { roundTrips, walkDocx, type DocxLeaf, type DocxNode } from '../server/ingest/docx.ts'
-import type { ImportReport } from '../server/ingest/report.ts'
-import { RepoError } from '../server/repo.ts'
+import { lepDate, lepRevision, roundTrips, walkDocx, type DocxLeaf, type DocxNode } from '../server/ingest/docx.ts'
+import { formatReportSummary, type ImportReport } from '../server/ingest/report.ts'
+import { Repo, RepoError } from '../server/repo.ts'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FIXTURE = path.join(ROOT, 'fixtures', 'ingest', 'samples', 'foobar-gom-practice.docx')
@@ -72,7 +72,7 @@ async function expectRefusal(label: string, run: () => Promise<unknown>, status:
 // Read from the fixture by hand (paragraph dump of the .docx), not from the importer's output.
 // [kind, number, frontmatter title, lep_start, managed]
 const EXPECTED: Array<[string, string | null, string, string, string | null]> = [
-  ['front', null, 'Cover', 'a', null],
+  ['front', null, 'Cover', 'A', null],
   ['front', null, 'TABLE OF BULLETINS (TOB)', 'I', null],
   ['front', null, 'GOM BULLETIN No. 1', '', null],
   ['front', null, 'TRANSMITTAL SHEET', '', null],
@@ -128,8 +128,8 @@ try {
   const regions = manual.pagination.regions as Array<{ name: string; scheme: string; slots?: string[] }>
   check('pagination: lep surface', manual.pagination.control_surface === 'lep')
   check(
-    'pagination: letter-cover a, b',
-    JSON.stringify(regions.find((r) => r.scheme === 'letter-cover')?.slots) === JSON.stringify(['a', 'b']),
+    'pagination: letter-cover A, B as the LEP spells them',
+    JSON.stringify(regions.find((r) => r.scheme === 'letter-cover')?.slots) === JSON.stringify(['A', 'B']),
   )
   const roman = regions.find((r) => r.scheme === 'roman-front')?.slots ?? []
   check('pagination: roman-front upper-case as printed', roman[0] === 'I' && roman.includes('XIX') && roman.every((s) => s === s.toUpperCase()))
@@ -186,6 +186,94 @@ try {
   check('LEP row E-1-2 reported, not fixed', report.lep.unmatched_rows.includes('E-1-2'))
   check('LEP typo not copied into the manual', !JSON.stringify(manual).includes('E-1-2'))
 
+  // T4.3: the book's LEP is the page ledger. Slot labels and counts only.
+  const ledger = parseYaml(readFileSync(path.join(lib, 'manuals', result.id, 'ledger.yaml'), 'utf8')) as {
+    leaves: Array<{ id: string; scheme: string; letter: string | null; pages: Array<{ slot: string; rev_page: number; omitted: boolean }> }>
+  }
+  const ledgerLeaf = (id: string) => ledger.leaves.find((leaf) => leaf.id === id)
+  const slotsOf = (id: string) => (ledgerLeaf(id)?.pages ?? []).filter((p) => !p.omitted).map((p) => p.slot).join(' ')
+  const WANT_SLOTS: Record<string, string> = {
+    'gom-cover': 'A B',
+    'gom-table-of-bulletins-tob': 'I II',
+    'gom-gom-bulletin-no-1': '',
+    'gom-transmittal-sheet': '',
+    'gom-revision-acknowledgment': 'III',
+    'gom-administration': 'IV',
+    'gom-introduction': 'V VI VII X XI XII XIII',
+    'gom-toc': '',
+    'gom-lep': '',
+    'gom-ror': 'XIV XV',
+    'gom-gom-administration': 'XVI XVII XVIII XIX',
+    'gom-a': 'A-1 A-3 A-10 A-11',
+    'gom-e-i': 'E-I-1 E-I-9 E-I-10',
+    'gom-p': 'P-1 P-10 P-14 P-19',
+    'gom-c': 'AC-1 AC-2 AC-4 AC-9 AC-11 AC-12',
+    'gom-d': 'AD-1 AD-3',
+  }
+  check('ledger: one entry per leaf', ledger.leaves.length === Object.keys(WANT_SLOTS).length, String(ledger.leaves.length))
+  for (const [id, want] of Object.entries(WANT_SLOTS)) {
+    check(`ledger: ${id} ${want || 'unpaginated'}`, slotsOf(id) === want, slotsOf(id))
+  }
+  check('ledger: cover is letter-cover', ledgerLeaf('gom-cover')?.scheme === 'letter-cover')
+  check(
+    'ledger: unpaginated leaves have scheme none and no slot',
+    ['gom-gom-bulletin-no-1', 'gom-transmittal-sheet', 'gom-toc', 'gom-lep'].every(
+      (id) => ledgerLeaf(id)?.scheme === 'none' && ledgerLeaf(id)?.pages.length === 0,
+    ),
+  )
+  check(
+    'ledger: multi-part prefixes are one letter',
+    ['gom-a', 'gom-e-i', 'gom-p', 'gom-c', 'gom-d'].map((id) => ledgerLeaf(id)?.letter).join(',') === 'A,E-I,P,AC,AD',
+  )
+  const allPages = ledger.leaves.flatMap((leaf) => leaf.pages)
+  const allSlots = allPages.map((p) => p.slot)
+  check('ledger: no slot twice', new Set(allSlots).size === allSlots.length)
+  check('ledger: 38 slots copied', allSlots.length === 38, String(allSlots.length))
+  check('ledger: E-1-2 held, not copied', !allSlots.includes('E-1-2') && !allSlots.includes('E-I-2'))
+  const originals = allPages.filter((p) => p.rev_page === 0).map((p) => p.slot).join(' ')
+  check(
+    'ledger: each page keeps its own row’s revision (Original)',
+    originals === 'B VII XV A-1 A-11 E-I-1 P-1 P-10 AC-1 AC-2 AC-11 AD-1',
+    originals,
+  )
+  check('ledger: every other page is revision 1', allPages.every((p) => p.rev_page === 0 || p.rev_page === 1))
+  check('ledger: the cover typo row resolves by date to 1', allPages.find((p) => p.slot === 'A')?.rev_page === 1)
+  check('manual: lep_slots lists every copied slot in LEP order', JSON.stringify(manual.lep_slots) === JSON.stringify(allSlots))
+  check('manual: lep_inferred false', manual.pagination.lep_inferred === false)
+  check('report: LEP rows copied', report.lep.copied === 38, String(report.lep.copied))
+  check(
+    'report: E-1-2 held with a reason',
+    report.lep.held.length === 1 && report.lep.held[0].slot === 'E-1-2' && report.lep.held[0].reason.length > 0,
+    JSON.stringify(report.lep.held.map((h) => h.slot)),
+  )
+  check(
+    'report: A revision guessed by date',
+    report.lep.revision_guessed.length === 1 && report.lep.revision_guessed[0].slot === 'A' && /effective date/.test(report.lep.revision_guessed[0].how),
+  )
+  check(
+    'report: unpaginated leaves',
+    report.pages.unpaginated.join(' ') === 'gom-gom-bulletin-no-1 gom-transmittal-sheet gom-toc gom-lep',
+    report.pages.unpaginated.join(' '),
+  )
+  check('report: TOC and LEP start unknown', report.pages.start_unknown.join(' ') === 'gom-toc gom-lep', report.pages.start_unknown.join(' '))
+  const onDisk = parseYaml(readFileSync(path.join(lib, 'control', 'ingest', 'gom.yaml'), 'utf8')) as ImportReport
+  check(
+    'report on disk carries the LEP and page fields',
+    onDisk.lep.copied === 38 && onDisk.lep.held.length === 1 && onDisk.lep.revision_guessed.length === 1 &&
+      onDisk.pages.unpaginated.length === 4 && onDisk.pages.start_unknown.length === 2,
+  )
+  const summary = formatReportSummary(report)
+  check('CLI summary prints LEP counts', summary.includes('LEP rows copied 38  held 1  revision guessed 1'), summary)
+  check('CLI summary prints page counts', summary.includes('pages unpaginated 4  start unknown 2'))
+  const lepPaper = new Repo(lib).issuedSection(result.id, 'gom-lep').markdown
+  const lepRowsOut = lepPaper.split('\n').filter((line) => /^\| [^-—|]/.test(line) && !line.startsWith('| Slot'))
+  const lepSlotsOut = lepRowsOut.map((line) => line.split('|')[1].trim())
+  check('hydrated LEP lists every copied slot once', JSON.stringify(lepSlotsOut) === JSON.stringify(allSlots), lepSlotsOut.join(' '))
+  check(
+    'hydrated LEP prints Original and R1',
+    lepRowsOut.every((line) => / \| (Original|R1) \| /.test(line)) && lepRowsOut.some((line) => line.includes('| Original |')),
+  )
+
   for (const l of leaves.filter((leaf) => leaf.body.trim())) {
     if (!roundTrips(l.doc)) check(`round trip ${l.file}`, false)
   }
@@ -205,7 +293,13 @@ try {
       encoding: 'utf8',
     })
   check('revdesk launched prints the baseline', cli('launched', 'gom').includes('GOM-R1  launched'))
-  check('revdesk issue show prints the baseline', cli('issue', 'show', 'GOM-R1').includes('instrument not-on-file'))
+  const shown = cli('issue', 'show', 'GOM-R1')
+  check('revdesk issue show prints the baseline', shown.includes('instrument not-on-file'))
+  check(
+    'revdesk issue show says not on file, not null',
+    shown.split('\n').filter((line) => /instrument|sha256/.test(line) && !line.startsWith('artifact')).every((line) => line.includes('not on file') && !line.includes('null')),
+    shown,
+  )
 
   const before = listing(lib)
   await expectRefusal('second import without replace', () => applyIngest({ file: FIXTURE }, lib), 4, 'already in this library')
@@ -246,6 +340,13 @@ try {
 }
 
 /* ---------- 3. Model-level rules (hand-built mammoth-shaped documents) ---------- */
+
+{
+  check('LEP revision: ORIGINAL is 0', lepRevision('ORIGINAL') === 0 && lepRevision('Original') === 0)
+  check('LEP revision: words and digits', lepRevision('ONE') === 1 && lepRevision('TWENTY') === 20 && lepRevision('3') === 3 && lepRevision('Rev 4') === 4 && lepRevision('R5') === 5)
+  check('LEP revision: a typo does not read', lepRevision('ONEL') === null && lepRevision('') === null)
+  check('LEP date: US and day-month', lepDate('12/31/2025') === '2025-12-31' && lepDate('01-Sep-2020') === '2020-09-01' && lepDate('soon') === null)
+}
 
 type POpts = { style?: string; bold?: boolean; size?: number; num?: [number, boolean] }
 const run = (value: string, o: { bold?: boolean; italic?: boolean; size?: number } = {}): DocxNode => ({
